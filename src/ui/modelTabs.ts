@@ -1,5 +1,6 @@
 import type { WeatherModel, LangData, OpenMeteoResponse } from '../types'
 import { state } from '../state'
+import { modelValidForDay } from '../config/models'
 
 export function renderModelTabs(
   models: WeatherModel[],
@@ -11,7 +12,14 @@ export function renderModelTabs(
   const label = wrap.previousElementSibling as HTMLElement
   if (label) label.textContent = t.modelView
 
-  const loaded = models.filter(m => wxData[m.key] != null)
+  const dayI  = state.selectedDay
+  const loaded = models.filter(m => wxData[m.key] != null && modelValidForDay(m, dayI))
+
+  // If the currently active model is no longer valid (e.g. AROME selected, then day 2+ clicked),
+  // quietly fall back to ensemble without re-rendering (caller will handle it)
+  if (state.activeModel !== 'ensemble' && !loaded.find(m => m.key === state.activeModel)) {
+    state.activeModel = 'ensemble'
+  }
   const tabs: Array<{ key: string; label: string; color?: string }> = [
     { key: 'ensemble', label: t.ensemble },
     ...loaded.map(m => ({ key: m.key, label: `${m.flag} ${m.name}`, color: m.color })),

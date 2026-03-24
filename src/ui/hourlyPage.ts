@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS } from '../config/models'
+import { MODELS, modelValidForHours } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import type { OpenMeteoResponse, LangData } from '../types'
 import { currentHourIdx } from '../utils/data'
@@ -23,8 +23,15 @@ interface HourSlot {
   precip: number|null; code: number|null
 }
 
-function getEnsembleSlot(idx: number): HourSlot {
-  const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
+function getEnsembleSlot(idx: number, hoursFromNow: number): HourSlot {
+  // Exclude range-limited models (e.g. AROME) when beyond their max forecast horizon
+  const models = MODELS
+    .filter(m => modelValidForHours(m, hoursFromNow) && state.wxData[m.key] != null)
+    .map(m => state.wxData[m.key]!)
+  if (!models.length) {
+    // Fallback: use all loaded models (shouldn't normally happen)
+    models.push(...Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null))
+  }
   const h = (m: OpenMeteoResponse) => m.hourly
   return {
     time:    models[0]?.hourly.time[idx] ?? '',
@@ -83,7 +90,7 @@ export function renderHourlyPage() {
   const loaded = MODELS.filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = `<p style="padding:40px;color:var(--text-muted);text-align:center">${t.noData}</p>`; return }
 
-  const modelKey = state.hourlyModel
+  let modelKey = state.hourlyModel
   const refData  = modelKey === 'ensemble'
     ? Object.values(state.wxData).find((d): d is OpenMeteoResponse => d !== null)
     : state.wxData[modelKey]
@@ -101,7 +108,7 @@ export function renderHourlyPage() {
     const idx = startIdx + offset
     if (idx >= refData.hourly.time.length) break
 
-    const slot  = modelKey === 'ensemble' ? getEnsembleSlot(idx) : getModelSlot(modelKey, idx)
+    const slot  = modelKey === 'ensemble' ? getEnsembleSlot(idx, offset) : getModelSlot(modelKey, idx)
     const d     = new Date(slot.time)
     const dayStr= slot.time.slice(0, 10)
 
@@ -116,10 +123,16 @@ export function renderHourlyPage() {
     dayGroups[dayGroups.length - 1].slots.push(renderSlot(slot, t))
   }
 
-  // Model selector tabs
+  // Model selector tabs — exclude models that don't cover the full 72h range
+  const tabModels = loaded.filter(m => modelValidForHours(m, HOURS))
+  // If current selection is now excluded, fall back to ensemble
+  if (modelKey !== 'ensemble' && !tabModels.find(m => m.key === modelKey)) {
+    state.hourlyModel = 'ensemble'
+    modelKey = 'ensemble'
+  }
   const modelTabs = [
     `<button class="ctrl-tab${modelKey === 'ensemble' ? ' active' : ''}" data-hmdl="ensemble">⚖ ${t.ensemble}</button>`,
-    ...loaded.map(m =>
+    ...tabModels.map(m =>
       `<button class="ctrl-tab${modelKey === m.key ? ' active' : ''}" data-hmdl="${m.key}">${m.flag} ${m.name}</button>`
     )
   ].join('')

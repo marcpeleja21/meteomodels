@@ -1,6 +1,6 @@
 import type { LangData, OpenMeteoResponse } from '../types'
 import { state } from '../state'
-import { MODELS } from '../config/models'
+import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast } from '../utils/data'
 import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
@@ -104,8 +104,10 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const date = new Date(day.date + 'T12:00:00')
   const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
 
-  // Compute avg wind from daily data across all models
-  const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
+  // Compute avg wind from daily data across models valid for this day
+  const models = MODELS
+    .filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null)
+    .map(m => state.wxData[m.key]!)
   const winds  = models.map(m => m.daily.windspeed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
   const avgWind = winds.length ? avg(winds) : null
 

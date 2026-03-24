@@ -10,6 +10,7 @@ export interface WeatherModel {
   global?: boolean
   coverage?: string
   mb?: boolean
+  maxDays?: number   // models with limited forecast range (e.g. AROME = 2 days)
 }
 
 export interface GeocodingResult {

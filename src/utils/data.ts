@@ -1,6 +1,27 @@
 import type { OpenMeteoResponse, AqiResponse, CurrentWeather, DailyForecast, WeatherCondition } from '../types'
 import { avg, wxFromCode } from './weather'
 import type { WxStrings } from '../types'
+import { MODELS, modelValidForDay, modelValidForHours } from '../config/models'
+
+/** Filter a wxData map to only models valid for the given day index */
+function modelsForDay(
+  wxData: Record<string, OpenMeteoResponse | null>,
+  dayIndex: number
+): OpenMeteoResponse[] {
+  return MODELS
+    .filter(m => modelValidForDay(m, dayIndex) && wxData[m.key] != null)
+    .map(m => wxData[m.key]!)
+}
+
+/** Filter a wxData map to only models valid for the given hours-from-now offset */
+export function modelsForHours(
+  wxData: Record<string, OpenMeteoResponse | null>,
+  hoursFromNow: number
+): OpenMeteoResponse[] {
+  return MODELS
+    .filter(m => modelValidForHours(m, hoursFromNow) && wxData[m.key] != null)
+    .map(m => wxData[m.key]!)
+}
 
 /** Find current hour index in an hourly time array */
 export function currentHourIdx(times: string[]): number {
@@ -64,18 +85,20 @@ function mostCommonCode(codes: (number | null)[]): number | null {
   return +Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
 }
 
-/** Build 5-day ensemble forecast (index 0 = today) */
+/** Build 5-day ensemble forecast (index 0 = today), excluding range-limited models per day */
 export function getEnsembleForecast(
   wxData: Record<string, OpenMeteoResponse | null>,
   wx: WxStrings,
   count = 5
 ): DailyForecast[] {
-  const models = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
-  if (!models.length) return []
+  const allModels = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
+  if (!allModels.length) return []
 
-  // Use the first model's time array as reference
-  const refTimes = models[0].daily.time.slice(0, count)
+  // Use the first available model's time array as reference
+  const refTimes = allModels[0].daily.time.slice(0, count)
   return refTimes.map((date, i): DailyForecast => {
+    // Only include models valid for this day index
+    const models = modelsForDay(wxData, i)
     const maxTs = models.map(m => m.daily.temperature_2m_max[i] ?? null)
     const minTs = models.map(m => m.daily.temperature_2m_min[i] ?? null)
     const rains = models.map(m => m.daily.precipitation_probability_max[i] ?? null)

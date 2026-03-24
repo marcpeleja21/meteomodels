@@ -10,7 +10,7 @@ const WINDY_KEY = 'GC7hTRIRIMPMcO8qFe27DzAZIWJoOnH3'
 export async function fetchNearbyWebcam(lat: number, lon: number): Promise<WebcamData | null> {
   try {
     const url = `https://api.windy.com/webcams/api/v3/webcams` +
-      `?nearby=${lat},${lon},50` +
+      `?nearby=${lat},${lon},25` +
       `&limit=5&orderby=rating&include=images,player`
 
     const res = await fetch(url, { headers: { 'x-windy-api-key': WINDY_KEY } })
