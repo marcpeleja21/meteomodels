@@ -1,4 +1,5 @@
 import './style.css'
+import { inject } from '@vercel/analytics'
 import { state } from './state'
 import { MODELS } from './config/models'
 import { LANG_DATA } from './config/i18n'
@@ -243,4 +244,5 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
 window.addEventListener('resize', resizeCanvas)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+inject()
 applyLang()
