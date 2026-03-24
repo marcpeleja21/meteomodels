@@ -8,6 +8,7 @@ import { searchLocations } from './api/geocoding'
 import { fetchAllModels } from './api/openmeteo'
 import { fetchMeteoblue } from './api/meteoblue'
 import { fetchAqi } from './api/aqi'
+import { fetchCurrentObs } from './api/station'
 
 import { renderLocBar } from './ui/locBar'
 import { renderModelTabs } from './ui/modelTabs'
@@ -16,6 +17,7 @@ import { renderForecastStrip } from './ui/forecastStrip'
 import { renderModelCards } from './ui/modelCards'
 import { renderChart } from './ui/chart'
 import { renderTable } from './ui/table'
+import { renderStationCard } from './ui/stationCard'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent } from './utils/data'
@@ -67,16 +69,13 @@ function applyLang() {
   searchInput.placeholder   = lang.searchPh
   searchBtn.textContent     = `🔍 ${lang.searchBtn}`
 
-  // Update dropdown button display
   langCurFlag.innerHTML   = opt.flagHtml
   langCurCode.textContent = state.lang.toUpperCase()
 
-  // Mark active option
   langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(b => {
     b.classList.toggle('active', b.dataset.lang === state.lang)
   })
 
-  // Update welcome screen & brand subtitle
   const wTitle = document.getElementById('welcomeTitle')
   const wSub   = document.getElementById('welcomeSub')
   const bSub   = document.querySelector('.brand-sub') as HTMLElement | null
@@ -98,6 +97,12 @@ function onModelSelect(key: string) {
   renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
   renderMainCard()
 }
+
+// ── Day selected event ─────────────────────────────────────────────────────────
+document.addEventListener('mm:daySelected', () => {
+  renderMainCard()
+  renderForecastStrip()   // re-render to update selected highlight
+})
 
 // ── Search ────────────────────────────────────────────────────────────────────
 let searchTimer = 0
@@ -153,7 +158,6 @@ document.addEventListener('click', e => {
   if (!suggestionsEl.contains(e.target as Node) && e.target !== searchInput) {
     hideSuggestions()
   }
-  // Close lang menu when clicking outside
   if (!langDropdown.contains(e.target as Node)) {
     langMenu.classList.remove('open')
   }
@@ -163,6 +167,7 @@ document.addEventListener('click', e => {
 async function selectLocation(loc: GeocodingResult) {
   state.currentLoc  = loc
   state.activeModel = 'ensemble'
+  state.selectedDay = 0
   state.wxData      = {}
   state.aqiData     = null
   searchInput.value = loc.name
@@ -173,7 +178,6 @@ async function selectLocation(loc: GeocodingResult) {
   show(loadingScreen)
   loadingText.textContent = t().loading
 
-  // Build loading tags
   const visibleModels = MODELS.filter(m => m.avail)
   loadingModels.innerHTML = visibleModels
     .map(m => `<span class="lm-tag" id="lm-${m.key}">${m.flag} ${m.name}</span>`)
@@ -184,16 +188,17 @@ async function selectLocation(loc: GeocodingResult) {
     if (tag) tag.className = `lm-tag ${ok ? 'ok' : 'err'}`
   }
 
-  // Fetch Open-Meteo models + AQI in parallel
-  const [wxData, aqiData] = await Promise.all([
+  // Fetch weather, AQI and current obs in parallel
+  const [wxData, aqiData, obsData] = await Promise.all([
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
+    fetchCurrentObs(loc.latitude, loc.longitude),
   ])
 
   state.wxData  = wxData
   state.aqiData = aqiData
 
-  // MeteoBlue (always available with hardcoded key)
+  // MeteoBlue
   try {
     const mbData = await fetchMeteoblue(loc.latitude, loc.longitude, MB_KEY)
     state.wxData['meteoblue'] = mbData
@@ -207,12 +212,11 @@ async function selectLocation(loc: GeocodingResult) {
   show(wxDisplay)
   wxDisplay.classList.add('fade-up')
 
-  // Render
   renderLocBar(loc, t())
+  renderStationCard(obsData)
   renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
   renderAll()
 
-  // Canvas animation based on ensemble weather type
   const { data: ensData } = getEnsembleCurrent(state.wxData)
   const ensWx = wxFromCode(ensData.code, t().wx)
   if (ensWx.type === 'rain') startAnimation('rain')

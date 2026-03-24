@@ -1,4 +1,4 @@
-/* ── DESIGN SYSTEM (inspirat en Windy) ─────────────────────── */
+/* ── DESIGN SYSTEM ─────────────────────────────────────────────── */
 :root{
   --bg:          #0b1220;
   --bg2:         #0f1a2e;
@@ -40,36 +40,46 @@ body{
 
 /* ── HEADER ─────────────────────────────────────────────────── */
 .header{
-  padding:14px 24px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+  padding:12px 24px 14px;
+  display:flex; flex-direction:column; gap:10px;
   background:rgba(11,18,32,0.95); backdrop-filter:blur(20px);
   border-bottom:1px solid var(--card-border);
   position:sticky; top:0; z-index:200;
 }
+
+/* Row 1: brand + lang */
+.header-top{
+  display:flex; align-items:center; justify-content:space-between;
+}
+
+/* Row 2: search */
+.header-bottom{ width:100% }
+
 .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .brand-icon{font-size:1.7rem}
 .brand-title{font-size:1.3rem;font-weight:800;letter-spacing:-.5px;color:var(--accent)}
 .brand-sub{font-size:.65rem;color:var(--text-muted);margin-top:1px}
 
-/* Search */
-.search-wrap{flex:1;max-width:460px;position:relative}
+/* ── SEARCH ─────────────────────────────────────────────────── */
+.search-wrap{width:100%;position:relative}
 .search-row{display:flex;gap:8px}
 #searchInput{
   flex:1; padding:10px 14px;
   background:rgba(255,255,255,0.06); border:1px solid var(--card-border);
   border-radius:var(--radius-sm); color:var(--text); font-size:.9rem; outline:none;
-  transition:border-color var(--trans),background var(--trans); min-width:160px;
+  transition:border-color var(--trans),background var(--trans);
 }
 #searchInput::placeholder{color:var(--text-muted)}
 #searchInput:focus{border-color:var(--accent);background:rgba(0,210,230,0.06)}
 #searchBtn{
-  padding:10px 16px; background:var(--accent); border:none;
+  padding:10px 18px; background:var(--accent); border:none;
   border-radius:var(--radius-sm); color:#000; font-weight:700; font-size:.85rem;
   cursor:pointer; transition:opacity var(--trans),transform var(--trans); white-space:nowrap;
 }
 #searchBtn:hover{opacity:.85;transform:translateY(-1px)}
 
 .suggestions{
-  position:absolute; top:calc(100% + 5px); left:0; right:54px;
+  position:absolute; top:calc(100% + 5px); left:0; right:0;
   background:var(--bg2); border:1px solid var(--card-border);
   border-radius:var(--radius-sm); box-shadow:var(--shadow);
   overflow:hidden; z-index:300; display:none;
@@ -82,7 +92,6 @@ body{
 .sugg-item:hover{background:var(--card-hover)}
 .sugg-name{font-weight:700;font-size:.88rem}
 .sugg-loc{font-size:.75rem;color:var(--text-muted)}
-
 
 /* ── MAIN ───────────────────────────────────────────────────── */
 .main{flex:1;padding:20px 22px;max-width:1380px;margin:0 auto;width:100%}
@@ -124,6 +133,28 @@ body{
 .loc-name{font-size:1.6rem;font-weight:800;color:var(--text)}
 .loc-sub{font-size:.82rem;color:var(--text-muted);margin-top:3px}
 .loc-time{font-size:.72rem;color:var(--text-dim);margin-top:2px}
+
+/* ── STATION CARD (current observations) ────────────────────── */
+.station-card{
+  background:var(--card); border:1px solid var(--card-border);
+  border-radius:var(--radius); padding:12px 20px;
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+}
+.station-header{
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.station-label{
+  font-size:.72rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:1px; color:var(--accent);
+}
+.station-time{font-size:.7rem;color:var(--text-dim)}
+.station-vals{
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap; flex:1;
+}
+.sv{display:flex;align-items:center;gap:5px;font-size:.82rem;white-space:nowrap}
+.sv-icon{font-size:.9rem}
+.sv-val{font-weight:700;color:var(--text)}
+.sv-sep{width:1px;height:18px;background:var(--card-border);flex-shrink:0}
 
 /* ── MODEL SELECTOR TABS ────────────────────────────────────── */
 .model-tabs-wrap{
@@ -168,7 +199,7 @@ body{
 
 .mc-divider{height:1px;background:var(--card-border);margin:0 24px}
 
-/* 5-day strip */
+/* ── 5-DAY FORECAST STRIP ───────────────────────────────────── */
 .forecast-strip{
   display:grid;grid-template-columns:repeat(5,1fr);
   padding:16px 20px; gap:4px;
@@ -176,10 +207,17 @@ body{
 .strip-day{
   display:flex;flex-direction:column;align-items:center;gap:4px;
   padding:10px 6px; border-radius:var(--radius-sm);
-  transition:background var(--trans); cursor:default;
+  transition:background var(--trans),border-color var(--trans);
+  cursor:pointer;
+  border:1px solid transparent;
 }
-.strip-day:hover{background:var(--card-hover)}
-.strip-day.today{background:rgba(0,210,230,0.08);border:1px solid rgba(0,210,230,0.15)}
+.strip-day:hover{background:rgba(255,255,255,0.06)}
+.strip-day.today{background:rgba(0,210,230,0.08);border-color:rgba(0,210,230,0.15)}
+.strip-day.selected{
+  background:rgba(0,210,230,0.14);
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(0,210,230,0.2);
+}
 .strip-dname{font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
 .strip-icon{font-size:1.5rem;margin:2px 0}
 .strip-temps{font-size:.8rem;font-weight:700;color:var(--text);white-space:nowrap}
@@ -214,7 +252,8 @@ body{
 /* ── CHART ──────────────────────────────────────────────────── */
 .chart-card{
   background:var(--card); border:1px solid var(--card-border);
-  border-radius:var(--radius); padding:20px 22px; overflow:hidden;
+  border-radius:var(--radius); padding:20px 22px;
+  position:relative;
 }
 .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
 .section-title{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:700}
@@ -263,7 +302,7 @@ body{
 .model-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 
 /* ── LANGUAGE DROPDOWN ──────────────────────────────────────── */
-.lang-dropdown{position:absolute;top:10px;right:24px;z-index:305}
+.lang-dropdown{position:relative;flex-shrink:0}
 .flag-svg{width:16px;height:11px;border-radius:2px;vertical-align:middle;flex-shrink:0}
 .lang-current{
   display:flex;align-items:center;gap:5px;
@@ -278,8 +317,6 @@ body{
 }
 .lang-current:hover{border-color:var(--accent);background:rgba(0,210,230,0.08)}
 .lang-chevron{opacity:.45;font-size:.7rem;margin-left:2px;transition:transform var(--trans)}
-.lang-menu.open ~ * .lang-chevron,
-.lang-current[aria-expanded="true"] .lang-chevron{transform:rotate(180deg)}
 .lang-menu{
   position:absolute;top:calc(100% + 6px);right:0;
   background:var(--bg2);
@@ -315,8 +352,7 @@ body{
 
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
 @media(max-width:768px){
-  .header{flex-direction:column;align-items:flex-start;gap:10px}
-  .search-wrap{max-width:100%;width:100%}
+  .header{padding:10px 16px 12px}
   .main{padding:14px}
   .main-card-top{grid-template-columns:1fr;gap:14px}
   .mc-right{flex-direction:row;flex-wrap:wrap;min-width:unset}
@@ -326,6 +362,7 @@ body{
   .mc-temp{font-size:2.8rem}
   .mc-big-icon{font-size:3.5rem}
   .welcome h2{font-size:1.6rem}
+  .station-card{gap:12px}
 }
 @media(max-width:480px){
   .model-grid{grid-template-columns:1fr 1fr}

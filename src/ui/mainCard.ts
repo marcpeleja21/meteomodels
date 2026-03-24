@@ -1,13 +1,18 @@
-import type { LangData } from '../types'
+import type { LangData, OpenMeteoResponse } from '../types'
 import { state } from '../state'
 import { MODELS } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
-import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi } from '../utils/data'
-import { wxFromCode, aqiInfo, fmt } from '../utils/weather'
+import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast } from '../utils/data'
+import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
 
 export function renderMainCard() {
-  const t = LANG_DATA[state.lang]
+  const t  = LANG_DATA[state.lang]
   const el = document.getElementById('mainCardTop')!
+
+  if (state.selectedDay > 0) {
+    renderDayView(el, t, state.selectedDay)
+    return
+  }
 
   if (state.activeModel === 'ensemble') {
     renderEnsemble(el, t)
@@ -16,6 +21,7 @@ export function renderMainCard() {
   }
 }
 
+// ── Current (ensemble) ─────────────────────────────────────────────────────────
 function renderEnsemble(el: HTMLElement, t: LangData) {
   const { data: cur, n } = getEnsembleCurrent(state.wxData)
   const wx    = wxFromCode(cur.code, t.wx)
@@ -36,9 +42,9 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
       </div>
     </div>
     <div class="mc-right">
-      <div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
       ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}${aqiBadge}</span></div>` : ''}
       <div class="stat"><span class="stat-icon">📡</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(n)}</span></div>
@@ -46,6 +52,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
   `
 }
 
+// ── Current (single model) ─────────────────────────────────────────────────────
 function renderSingleModel(el: HTMLElement, t: LangData) {
   const key   = state.activeModel
   const data  = state.wxData[key]
@@ -55,9 +62,9 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
     return
   }
 
-  const cur = getCurrentWeather(data)
-  const wx  = wxFromCode(cur.code, t.wx)
-  const aqi = getCurrentAqi(state.aqiData)
+  const cur  = getCurrentWeather(data)
+  const wx   = wxFromCode(cur.code, t.wx)
+  const aqi  = getCurrentAqi(state.aqiData)
   const aqiI = aqiInfo(aqi, t.aqi)
 
   el.innerHTML = `
@@ -71,12 +78,48 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
       </div>
     </div>
     <div class="mc-right">
-      <div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
       ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}</span></div>` : ''}
       <div class="stat"><span class="stat-icon">🏢</span><span class="stat-lbl">Org</span><span class="stat-val muted">${model.org}</span></div>
+    </div>
+  `
+}
+
+// ── Selected day view (forecast) ───────────────────────────────────────────────
+function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
+  const forecast = getEnsembleForecast(state.wxData, t.wx, 7)
+  const day = forecast[dayIndex]
+  if (!day) { renderEnsemble(el, t); return }
+
+  const wx   = wxFromCode(day.code, t.wx)
+  const date = new Date(day.date + 'T12:00:00')
+  const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
+
+  // Compute avg wind from daily data across all models
+  const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
+  const winds  = models.map(m => m.daily.windspeed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const avgWind = winds.length ? avg(winds) : null
+
+  const gusts  = models.map(m => m.daily.windgusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const avgGust = gusts.length ? avg(gusts) : null
+
+  el.innerHTML = `
+    <div class="mc-left">
+      <div class="mc-big-icon">${wx.icon}</div>
+      <div class="mc-temp-block">
+        <div class="mc-label">${dateLabel} · ${t.nModels(day.n)}</div>
+        <div class="mc-temp">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="mc-unit">°C</span></div>
+        <div class="mc-condition">${wx.lbl}</div>
+        <div class="mc-feels">↓ Mín: ${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</div>
+      </div>
+    </div>
+    <div class="mc-right">
+      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span></div>
+      <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(avgWind, 0)} km/h${avgGust !== null ? ` (↑${Math.round(avgGust)})` : ''}</span></div>
+      <div class="stat"><span class="stat-icon">📅</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(day.n)}</span></div>
     </div>
   `
 }

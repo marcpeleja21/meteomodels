@@ -13,19 +13,34 @@ export function renderForecastStrip() {
   el.innerHTML = days.map((d, i) => {
     const date     = new Date(d.date + 'T12:00:00')
     const isToday  = d.date === today
+    const isSelected = state.selectedDay === i
     const dayName  = isToday ? t.today : t.days[date.getDay()]
     const dayNum   = date.getDate()
     const mon      = t.months[date.getMonth()]
     const rainPct  = d.rain !== null ? `${Math.round(d.rain)}%` : ''
+
+    let cls = 'strip-day'
+    if (isToday)    cls += ' today'
+    if (isSelected) cls += ' selected'
+
     return `
-      <div class="strip-day${isToday ? ' today' : ''}">
+      <div class="${cls}" data-day="${i}">
         <div class="strip-dname">${dayName}</div>
         <div style="font-size:.68rem;color:var(--text-dim)">${dayNum} ${mon}</div>
         <div class="strip-icon">${d.cond.icon}</div>
         <div class="strip-temps">${fmt(d.maxT, 0)}° <span>/ ${fmt(d.minT, 0)}°</span></div>
-        ${rainPct ? `<div class="strip-rain">🌧 ${rainPct}</div>` : ''}
+        ${rainPct ? `<div class="strip-rain">💧 ${rainPct}</div>` : ''}
         ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
       </div>
     `
   }).join('')
+
+  // Click handlers — dispatch custom event so main.ts can coordinate re-renders
+  el.querySelectorAll<HTMLDivElement>('.strip-day').forEach(dayEl => {
+    dayEl.addEventListener('click', () => {
+      const i = parseInt(dayEl.dataset.day!)
+      state.selectedDay = i
+      document.dispatchEvent(new CustomEvent('mm:daySelected', { detail: i }))
+    })
+  })
 }
