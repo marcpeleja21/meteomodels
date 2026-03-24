@@ -1,5 +1,6 @@
 import './style.css'
 import { inject } from '@vercel/analytics'
+import { injectSpeedInsights } from '@vercel/speed-insights'
 import { state } from './state'
 import { MODELS } from './config/models'
 import { LANG_DATA } from './config/i18n'
@@ -365,4 +366,5 @@ window.addEventListener('resize', resizeCanvas)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 inject()
+injectSpeedInsights()
 applyLang()
