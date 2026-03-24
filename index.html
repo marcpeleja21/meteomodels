@@ -26,6 +26,19 @@
     <button id="changeLoc" class="change-loc-btn">✎ Canviar</button>
   </div>
 
+  <!-- Nav Dropdown (only shown when location is selected) -->
+  <div class="nav-dropdown hidden" id="navDropdown">
+    <button class="nav-current" id="navCurrent">
+      <span id="navCurrentLabel">Previsió</span>
+      <span class="nav-chevron">▾</span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+      <button class="nav-option active" data-page="forecast" id="navOptForecast">📅 Previsió</button>
+      <button class="nav-option" data-page="models" id="navOptModels">🗺 Models</button>
+      <button class="nav-option" data-page="hourly" id="navOptHourly">🕐 Horari</button>
+    </div>
+  </div>
+
   <!-- Language Dropdown -->
   <div class="lang-dropdown" id="langDropdown">
     <button class="lang-current" id="langCurrent">
@@ -81,30 +94,39 @@
     <!-- Official weather alerts banner -->
     <div id="alertsBanner" style="display:none"></div>
     <div id="locBar" class="loc-bar"></div>
-    <div class="media-row">
-      <div id="mapCard" class="map-card-wrap"></div>
-      <div id="webcamCard" class="webcam-card-wrap"></div>
+
+    <!-- PAGE: FORECAST -->
+    <div id="pageForecast">
+      <div class="media-row">
+        <div id="mapCard" class="map-card-wrap"></div>
+        <div id="webcamCard" class="webcam-card-wrap"></div>
+      </div>
+      <!-- Real-time current observations -->
+      <div id="stationCard"></div>
+      <div class="model-tabs-wrap">
+        <div class="model-tabs-label">Vista del model</div>
+        <div id="modelTabs" class="model-tabs"></div>
+      </div>
+      <div class="main-card">
+        <div id="mainCardTop" class="main-card-top"></div>
+        <div class="mc-divider"></div>
+        <div id="forecastStrip" class="forecast-strip"></div>
+      </div>
+      <div id="modelGrid" class="model-grid"></div>
+      <div id="chartCard" class="chart-card"></div>
+      <div id="tableCard" class="table-card"></div>
     </div>
-    <!-- Real-time current observations -->
-    <div id="stationCard"></div>
-    <div class="model-tabs-wrap">
-      <div class="model-tabs-label">Vista del model</div>
-      <div id="modelTabs" class="model-tabs"></div>
-    </div>
-    <div class="main-card">
-      <div id="mainCardTop" class="main-card-top"></div>
-      <div class="mc-divider"></div>
-      <div id="forecastStrip" class="forecast-strip"></div>
-    </div>
-    <div id="modelGrid" class="model-grid"></div>
-    <div id="chartCard" class="chart-card"></div>
-    <div id="tableCard" class="table-card"></div>
+
+    <!-- PAGE: MODELS -->
+    <div id="pageModels" class="hidden"></div>
+
+    <!-- PAGE: HOURLY -->
+    <div id="pageHourly" class="hidden"></div>
   </div>
 </main>
 
 <footer style="text-align:center;padding:14px;font-size:.68rem;color:var(--text-dim)">
   Dades: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2)">Open-Meteo</a> (lliure) ·
-  <a href="https://www.meteoblue.com" target="_blank" style="color:var(--accent2)">MeteoBlue</a> ·
   Creat per <span style="color:var(--text-muted);font-weight:600">marcpeleja</span>
 </footer>
 </div>

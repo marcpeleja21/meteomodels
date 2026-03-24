@@ -28,7 +28,7 @@ export function renderStationCard(obs: CurrentObs | null) {
       </div>
       <div class="station-vals">
         <div class="sv"><span class="sv-icon">🌡️</span><span class="sv-val">${fmt(obs.temp, 1)}°C</span></div>
-        <div class="sv"><span class="sv-icon">🤔</span><span class="sv-val">${fmt(obs.feelsLike, 1)}°C</span></div>
+        <div class="sv"><span class="sv-lbl">${t.statFeels}</span><span class="sv-val">${fmt(obs.feelsLike, 1)}°C</span></div>
         <div class="sv sv-sep"></div>
         <div class="sv"><span class="sv-icon">💧</span><span class="sv-val">${fmt(obs.humidity, 0)}%</span></div>
         <div class="sv"><span class="sv-icon">💨</span><span class="sv-val">${arrow} ${fmt(obs.windspeed, 0)} km/h</span></div>

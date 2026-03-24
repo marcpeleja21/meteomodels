@@ -226,6 +226,7 @@ body{
 .sv{display:flex;align-items:center;gap:5px;font-size:.82rem;white-space:nowrap}
 .sv-icon{font-size:.9rem}
 .sv-val{font-weight:700;color:var(--text)}
+.sv-lbl{font-size:.72rem;color:var(--text-muted);white-space:nowrap}
 .sv-sep{width:1px;height:18px;background:var(--card-border);flex-shrink:0}
 
 /* ── MODEL SELECTOR TABS ────────────────────────────────────── */
@@ -372,6 +373,103 @@ body{
 .day-d{font-size:.68rem;opacity:.55}
 .sep-row td{height:2px;background:rgba(255,255,255,0.04);padding:0}
 .model-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+
+/* ── GLOBE ANIMATION ────────────────────────────────────────── */
+.brand-icon{
+  display:inline-block;
+  transition:opacity 0.3s ease;
+}
+
+/* ── NAV DROPDOWN ───────────────────────────────────────────── */
+.nav-dropdown{position:relative;flex-shrink:0}
+.nav-current{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 11px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--card-border);
+  border-radius:var(--radius-sm);
+  color:var(--text);cursor:pointer;
+  font-size:.78rem;font-weight:700;
+  transition:border-color var(--trans),background var(--trans);
+  white-space:nowrap;
+}
+.nav-current:hover{border-color:var(--accent);background:rgba(0,210,230,0.08)}
+.nav-chevron{opacity:.45;font-size:.7rem;margin-left:2px;transition:transform var(--trans)}
+.nav-menu{
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--bg2);
+  border:1px solid var(--card-border);
+  border-radius:var(--radius-sm);
+  box-shadow:var(--shadow);
+  min-width:150px;overflow:hidden;
+  display:none;z-index:400;
+}
+.nav-menu.open{display:block}
+.nav-option{
+  display:flex;align-items:center;gap:9px;
+  width:100%;padding:10px 15px;
+  background:none;border:none;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  color:var(--text-muted);font-size:.86rem;
+  cursor:pointer;text-align:left;
+  transition:background var(--trans),color var(--trans);
+}
+.nav-option:last-child{border-bottom:none}
+.nav-option:hover{background:var(--card-hover);color:var(--text)}
+.nav-option.active{color:var(--accent);font-weight:700;background:rgba(0,210,230,0.07)}
+
+/* ── MODELS PAGE ────────────────────────────────────────────── */
+.models-page{display:flex;flex-direction:column;gap:16px}
+.models-controls{
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:var(--radius);padding:16px 20px;
+  display:flex;flex-direction:column;gap:14px;
+}
+.ctrl-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text-muted);white-space:nowrap}
+.ctrl-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.ctrl-tab{
+  padding:5px 12px;border-radius:20px;font-size:.78rem;
+  border:1px solid var(--card-border);
+  background:rgba(255,255,255,0.04);
+  color:var(--text-muted);cursor:pointer;
+  transition:all var(--trans);
+}
+.ctrl-tab:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(79,195,247,0.08)}
+.ctrl-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(0,210,230,0.12);font-weight:700}
+.windy-frame-wrap{border-radius:var(--radius);overflow:hidden;border:1px solid var(--card-border)}
+.models-note{text-align:center;font-size:.7rem;color:var(--text-dim);padding:4px}
+
+/* ── HOURLY PAGE ────────────────────────────────────────────── */
+.hourly-page{display:flex;flex-direction:column;gap:16px}
+.hourly-controls{
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:var(--radius);padding:14px 20px;
+}
+.hourly-day-section{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);overflow:hidden}
+.hourly-day-label{
+  padding:10px 18px;font-size:.78rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.9px;color:var(--accent);
+  border-bottom:1px solid var(--card-border);
+  background:rgba(0,210,230,0.04);
+}
+.hourly-scroll{overflow-x:auto;padding:12px}
+.hourly-scroll::-webkit-scrollbar{height:4px}
+.hourly-scroll::-webkit-scrollbar-track{background:transparent}
+.hourly-scroll::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:2px}
+.hourly-grid{display:flex;gap:8px;min-width:max-content}
+.h-slot{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--card-border);
+  border-radius:var(--radius-sm);padding:10px 10px;
+  min-width:72px;transition:background var(--trans);
+}
+.h-slot:hover{background:rgba(255,255,255,0.06)}
+.h-slot-rain{border-color:rgba(79,195,247,0.4);background:rgba(79,195,247,0.06)}
+.h-time{font-size:.75rem;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.h-icon{font-size:1.4rem;line-height:1}
+.h-temp{font-size:1.05rem;font-weight:700;color:var(--text)}
+.h-rain,.h-wind,.h-hum,.h-precip{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
 
 /* ── LANGUAGE DROPDOWN ──────────────────────────────────────── */
 .lang-dropdown{position:relative;flex-shrink:0}

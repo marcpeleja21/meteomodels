@@ -5,7 +5,7 @@ export interface WebcamData {
 }
 
 // Windy free API — requires key at https://developers.windy.com (Community plan, free)
-const WINDY_KEY = ''
+const WINDY_KEY = 'GC7hTRIRIMPMcO8qFe27DzAZIWJoOnH3'
 
 export async function fetchNearbyWebcam(lat: number, lon: number): Promise<WebcamData | null> {
   if (!WINDY_KEY) return null

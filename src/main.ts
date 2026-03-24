@@ -23,6 +23,8 @@ import { renderStationCard } from './ui/stationCard'
 import { renderMapCard } from './ui/mapCard'
 import { renderWebcamCard } from './ui/webcamCard'
 import { renderAlertsBanner } from './ui/alertsBanner'
+import { renderModelsPage } from './ui/modelsPage'
+import { renderHourlyPage } from './ui/hourlyPage'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent } from './utils/data'
@@ -60,6 +62,14 @@ const langMenu      = document.getElementById('langMenu')      as HTMLDivElement
 const langCurFlag   = document.getElementById('langCurrentFlag') as HTMLSpanElement
 const langCurCode   = document.getElementById('langCurrentCode') as HTMLSpanElement
 
+const navDropdown   = document.getElementById('navDropdown')   as HTMLDivElement
+const navCurrent    = document.getElementById('navCurrent')    as HTMLButtonElement
+const navMenu       = document.getElementById('navMenu')       as HTMLDivElement
+const navCurrentLbl = document.getElementById('navCurrentLabel') as HTMLSpanElement
+const pageForecast  = document.getElementById('pageForecast')  as HTMLDivElement
+const pageModels    = document.getElementById('pageModels')    as HTMLDivElement
+const pageHourly    = document.getElementById('pageHourly')    as HTMLDivElement
+
 const welcomeScreen = document.getElementById('welcomeScreen') as HTMLDivElement
 const loadingScreen = document.getElementById('loadingScreen') as HTMLDivElement
 const loadingModels = document.getElementById('loadingModels') as HTMLDivElement
@@ -93,12 +103,68 @@ function applyLang() {
   if (bSub)   bSub.textContent   = lang.appSub
 }
 
+// ── Globe animation ───────────────────────────────────────────────────────────
+const GLOBES = ['🌍', '🌎', '🌏']
+let globeIdx = 0
+const brandIcon = document.querySelector('.brand-icon') as HTMLElement | null
+if (brandIcon) {
+  setInterval(() => {
+    brandIcon.style.opacity = '0'
+    setTimeout(() => {
+      globeIdx = (globeIdx + 1) % GLOBES.length
+      brandIcon.textContent = GLOBES[globeIdx]
+      brandIcon.style.opacity = '1'
+    }, 200)
+  }, 1400)
+}
+
+// ── Page switching ────────────────────────────────────────────────────────────
+function getPageLabel(page: string) {
+  const lang = t()
+  const map: Record<string, string> = {
+    forecast: lang.navForecast,
+    models:   lang.navModels,
+    hourly:   lang.navHourly,
+  }
+  return map[page] ?? page
+}
+
+function switchPage(page: 'forecast' | 'models' | 'hourly') {
+  state.currentPage = page
+  pageForecast.classList.toggle('hidden', page !== 'forecast')
+  pageModels.classList.toggle('hidden',   page !== 'models')
+  pageHourly.classList.toggle('hidden',   page !== 'hourly')
+  navCurrentLbl.textContent = getPageLabel(page)
+  navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === page)
+  })
+  if (page === 'models')  renderModelsPage()
+  if (page === 'hourly')  renderHourlyPage()
+}
+
+function updateNavLabels() {
+  const lang = t()
+  const optForecast = document.getElementById('navOptForecast')
+  const optModels   = document.getElementById('navOptModels')
+  const optHourly   = document.getElementById('navOptHourly')
+  if (optForecast) optForecast.textContent = `📅 ${lang.navForecast}`
+  if (optModels)   optModels.textContent   = `🗺 ${lang.navModels}`
+  if (optHourly)   optHourly.textContent   = `🕐 ${lang.navHourly}`
+  navCurrentLbl.textContent = getPageLabel(state.currentPage)
+}
+
 function renderAll() {
-  renderMainCard()
-  renderForecastStrip()
-  renderModelCards()
-  renderChart()
-  renderTable()
+  if (state.currentPage === 'forecast') {
+    renderMainCard()
+    renderForecastStrip()
+    renderModelCards()
+    renderChart()
+    renderTable()
+  } else if (state.currentPage === 'models') {
+    renderModelsPage()
+  } else if (state.currentPage === 'hourly') {
+    renderHourlyPage()
+  }
 }
 
 function onModelSelect(key: string) {
@@ -111,6 +177,7 @@ function onModelSelect(key: string) {
 document.addEventListener('mm:daySelected', () => {
   renderMainCard()
   renderForecastStrip()   // re-render to update selected highlight
+  renderModelCards()      // update model cards to reflect selected day
 })
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -170,12 +237,29 @@ document.addEventListener('click', e => {
   if (!langDropdown.contains(e.target as Node)) {
     langMenu.classList.remove('open')
   }
+  if (!navDropdown.contains(e.target as Node)) {
+    navMenu.classList.remove('open')
+  }
+})
+
+// ── Nav dropdown ──────────────────────────────────────────────────────────────
+navCurrent.addEventListener('click', e => {
+  e.stopPropagation()
+  navMenu.classList.toggle('open')
+})
+
+navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(btn => {
+  btn.addEventListener('click', () => {
+    navMenu.classList.remove('open')
+    switchPage(btn.dataset.page as 'forecast' | 'models' | 'hourly')
+  })
 })
 
 // ── Change location button ────────────────────────────────────────────────────
 changeLoc.addEventListener('click', () => {
   hide(wxDisplay)
   show(welcomeScreen)
+  navDropdown.classList.add('hidden')
   searchInput.focus()
 })
 
@@ -184,10 +268,15 @@ async function selectLocation(loc: GeocodingResult) {
   state.currentLoc  = loc
   state.activeModel = 'ensemble'
   state.selectedDay = 0
+  state.currentPage = 'forecast'
   state.wxData      = {}
   state.aqiData     = null
   searchInput.value = loc.name
   hideSuggestions()
+
+  // Show nav dropdown, reset to forecast
+  navDropdown.classList.remove('hidden')
+  switchPage('forecast')
 
   // Show location name in header
   headerLocName.textContent = loc.name
@@ -262,6 +351,7 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
     localStorage.setItem('mm_lang', state.lang)
     langMenu.classList.remove('open')
     applyLang()
+    updateNavLabels()
     if (state.currentLoc) {
       renderLocBar(state.currentLoc, t())
       renderModelTabs(MODELS, state.wxData, t(), onModelSelect)

@@ -202,6 +202,10 @@ export interface LangData {
   noCode: string
   aqi: AqiStrings
   wx: WxStrings
+  statPrecip:   string
+  navForecast:  string
+  navModels:    string
+  navHourly:    string
   alertTitle:   string
   alertSource:  string
   alertExpires: string

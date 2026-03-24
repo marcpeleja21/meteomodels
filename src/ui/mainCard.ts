@@ -31,6 +31,11 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
     ? `<span class="aqi-badge ${aqiI.cls}" style="background:rgba(0,0,0,0.3)">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</span>`
     : ''
 
+  // Avg precipitation today
+  const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
+  const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[0] ?? null).filter((v): v is number => v !== null)
+  const avgPrecip = precipVals.length ? avg(precipVals) : null
+
   el.innerHTML = `
     <div class="mc-left">
       <div class="mc-big-icon">${wx.icon}</div>
@@ -43,6 +48,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
     </div>
     <div class="mc-right">
       <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
+      ${avgPrecip !== null ? `<div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statPrecip}</span><span class="stat-val">${fmt(avgPrecip, 1)} mm</span></div>` : ''}
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
       <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
@@ -106,6 +112,9 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const gusts  = models.map(m => m.daily.windgusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
   const avgGust = gusts.length ? avg(gusts) : null
 
+  const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const avgPrecip  = precipVals.length ? avg(precipVals) : null
+
   el.innerHTML = `
     <div class="mc-left">
       <div class="mc-big-icon">${wx.icon}</div>
@@ -118,6 +127,7 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
     </div>
     <div class="mc-right">
       <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span></div>
+      ${avgPrecip !== null ? `<div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statPrecip}</span><span class="stat-val">${fmt(avgPrecip, 1)} mm</span></div>` : ''}
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(avgWind, 0)} km/h${avgGust !== null ? ` (↑${Math.round(avgGust)})` : ''}</span></div>
       <div class="stat"><span class="stat-icon">📅</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(day.n)}</span></div>
     </div>
