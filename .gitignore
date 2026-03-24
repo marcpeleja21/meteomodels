@@ -1,0 +1,25 @@
+# Build output
+dist/
+tsconfig.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Claude Code — local config only
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V8
+.Trashes
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeteoModels</title>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div class="app">
+<!-- HEADER -->
+<header class="header">
+  <div class="brand">
+    <span class="brand-icon">🌍</span>
+    <div>
+      <div class="brand-title">MeteoModels</div>
+      <div class="brand-sub">Comparativa de models meteorològics</div>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-row">
+      <input id="searchInput" type="text" placeholder="Cerca una localitat..." autocomplete="off" spellcheck="false">
+      <button id="searchBtn">🔍 Cerca</button>
+    </div>
+    <div id="suggestions" class="suggestions"></div>
+  </div>
+
+  <!-- Language Dropdown — absolutely anchored to header top-right -->
+  <div class="lang-dropdown" id="langDropdown">
+    <button class="lang-current" id="langCurrent">
+      <span id="langCurrentFlag"></span>
+      <span id="langCurrentCode">CA</span>
+      <span class="lang-chevron">▾</span>
+    </button>
+    <div class="lang-menu" id="langMenu">
+      <button class="lang-option" data-lang="ca"><svg class="flag-svg" viewBox="0 0 20 14"><rect width="20" height="14" fill="#FCDD09"/><rect y="1.56" width="20" height="1.56" fill="#C60B1E"/><rect y="4.67" width="20" height="1.56" fill="#C60B1E"/><rect y="7.78" width="20" height="1.56" fill="#C60B1E"/><rect y="10.89" width="20" height="1.56" fill="#C60B1E"/></svg> Català</button>
+      <button class="lang-option" data-lang="es">🇪🇸 Español</button>
+      <button class="lang-option" data-lang="en">🇬🇧 English</button>
+      <button class="lang-option" data-lang="fr">🇫🇷 Français</button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- WELCOME -->
+  <div id="welcomeScreen" class="welcome">
+    <h2 id="welcomeTitle"></h2>
+    <p id="welcomeSub"></p>
+    <div class="badge-row">
+      <span class="badge">🇺🇸 GFS</span>
+      <span class="badge">🇪🇺 ECMWF IFS</span>
+      <span class="badge">🇩🇪 ICON</span>
+      <span class="badge">🇩🇪 ICON EU</span>
+      <span class="badge">🇨🇭 MeteoBlue</span>
+      <span class="badge">🇫🇷 AROME HD</span>
+      <span class="badge">🇫🇷 AROME 2.5 km</span>
+      <span class="badge">🇫🇷 ARPEGE EU</span>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loadingScreen" class="loading hidden">
+    <div class="spinner"></div>
+    <p style="color:var(--text-muted)">Carregant dades meteorològiques...</p>
+    <div id="loadingModels" class="lm-row"></div>
+  </div>
+
+  <!-- WEATHER DISPLAY -->
+  <div id="wxDisplay" class="wx-display hidden">
+    <div id="locBar" class="loc-bar"></div>
+    <div class="model-tabs-wrap">
+      <div class="model-tabs-label">Vista del model</div>
+      <div id="modelTabs" class="model-tabs"></div>
+    </div>
+    <div class="main-card">
+      <div id="mainCardTop" class="main-card-top"></div>
+      <div class="mc-divider"></div>
+      <div id="forecastStrip" class="forecast-strip"></div>
+    </div>
+    <div id="modelGrid" class="model-grid"></div>
+    <div id="chartCard" class="chart-card"></div>
+    <div id="tableCard" class="table-card"></div>
+  </div>
+</main>
+
+<footer style="text-align:center;padding:12px;font-size:.68rem;color:var(--text-dim)">
+  Dades: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2)">Open-Meteo</a> (lliure) ·
+  <a href="https://www.meteoblue.com" target="_blank" style="color:var(--accent2)">MeteoBlue</a>
+</footer>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
