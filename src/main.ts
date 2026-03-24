@@ -9,6 +9,8 @@ import { fetchAllModels } from './api/openmeteo'
 import { fetchMeteoblue } from './api/meteoblue'
 import { fetchAqi } from './api/aqi'
 import { fetchCurrentObs } from './api/station'
+import { fetchNearbyWebcam } from './api/webcam'
+import { fetchAlerts } from './api/alerts'
 
 import { renderLocBar } from './ui/locBar'
 import { renderModelTabs } from './ui/modelTabs'
@@ -18,6 +20,9 @@ import { renderModelCards } from './ui/modelCards'
 import { renderChart } from './ui/chart'
 import { renderTable } from './ui/table'
 import { renderStationCard } from './ui/stationCard'
+import { renderMapCard } from './ui/mapCard'
+import { renderWebcamCard } from './ui/webcamCard'
+import { renderAlertsBanner } from './ui/alertsBanner'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent } from './utils/data'
@@ -44,6 +49,10 @@ const LANG_OPTIONS: Record<string, { flagHtml: string; label: string }> = {
 const searchInput   = document.getElementById('searchInput')   as HTMLInputElement
 const searchBtn     = document.getElementById('searchBtn')     as HTMLButtonElement
 const suggestionsEl = document.getElementById('suggestions')   as HTMLDivElement
+
+const headerLoc     = document.getElementById('headerLoc')!    as HTMLDivElement
+const headerLocName = document.getElementById('headerLocName')! as HTMLSpanElement
+const changeLoc     = document.getElementById('changeLoc')!    as HTMLButtonElement
 
 const langDropdown  = document.getElementById('langDropdown')  as HTMLDivElement
 const langCurrent   = document.getElementById('langCurrent')   as HTMLButtonElement
@@ -163,6 +172,13 @@ document.addEventListener('click', e => {
   }
 })
 
+// ── Change location button ────────────────────────────────────────────────────
+changeLoc.addEventListener('click', () => {
+  hide(wxDisplay)
+  show(welcomeScreen)
+  searchInput.focus()
+})
+
 // ── Load weather ──────────────────────────────────────────────────────────────
 async function selectLocation(loc: GeocodingResult) {
   state.currentLoc  = loc
@@ -172,6 +188,10 @@ async function selectLocation(loc: GeocodingResult) {
   state.aqiData     = null
   searchInput.value = loc.name
   hideSuggestions()
+
+  // Show location name in header
+  headerLocName.textContent = loc.name
+  headerLoc.classList.remove('hidden')
 
   hide(welcomeScreen)
   hide(wxDisplay)
@@ -188,11 +208,12 @@ async function selectLocation(loc: GeocodingResult) {
     if (tag) tag.className = `lm-tag ${ok ? 'ok' : 'err'}`
   }
 
-  // Fetch weather, AQI and current obs in parallel
-  const [wxData, aqiData, obsData] = await Promise.all([
+  // Fetch weather, AQI, current obs and alerts in parallel
+  const [wxData, aqiData, obsData, alertsData] = await Promise.all([
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
+    fetchAlerts(loc.latitude, loc.longitude, loc.country_code),
   ])
 
   state.wxData  = wxData
@@ -212,10 +233,15 @@ async function selectLocation(loc: GeocodingResult) {
   show(wxDisplay)
   wxDisplay.classList.add('fade-up')
 
+  renderAlertsBanner(alertsData)
   renderLocBar(loc, t())
   renderStationCard(obsData)
   renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
   renderAll()
+
+  // Map and webcam
+  renderMapCard(loc.latitude, loc.longitude, loc.name)
+  fetchNearbyWebcam(loc.latitude, loc.longitude).then(renderWebcamCard)
 
   const { data: ensData } = getEnsembleCurrent(state.wxData)
   const ensWx = wxFromCode(ensData.code, t().wx)

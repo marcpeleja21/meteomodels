@@ -13,6 +13,8 @@
     "vite": "^5.2.11"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1"
+    "@types/leaflet": "^1.9.21",
+    "@vercel/analytics": "^2.0.1",
+    "leaflet": "^1.9.4"
   }
 }

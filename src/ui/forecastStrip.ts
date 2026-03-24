@@ -29,7 +29,7 @@ export function renderForecastStrip() {
         <div style="font-size:.68rem;color:var(--text-dim)">${dayNum} ${mon}</div>
         <div class="strip-icon">${d.cond.icon}</div>
         <div class="strip-temps">${fmt(d.maxT, 0)}° <span>/ ${fmt(d.minT, 0)}°</span></div>
-        ${rainPct ? `<div class="strip-rain">💧 ${rainPct}</div>` : ''}
+        ${rainPct ? `<div class="strip-rain">💦 ${rainPct}</div>` : ''}
         ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
       </div>
     `

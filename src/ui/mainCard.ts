@@ -42,9 +42,9 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
       </div>
     </div>
     <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
       ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}${aqiBadge}</span></div>` : ''}
       <div class="stat"><span class="stat-icon">📡</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(n)}</span></div>
@@ -78,9 +78,9 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
       </div>
     </div>
     <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
+      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
       <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
       ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}</span></div>` : ''}
       <div class="stat"><span class="stat-icon">🏢</span><span class="stat-lbl">Org</span><span class="stat-val muted">${model.org}</span></div>
@@ -117,7 +117,7 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
       </div>
     </div>
     <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span></div>
+      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span></div>
       <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(avgWind, 0)} km/h${avgGust !== null ? ` (↑${Math.round(avgGust)})` : ''}</span></div>
       <div class="stat"><span class="stat-icon">📅</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(day.n)}</span></div>
     </div>

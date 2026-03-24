@@ -187,6 +187,7 @@ export interface LangData {
   months: string[]
   mTMax: string
   mTMin: string
+  mTemp: string
   mRain: string
   mWind: string
   mHum: string
@@ -201,6 +202,10 @@ export interface LangData {
   noCode: string
   aqi: AqiStrings
   wx: WxStrings
+  alertTitle:   string
+  alertSource:  string
+  alertExpires: string
+  alertDismiss: string
   nModels: (n: number) => string
   ensLabel: (n: number) => string
 }

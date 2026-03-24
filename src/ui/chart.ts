@@ -8,12 +8,11 @@ const CHART_W = W - PAD.left - PAD.right
 const CHART_H = H - PAD.top  - PAD.bottom
 const DAYS = 7
 
-type MetricKey = 'tmax' | 'tmin' | 'rain' | 'wind' | 'hum' | 'pres'
+type MetricKey = 'temp' | 'rain' | 'wind' | 'hum' | 'pres'
 
 function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
   return {
-    tmax: { key: 'tmax', unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
-    tmin: { key: 'tmin', unit: '°C',  color: '#4fc3f7', src: (k, i) => state.wxData[k]?.daily.temperature_2m_min[i] ?? null },
+    temp: { key: 'temp', unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
     rain: { key: 'rain', unit: '%',   color: '#4dd0e1', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
     wind: { key: 'wind', unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.windspeed_10m_max[i] ?? null },
     hum:  { key: 'hum',  unit: '%',   color: '#90caf9', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
@@ -31,7 +30,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const el      = document.getElementById('chartCard')!
 
   const metricLabels: Record<MetricKey, string> = {
-    tmax: t.mTMax, tmin: t.mTMin, rain: t.mRain, wind: t.mWind, hum: t.mHum, pres: t.mPres,
+    temp: t.mTemp, rain: t.mRain, wind: t.mWind, hum: t.mHum, pres: t.mPres,
   }
 
   const tabsHtml = (Object.keys(metrics) as MetricKey[]).map(k => {
@@ -42,14 +41,27 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const loaded = MODELS.filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = ''; return }
 
-  const metric = metrics[state.activeMetric as MetricKey] ?? metrics.tmax
+  // Normalise activeMetric — if legacy 'tmax'/'tmin' survived, switch to 'temp'
+  if (state.activeMetric === 'tmax' || state.activeMetric === 'tmin') {
+    state.activeMetric = 'temp'
+  }
+
+  const isTemp = state.activeMetric === 'temp'
+  const metric = metrics[state.activeMetric as MetricKey] ?? metrics.temp
 
   // Collect all values for scale
   const allVals: number[] = []
   for (const m of loaded) {
     for (let i = 0; i < DAYS; i++) {
-      const v = metric.src(m.key, i)
-      if (v !== null) allVals.push(v)
+      if (isTemp) {
+        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
+        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
+        if (vmax !== null) allVals.push(vmax)
+        if (vmin !== null) allVals.push(vmin)
+      } else {
+        const v = metric.src(m.key, i)
+        if (v !== null) allVals.push(v)
+      }
     }
   }
   if (!allVals.length) { el.innerHTML = ''; return }
@@ -70,24 +82,56 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const refTimes = refModel ? (state.wxData[refModel.key]?.daily.time ?? []) : []
 
   // Build polylines per model
-  const lines = loaded.map(m => {
-    const pts: string[] = []
-    for (let i = 0; i < DAYS; i++) {
-      const v = metric.src(m.key, i)
-      if (v !== null) pts.push(`${scaleX(i)},${scaleY(v)}`)
-    }
-    if (!pts.length) return ''
-    return `<polyline points="${pts.join(' ')}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
-  }).join('\n')
+  let lines = ''
+  if (isTemp) {
+    lines = loaded.map(m => {
+      const ptsMax: string[] = []
+      const ptsMin: string[] = []
+      for (let i = 0; i < DAYS; i++) {
+        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
+        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
+        if (vmax !== null) ptsMax.push(`${scaleX(i)},${scaleY(vmax)}`)
+        if (vmin !== null) ptsMin.push(`${scaleX(i)},${scaleY(vmin)}`)
+      }
+      let out = ''
+      if (ptsMax.length) out += `<polyline points="${ptsMax.join(' ')}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
+      if (ptsMin.length) out += `<polyline points="${ptsMin.join(' ')}" fill="none" stroke="${m.color}" stroke-width="1.5" stroke-dasharray="5,4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>`
+      return out
+    }).join('\n')
+  } else {
+    lines = loaded.map(m => {
+      const pts: string[] = []
+      for (let i = 0; i < DAYS; i++) {
+        const v = metric.src(m.key, i)
+        if (v !== null) pts.push(`${scaleX(i)},${scaleY(v)}`)
+      }
+      if (!pts.length) return ''
+      return `<polyline points="${pts.join(' ')}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
+    }).join('\n')
+  }
 
-  // Dots (interactive — larger hit radius)
-  const dots = loaded.map(m => {
-    return Array.from({ length: DAYS }, (_, i) => {
-      const v = metric.src(m.key, i)
-      if (v === null) return ''
-      return `<circle cx="${scaleX(i)}" cy="${scaleY(v)}" r="3.5" fill="${m.color}" opacity="0.9" class="chart-dot" data-day="${i}" data-model="${m.key}" data-val="${v.toFixed(1)}"/>`
+  // Dots
+  let dots = ''
+  if (isTemp) {
+    dots = loaded.map(m => {
+      return Array.from({ length: DAYS }, (_, i) => {
+        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
+        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
+        let out = ''
+        if (vmax !== null) out += `<circle cx="${scaleX(i)}" cy="${scaleY(vmax)}" r="3.5" fill="${m.color}" opacity="0.9" class="chart-dot" data-day="${i}" data-model="${m.key}" data-val="${vmax.toFixed(1)}"/>`
+        if (vmin !== null) out += `<circle cx="${scaleX(i)}" cy="${scaleY(vmin)}" r="2.5" fill="${m.color}" opacity="0.7" class="chart-dot" data-day="${i}" data-model="${m.key}" data-valmin="${vmin.toFixed(1)}"/>`
+        return out
+      }).join('')
     }).join('')
-  }).join('')
+  } else {
+    dots = loaded.map(m => {
+      return Array.from({ length: DAYS }, (_, i) => {
+        const v = metric.src(m.key, i)
+        if (v === null) return ''
+        return `<circle cx="${scaleX(i)}" cy="${scaleY(v)}" r="3.5" fill="${m.color}" opacity="0.9" class="chart-dot" data-day="${i}" data-model="${m.key}" data-val="${v.toFixed(1)}"/>`
+      }).join('')
+    }).join('')
+  }
 
   // Hit areas (wide invisible rects per column)
   const colW = CHART_W / (DAYS - 1)
@@ -178,32 +222,65 @@ export function renderChart(onMetricChange?: (key: string) => void) {
       const d = dateStr ? new Date(dateStr + 'T12:00:00') : null
       const dayLabel = d ? `${t.days[d.getDay()]} ${d.getDate()}` : `Dia ${dayI + 1}`
 
-      const rows: { name: string; color: string; val: string }[] = []
-      for (const m of loaded) {
-        const v = metric.src(m.key, dayI)
-        if (v !== null) rows.push({ name: `${m.flag} ${m.name}`, color: m.color, val: `${v.toFixed(metric.unit === 'hPa' ? 0 : 1)} ${metric.unit}` })
-      }
+      let tipH: number
+      let tipW: number
+      let inner: string
 
-      const lh = 16
-      const tipH = 22 + rows.length * lh
-      const tipW = 170
+      if (isTemp) {
+        const rows: { name: string; color: string; vmax: string; vmin: string }[] = []
+        for (const m of loaded) {
+          const vmax = state.wxData[m.key]?.daily.temperature_2m_max[dayI] ?? null
+          const vmin = state.wxData[m.key]?.daily.temperature_2m_min[dayI] ?? null
+          if (vmax !== null || vmin !== null) {
+            rows.push({
+              name: `${m.flag} ${m.name}`,
+              color: m.color,
+              vmax: vmax !== null ? `${vmax.toFixed(1)}°C` : '—',
+              vmin: vmin !== null ? `${vmin.toFixed(1)}°C` : '—',
+            })
+          }
+        }
+
+        const lh = 16
+        tipH = 22 + rows.length * (lh + 2)
+        tipW = 190
+
+        inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
+        rows.forEach((row, ri) => {
+          const ry = 14 + (ri + 1) * (lh + 2)
+          inner += `
+            <rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
+            <text x="20" y="${ry}" fill="#6e8caa" font-size="10">${row.name}</text>
+            <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="700">↑ ${row.vmax} / ↓ ${row.vmin}</text>
+          `
+        })
+      } else {
+        const rows: { name: string; color: string; val: string }[] = []
+        for (const m of loaded) {
+          const v = metric.src(m.key, dayI)
+          if (v !== null) rows.push({ name: `${m.flag} ${m.name}`, color: m.color, val: `${v.toFixed(metric.unit === 'hPa' ? 0 : 1)} ${metric.unit}` })
+        }
+
+        const lh = 16
+        tipH = 22 + rows.length * lh
+        tipW = 170
+
+        inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
+        rows.forEach((row, ri) => {
+          const ry = 14 + (ri + 1) * lh
+          inner += `
+            <rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
+            <text x="20" y="${ry}" fill="#6e8caa" font-size="10">${row.name}</text>
+            <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="700">${row.val}</text>
+          `
+        })
+      }
 
       // Position: prefer right; flip left if near right edge
       let tx = cx + 14
       if (tx + tipW > W - PAD.right) tx = cx - tipW - 14
 
       const ty = PAD.top + 4
-
-      // Build SVG content
-      let inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
-      rows.forEach((row, ri) => {
-        const ry = 14 + (ri + 1) * lh
-        inner += `
-          <rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
-          <text x="20" y="${ry}" fill="#6e8caa" font-size="10">${row.name}</text>
-          <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="700">${row.val}</text>
-        `
-      })
 
       tipBg.setAttribute('x', String(tx))
       tipBg.setAttribute('y', String(ty))

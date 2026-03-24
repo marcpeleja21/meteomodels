@@ -45,7 +45,7 @@ export function renderModelCards() {
         <div class="mc2-bar-wrap">
           <div class="mc2-bar-fill" style="width:${rainPct}%;background:var(--accent2)"></div>
         </div>
-        <div class="mc2-bar-lbl"><span>💧 ${fmt(rainPct, 0)}%</span><span>💦 ${fmt(humPct, 0)}%</span></div>
+        <div class="mc2-bar-lbl"><span>💦 ${fmt(rainPct, 0)}%</span><span>💧 ${fmt(humPct, 0)}%</span></div>
 
         ${m.coverage ? `<div class="mc2-note">⚠ ${m.coverage}</div>` : ''}
       </div>

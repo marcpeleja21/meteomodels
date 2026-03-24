@@ -25,7 +25,7 @@ export function renderTable() {
 
   // Ensemble row
   const ensRow = ensDays.map(d => {
-    const rain = d.rain !== null ? `<div class="fc-rain">🌧 ${Math.round(d.rain)}%</div>` : ''
+    const rain = d.rain !== null ? `<div class="fc-rain">💦 ${Math.round(d.rain)}%</div>` : ''
     return `<td><div class="fc-cell"><div class="fc-icon">${d.cond.icon}</div><div class="fc-temp">${fmt(d.maxT, 0)}° / ${fmt(d.minT, 0)}°</div>${rain}</div></td>`
   }).join('')
 
@@ -38,7 +38,7 @@ export function renderTable() {
       const code = data.daily.weathercode[i] ?? null
       const rain = data.daily.precipitation_probability_max[i] ?? null
       const wx   = wxFromCode(code, t.wx)
-      const rainStr = rain !== null ? `<div class="fc-rain">🌧 ${Math.round(rain)}%</div>` : ''
+      const rainStr = rain !== null ? `<div class="fc-rain">💦 ${Math.round(rain)}%</div>` : ''
       return `<td><div class="fc-cell"><div class="fc-icon">${wx.icon}</div><div class="fc-temp">${fmt(maxT, 0)}° / ${fmt(minT, 0)}°</div>${rainStr}</div></td>`
     }).join('')
 
