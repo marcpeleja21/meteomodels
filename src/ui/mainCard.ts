@@ -21,52 +21,96 @@ export function renderMainCard() {
   }
 }
 
-// ── Current (ensemble) ─────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function windArrowFromDeg(deg: number | null): string {
+  if (deg === null) return ''
+  return ['↑','↗','→','↘','↓','↙','←','↖'][Math.round(deg / 45) % 8]
+}
+
+/** Coloured delta badge + bar. delta = forecast - real */
+function deltaHtml(delta: number | null): string {
+  if (delta === null) return ''
+  const abs = Math.abs(delta)
+  const sign = delta >= 0 ? '+' : ''
+  const cls = abs <= 1 ? 'delta-ok' : abs <= 3 ? 'delta-warn' : 'delta-bad'
+  const pct = Math.min(abs / 10, 1) * 100
+  return `
+    <div class="now-delta">
+      <span class="now-delta-val ${cls}">${sign}${delta.toFixed(1)}°C vs ara</span>
+      <div class="now-delta-bar-bg">
+        <div class="now-delta-bar-fill ${cls}" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+    </div>
+  `
+}
+
+/** ARA (real-time) mini-panel */
+function nowPanelHtml(t: LangData): string {
+  const obs = state.currentObs
+  if (!obs) return ''
+  const wx     = wxFromCode(obs.code, t.wx)
+  const arrow  = windArrowFromDeg(obs.windDir)
+  const timeLabel = ''   // wttr.in doesn't expose ISO time
+  const locLine = obs.stationName
+    ? `<div class="now-src">📍 ${obs.stationName}${obs.stationDist ? ` · ${obs.stationDist} km` : ''} · wttr.in</div>`
+    : `<div class="now-src">📡 Observació · Open-Meteo</div>`
+
+  return `
+    <div class="cmp-panel now-panel">
+      <div class="cmp-label">📡 ${t.now}${timeLabel}</div>
+      <div class="cmp-icon">${wx.icon}</div>
+      <div class="cmp-temp">${obs.temp !== null ? obs.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
+      <div class="cmp-cond">${wx.lbl}</div>
+      <div class="cmp-feels">${t.statFeels}: ${obs.feelsLike !== null ? obs.feelsLike.toFixed(1) + '°C' : '—'}</div>
+      <div class="cmp-stats">
+        <span>💧 ${fmt(obs.humidity, 0)}%</span>
+        <span>💨 ${arrow} ${fmt(obs.windspeed, 0)} km/h</span>
+        <span>💦 ${fmt(obs.precip, 1)} mm</span>
+      </div>
+      ${locLine}
+    </div>
+  `
+}
+
+// ── Current (ensemble) ────────────────────────────────────────────────────────
 function renderEnsemble(el: HTMLElement, t: LangData) {
   const { data: cur, n } = getEnsembleCurrent(state.wxData)
   const wx    = wxFromCode(cur.code, t.wx)
   const aqi   = getCurrentAqi(state.aqiData)
   const aqiI  = aqiInfo(aqi, t.aqi)
-  const aqiBadge = aqiI
-    ? `<span class="aqi-badge ${aqiI.cls}" style="background:rgba(0,0,0,0.3)">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</span>`
-    : ''
 
-  // Avg precipitation today
   const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
   const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[0] ?? null).filter((v): v is number => v !== null)
   const avgPrecip = precipVals.length ? avg(precipVals) : null
 
-  // Temp delta vs actual observation
-  const obsTemp  = state.currentObs?.temp ?? null
-  const deltaEns = (cur.temp !== null && obsTemp !== null) ? cur.temp - obsTemp : null
-  const deltaHtml = deltaEns !== null
-    ? `<div class="mc-delta">${deltaEns >= 0 ? '+' : ''}${deltaEns.toFixed(1)}° vs ara</div>`
-    : ''
+  const obsTemp = state.currentObs?.temp ?? null
+  const delta   = (cur.temp !== null && obsTemp !== null) ? cur.temp - obsTemp : null
+
+  const hasObs = state.currentObs != null
 
   el.innerHTML = `
-    <div class="mc-left">
-      <div class="mc-big-icon">${wx.icon}</div>
-      <div class="mc-temp-block">
-        <div class="mc-label">${t.ensLabel(n)}</div>
-        <div class="mc-temp">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="mc-unit">°C</span></div>
-        <div class="mc-condition">${wx.lbl}</div>
-        <div class="mc-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
-        ${deltaHtml}
+    <div class="cmp-row${hasObs ? '' : ' cmp-row-single'}">
+      ${hasObs ? nowPanelHtml(t) : ''}
+      <div class="cmp-panel fcast-panel">
+        <div class="cmp-label">${t.ensLabel(n)}</div>
+        <div class="cmp-icon">${wx.icon}</div>
+        <div class="cmp-temp">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-cond">${wx.lbl}</div>
+        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        ${deltaHtml(delta)}
+        <div class="cmp-stats">
+          <span>💦 ${fmt(cur.rain, 0)}%</span>
+          ${avgPrecip !== null ? `<span>🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
+          <span>💨 ${fmt(cur.wind, 0)} km/h</span>
+          <span>💧 ${fmt(cur.hum, 0)}%</span>
+        </div>
+        ${aqiI ? `<div class="cmp-aqi aqi-${aqiI.cls}">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</div>` : ''}
       </div>
-    </div>
-    <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
-      ${avgPrecip !== null ? `<div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statPrecip}</span><span class="stat-val">${fmt(avgPrecip, 1)} mm</span></div>` : ''}
-      <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
-      <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
-      ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}${aqiBadge}</span></div>` : ''}
-      <div class="stat"><span class="stat-icon">📡</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(n)}</span></div>
     </div>
   `
 }
 
-// ── Current (single model) ─────────────────────────────────────────────────────
+// ── Current (single model) ────────────────────────────────────────────────────
 function renderSingleModel(el: HTMLElement, t: LangData) {
   const key   = state.activeModel
   const data  = state.wxData[key]
@@ -75,41 +119,37 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
     el.innerHTML = `<p style="padding:20px;color:var(--text-muted)">${t.noData}</p>`
     return
   }
-
   const cur  = getCurrentWeather(data)
   const wx   = wxFromCode(cur.code, t.wx)
   const aqi  = getCurrentAqi(state.aqiData)
   const aqiI = aqiInfo(aqi, t.aqi)
 
-  const obsTemp2   = state.currentObs?.temp ?? null
-  const deltaSingle = (cur.temp !== null && obsTemp2 !== null) ? cur.temp - obsTemp2 : null
-  const deltaHtml2  = deltaSingle !== null
-    ? `<div class="mc-delta">${deltaSingle >= 0 ? '+' : ''}${deltaSingle.toFixed(1)}° vs ara</div>`
-    : ''
+  const obsTemp   = state.currentObs?.temp ?? null
+  const delta     = (cur.temp !== null && obsTemp !== null) ? cur.temp - obsTemp : null
+  const hasObs    = state.currentObs != null
 
   el.innerHTML = `
-    <div class="mc-left">
-      <div class="mc-big-icon">${wx.icon}</div>
-      <div class="mc-temp-block">
-        <div class="mc-label" style="color:${model.color}">${model.flag} ${model.fullName}</div>
-        <div class="mc-temp" style="color:${model.color}">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="mc-unit">°C</span></div>
-        <div class="mc-condition">${wx.lbl}</div>
-        <div class="mc-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
-        ${deltaHtml2}
+    <div class="cmp-row${hasObs ? '' : ' cmp-row-single'}">
+      ${hasObs ? nowPanelHtml(t) : ''}
+      <div class="cmp-panel fcast-panel">
+        <div class="cmp-label" style="color:${model.color}">${model.flag} ${model.fullName}</div>
+        <div class="cmp-icon">${wx.icon}</div>
+        <div class="cmp-temp" style="color:${model.color}">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-cond">${wx.lbl}</div>
+        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        ${deltaHtml(delta)}
+        <div class="cmp-stats">
+          <span>💦 ${fmt(cur.rain, 0)}%</span>
+          <span>💨 ${fmt(cur.wind, 0)} km/h</span>
+          <span>💧 ${fmt(cur.hum, 0)}%</span>
+        </div>
+        ${aqiI ? `<div class="cmp-aqi aqi-${aqiI.cls}">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</div>` : ''}
       </div>
-    </div>
-    <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${fmt(cur.rain, 0)}%</span></div>
-      <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(cur.wind, 0)} km/h</span></div>
-      <div class="stat"><span class="stat-icon">💧</span><span class="stat-lbl">${t.statHum}</span><span class="stat-val">${fmt(cur.hum, 0)}%</span></div>
-      <div class="stat"><span class="stat-icon">🔵</span><span class="stat-lbl">${t.statPres}</span><span class="stat-val">${fmt(cur.pres, 0)} hPa</span></div>
-      ${aqiI ? `<div class="stat"><span class="stat-icon">🍃</span><span class="stat-lbl">${t.statAqi}</span><span class="stat-val ${aqiI.cls}">${aqiI.lbl}</span></div>` : ''}
-      <div class="stat"><span class="stat-icon">🏢</span><span class="stat-lbl">Org</span><span class="stat-val muted">${model.org}</span></div>
     </div>
   `
 }
 
-// ── Selected day view (forecast) ───────────────────────────────────────────────
+// ── Selected day view (forecast only, no real-time comparison) ────────────────
 function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const forecast = getEnsembleForecast(state.wxData, t.wx, 7)
   const day = forecast[dayIndex]
@@ -119,34 +159,28 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const date = new Date(day.date + 'T12:00:00')
   const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
 
-  // Compute avg wind from daily data across models valid for this day
-  const models = MODELS
-    .filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null)
-    .map(m => state.wxData[m.key]!)
-  const winds  = models.map(m => m.daily.windspeed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const avgWind = winds.length ? avg(winds) : null
-
-  const gusts  = models.map(m => m.daily.windgusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const avgGust = gusts.length ? avg(gusts) : null
-
+  const models     = MODELS.filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
+  const winds      = models.map(m => m.daily.windspeed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const gusts      = models.map(m => m.daily.windgusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
   const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const avgWind    = winds.length ? avg(winds) : null
+  const avgGust    = gusts.length ? avg(gusts) : null
   const avgPrecip  = precipVals.length ? avg(precipVals) : null
 
   el.innerHTML = `
-    <div class="mc-left">
-      <div class="mc-big-icon">${wx.icon}</div>
-      <div class="mc-temp-block">
-        <div class="mc-label">${dateLabel} · ${t.nModels(day.n)}</div>
-        <div class="mc-temp">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="mc-unit">°C</span></div>
-        <div class="mc-condition">${wx.lbl}</div>
-        <div class="mc-feels">↓ Mín: ${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</div>
+    <div class="cmp-row cmp-row-single">
+      <div class="cmp-panel fcast-panel">
+        <div class="cmp-label">${dateLabel} · ${t.nModels(day.n)}</div>
+        <div class="cmp-icon">${wx.icon}</div>
+        <div class="cmp-temp">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-cond">${wx.lbl}</div>
+        <div class="cmp-feels">↓ Mín: ${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</div>
+        <div class="cmp-stats">
+          <span>💦 ${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span>
+          ${avgPrecip !== null ? `<span>🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
+          <span>💨 ${fmt(avgWind, 0)} km/h${avgGust !== null ? ` ↑${Math.round(avgGust)}` : ''}</span>
+        </div>
       </div>
-    </div>
-    <div class="mc-right">
-      <div class="stat"><span class="stat-icon">💦</span><span class="stat-lbl">${t.statRain}</span><span class="stat-val">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span></div>
-      ${avgPrecip !== null ? `<div class="stat"><span class="stat-icon">🌧️</span><span class="stat-lbl">${t.statPrecip}</span><span class="stat-val">${fmt(avgPrecip, 1)} mm</span></div>` : ''}
-      <div class="stat"><span class="stat-icon">💨</span><span class="stat-lbl">${t.statWind}</span><span class="stat-val">${fmt(avgWind, 0)} km/h${avgGust !== null ? ` (↑${Math.round(avgGust)})` : ''}</span></div>
-      <div class="stat"><span class="stat-icon">📅</span><span class="stat-lbl">${t.statModels}</span><span class="stat-val">${t.nModels(day.n)}</span></div>
     </div>
   `
 }

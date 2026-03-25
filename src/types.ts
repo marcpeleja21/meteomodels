@@ -128,6 +128,10 @@ export interface CurrentObs {
   precip:    number | null
   code:      number | null
   time:      string | null
+  stationName: string | null   // city name from wttr.in nearest_area
+  stationDist: number | null   // km from searched location
+  stationLat:  number | null
+  stationLon:  number | null
 }
 
 export interface AqiInfo {

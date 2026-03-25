@@ -302,6 +302,31 @@ body{
 .mc-condition{font-size:1.1rem;font-weight:600;color:var(--text)}
 .mc-feels{font-size:.82rem;color:var(--text-muted);margin-top:2px}
 .mc-delta{font-size:.72rem;color:var(--text-dim);margin-top:3px;letter-spacing:.01em}
+/* ── NOW vs FORECAST comparison row ─────────────────────── */
+.cmp-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-radius:var(--radius);overflow:hidden}
+.cmp-row-single{grid-template-columns:1fr}
+.cmp-panel{padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.now-panel{background:rgba(255,255,255,0.03);border-right:1px solid var(--card-border)}
+.fcast-panel{background:transparent}
+.cmp-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:2px}
+.cmp-icon{font-size:2.2rem;line-height:1;margin:4px 0}
+.cmp-temp{font-size:2.6rem;font-weight:800;line-height:1;color:var(--text)}
+.cmp-unit{font-size:1.2rem;font-weight:400;color:var(--text-muted)}
+.cmp-cond{font-size:.95rem;font-weight:600;color:var(--text);margin-top:2px}
+.cmp-feels{font-size:.78rem;color:var(--text-muted)}
+.cmp-stats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.75rem;color:var(--text-muted);margin-top:6px}
+.cmp-stats span{white-space:nowrap}
+.now-src{font-size:.65rem;color:var(--text-dim);margin-top:6px}
+.cmp-aqi{font-size:.7rem;margin-top:4px;padding:2px 8px;border-radius:10px;width:fit-content;background:rgba(0,0,0,0.2)}
+/* Delta bar */
+.now-delta{margin-top:8px}
+.now-delta-val{font-size:.78rem;font-weight:600;display:block;margin-bottom:4px}
+.now-delta-bar-bg{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden}
+.now-delta-bar-fill{height:100%;border-radius:2px;transition:width .4s ease}
+.delta-ok{color:#4caf50}.delta-ok.now-delta-bar-fill{background:#4caf50}
+.delta-warn{color:#ff9800}.delta-warn.now-delta-bar-fill{background:#ff9800}
+.delta-bad{color:#f44336}.delta-bad.now-delta-bar-fill{background:#f44336}
+@media(max-width:520px){.cmp-row{grid-template-columns:1fr}.now-panel{border-right:none;border-bottom:1px solid var(--card-border)}}
 .mc-right{display:flex;flex-direction:column;gap:7px;min-width:150px}
 .stat{display:flex;align-items:center;gap:8px;font-size:.82rem}
 .stat-icon{font-size:.95rem;width:20px;text-align:center}
