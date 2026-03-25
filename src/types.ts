@@ -119,6 +119,17 @@ export interface DailyForecast {
   n: number
 }
 
+export interface CurrentObs {
+  temp:      number | null
+  feelsLike: number | null
+  humidity:  number | null
+  windspeed: number | null
+  windDir:   number | null
+  precip:    number | null
+  code:      number | null
+  time:      string | null
+}
+
 export interface AqiInfo {
   lbl: string
   cls: string
@@ -195,7 +206,11 @@ export interface LangData {
   mPres: string
   chartTitle: string
   days7: string
-  forecastTitle: string
+  forecastTitle:    string
+  forecastByDay:    string
+  forecastByHour:   string
+  expandForecast:   string
+  collapseForecast: string
   modelCol: string
   minLbl: string
   maxLbl: string

@@ -16,7 +16,9 @@ export const LANG_DATA: Record<string, LangData> = {
     days: ['Dg','Dl','Dt','Dc','Dj','Dv','Ds'],
     months: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'],
     mTMax: 'Temp. màx.', mTMin: 'Temp. mín.', mTemp: 'Temperatura', mRain: 'Prob. pluja', mWind: 'Vent màx.', mHum: 'Humitat', mPres: 'Pressió',
-    chartTitle: 'Comparativa', days7: '7 dies', forecastTitle: 'Previsió 7 dies', modelCol: 'Model',
+    chartTitle: 'Comparativa', days7: '7 dies', forecastTitle: 'Previsió', modelCol: 'Model',
+    forecastByDay: 'Per dies', forecastByHour: 'Per hores',
+    expandForecast: '+ 3 dies', collapseForecast: '− 3 dies',
     minLbl: 'Min', maxLbl: 'Max', noData: 'Cap dada disponible', noCode: 'Sense codi',
     aqi: { good: 'Excel·lent', fair: 'Bé', mod: 'Moderat', poor: 'Dolent', vpoor: 'Molt dolent', ext: 'Extrem' },
     wx: {
@@ -50,7 +52,9 @@ export const LANG_DATA: Record<string, LangData> = {
     days: ['Do','Lu','Ma','Mi','Ju','Vi','Sa'],
     months: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
     mTMax: 'Temp. máx.', mTMin: 'Temp. mín.', mTemp: 'Temperatura', mRain: 'Prob. lluvia', mWind: 'Viento máx.', mHum: 'Humedad', mPres: 'Presión',
-    chartTitle: 'Comparativa', days7: '7 días', forecastTitle: 'Previsión 7 días', modelCol: 'Modelo',
+    chartTitle: 'Comparativa', days7: '7 días', forecastTitle: 'Previsión', modelCol: 'Modelo',
+    forecastByDay: 'Por días', forecastByHour: 'Por horas',
+    expandForecast: '+ 3 días', collapseForecast: '− 3 días',
     minLbl: 'Mín', maxLbl: 'Máx', noData: 'Sin datos disponibles', noCode: 'Sin código',
     aqi: { good: 'Excelente', fair: 'Bueno', mod: 'Moderado', poor: 'Malo', vpoor: 'Muy malo', ext: 'Extremo' },
     wx: {
@@ -84,7 +88,9 @@ export const LANG_DATA: Record<string, LangData> = {
     days: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
     months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     mTMax: 'Max temp.', mTMin: 'Min temp.', mTemp: 'Temperature', mRain: 'Rain prob.', mWind: 'Max wind', mHum: 'Humidity', mPres: 'Pressure',
-    chartTitle: 'Comparison', days7: '7 days', forecastTitle: '7-day forecast', modelCol: 'Model',
+    chartTitle: 'Comparison', days7: '7 days', forecastTitle: 'Forecast', modelCol: 'Model',
+    forecastByDay: 'By day', forecastByHour: 'By hour',
+    expandForecast: '+ 3 days', collapseForecast: '− 3 days',
     minLbl: 'Min', maxLbl: 'Max', noData: 'No data available', noCode: 'No code',
     aqi: { good: 'Excellent', fair: 'Good', mod: 'Moderate', poor: 'Poor', vpoor: 'Very Poor', ext: 'Extreme' },
     wx: {
@@ -118,7 +124,9 @@ export const LANG_DATA: Record<string, LangData> = {
     days: ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'],
     months: ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'],
     mTMax: 'Temp. max.', mTMin: 'Temp. min.', mTemp: 'Température', mRain: 'Prob. pluie', mWind: 'Vent max.', mHum: 'Humidité', mPres: 'Pression',
-    chartTitle: 'Comparaison', days7: '7 jours', forecastTitle: 'Prévisions 7 jours', modelCol: 'Modèle',
+    chartTitle: 'Comparaison', days7: '7 jours', forecastTitle: 'Prévision', modelCol: 'Modèle',
+    forecastByDay: 'Par jour', forecastByHour: 'Par heure',
+    expandForecast: '+ 3 jours', collapseForecast: '− 3 jours',
     minLbl: 'Min', maxLbl: 'Max', noData: 'Aucune donnée disponible', noCode: 'Sans code',
     aqi: { good: 'Excellent', fair: 'Bon', mod: 'Modéré', poor: 'Mauvais', vpoor: 'Très mauvais', ext: 'Extrême' },
     wx: {

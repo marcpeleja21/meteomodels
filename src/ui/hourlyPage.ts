@@ -75,7 +75,7 @@ function renderSlot(slot: HourSlot, t: LangData): string {
       <div class="h-icon">${wx.icon}</div>
       <div class="h-temp">${slot.temp !== null ? Math.round(slot.temp) + '°' : '—'}</div>
       <div class="h-rain" style="${rainStyle}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
-      ${(slot.precip ?? 0) > 0.1 ? `<div class="h-precip">🌧 ${fmt(slot.precip, 1)} mm</div>` : ''}
+      <div class="h-precip">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
       <div class="h-wind">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
       <div class="h-hum">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
     </div>
@@ -83,7 +83,7 @@ function renderSlot(slot: HourSlot, t: LangData): string {
 }
 
 export function renderHourlyPage() {
-  const el = document.getElementById('pageHourly')
+  const el = document.getElementById('forecastHoursView')
   if (!el) return
   const t = LANG_DATA[state.lang]
 

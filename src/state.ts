@@ -1,4 +1,4 @@
-import type { OpenMeteoResponse, AqiResponse, GeocodingResult } from './types'
+import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs } from './types'
 
 export const state = {
   wxData:      {} as Record<string, OpenMeteoResponse | null>,
@@ -11,10 +11,15 @@ export const state = {
   selectedDay:  0 as number,        // 0 = current, 1+ = day index
 
   // Subpages
-  currentPage:    'forecast' as 'forecast' | 'models' | 'hourly',
+  currentPage:    'forecast' as 'forecast' | 'models',
   modelPageModel: 'ecmwf'    as string,
   modelPageVar:   'wind'     as string,
   hourlyModel:    'ensemble' as string,
+
+  // Forecast UI state
+  forecastMode:         'days' as 'days' | 'hours',
+  forecastDaysExpanded: false  as boolean,
+  currentObs:           null   as CurrentObs | null,
 
   // Table
   tableDays: 4 as number,   // 4 = compact, 7 = full

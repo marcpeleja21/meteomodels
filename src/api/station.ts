@@ -1,13 +1,5 @@
-export interface CurrentObs {
-  temp:      number | null
-  feelsLike: number | null
-  humidity:  number | null
-  windspeed: number | null
-  windDir:   number | null
-  precip:    number | null
-  code:      number | null
-  time:      string | null
-}
+import type { CurrentObs } from '../types'
+export type { CurrentObs }
 
 export async function fetchCurrentObs(lat: number, lon: number): Promise<CurrentObs | null> {
   try {

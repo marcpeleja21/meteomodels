@@ -74,7 +74,6 @@ const navMenu       = document.getElementById('navMenu')       as HTMLDivElement
 const navCurrentLbl = document.getElementById('navCurrentLabel') as HTMLSpanElement
 const pageForecast  = document.getElementById('pageForecast')  as HTMLDivElement
 const pageModels    = document.getElementById('pageModels')    as HTMLDivElement
-const pageHourly    = document.getElementById('pageHourly')    as HTMLDivElement
 
 const welcomeScreen = document.getElementById('welcomeScreen') as HTMLDivElement
 const loadingScreen = document.getElementById('loadingScreen') as HTMLDivElement
@@ -107,6 +106,12 @@ function applyLang() {
   if (wTitle) wTitle.textContent = lang.welcomeTitle
   if (wSub)   wSub.textContent   = lang.welcomeSub
   if (bSub)   bSub.textContent   = lang.appSub
+
+  // Update forecast mode tab labels
+  const fmodeDaysEl  = document.getElementById('fmodeDays')
+  const fmodeHoursEl = document.getElementById('fmodeHours')
+  if (fmodeDaysEl)  fmodeDaysEl.textContent  = `📅 ${lang.forecastByDay}`
+  if (fmodeHoursEl) fmodeHoursEl.textContent = `🕐 ${lang.forecastByHour}`
 }
 
 // ── Globe animation ───────────────────────────────────────────────────────────
@@ -124,38 +129,50 @@ if (brandIcon) {
   }, 1400)
 }
 
+// ── Forecast mode tabs ────────────────────────────────────────────────────────
+const fmodeDaysBtn   = document.getElementById('fmodeDays')
+const fmodeHoursBtn  = document.getElementById('fmodeHours')
+const forecastDaysView  = document.getElementById('forecastDaysView')!
+const forecastHoursView = document.getElementById('forecastHoursView')!
+
+function setForecastMode(mode: 'days' | 'hours') {
+  state.forecastMode = mode
+  forecastDaysView.classList.toggle('hidden', mode !== 'days')
+  forecastHoursView.classList.toggle('hidden', mode !== 'hours')
+  fmodeDaysBtn?.classList.toggle('active', mode === 'days')
+  fmodeHoursBtn?.classList.toggle('active', mode === 'hours')
+  if (mode === 'hours' && state.currentLoc) renderHourlyPage()
+}
+fmodeDaysBtn?.addEventListener('click', () => setForecastMode('days'))
+fmodeHoursBtn?.addEventListener('click', () => setForecastMode('hours'))
+
 // ── Page switching ────────────────────────────────────────────────────────────
 function getPageLabel(page: string) {
   const lang = t()
   const map: Record<string, string> = {
     forecast: lang.navForecast,
     models:   lang.navModels,
-    hourly:   lang.navHourly,
   }
   return map[page] ?? page
 }
 
-function switchPage(page: 'forecast' | 'models' | 'hourly') {
+function switchPage(page: 'forecast' | 'models') {
   state.currentPage = page
   pageForecast.classList.toggle('hidden', page !== 'forecast')
   pageModels.classList.toggle('hidden',   page !== 'models')
-  pageHourly.classList.toggle('hidden',   page !== 'hourly')
   navCurrentLbl.textContent = getPageLabel(page)
   navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(b => {
     b.classList.toggle('active', b.dataset.page === page)
   })
   if (page === 'models')  renderModelsPage()
-  if (page === 'hourly')  renderHourlyPage()
 }
 
 function updateNavLabels() {
   const lang = t()
   const optForecast = document.getElementById('navOptForecast')
   const optModels   = document.getElementById('navOptModels')
-  const optHourly   = document.getElementById('navOptHourly')
   if (optForecast) optForecast.textContent = `📅 ${lang.navForecast}`
   if (optModels)   optModels.textContent   = `🗺 ${lang.navModels}`
-  if (optHourly)   optHourly.textContent   = `🕐 ${lang.navHourly}`
   navCurrentLbl.textContent = getPageLabel(state.currentPage)
 }
 
@@ -166,10 +183,9 @@ function renderAll() {
     renderModelCards()
     renderChart()
     renderTable()
+    if (state.forecastMode === 'hours') renderHourlyPage()
   } else if (state.currentPage === 'models') {
     renderModelsPage()
-  } else if (state.currentPage === 'hourly') {
-    renderHourlyPage()
   }
 }
 
@@ -184,6 +200,7 @@ document.addEventListener('mm:daySelected', () => {
   renderMainCard()
   renderForecastStrip()   // re-render to update selected highlight
   renderModelCards()      // update model cards to reflect selected day
+  if (state.forecastMode === 'hours') renderHourlyPage()
 })
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -260,7 +277,7 @@ navCurrent.addEventListener('click', e => {
 navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(btn => {
   btn.addEventListener('click', () => {
     navMenu.classList.remove('open')
-    switchPage(btn.dataset.page as 'forecast' | 'models' | 'hourly')
+    switchPage(btn.dataset.page as 'forecast' | 'models')
   })
 })
 
@@ -332,6 +349,8 @@ async function selectLocation(loc: GeocodingResult) {
   state.currentPage = 'forecast'
   state.wxData      = {}
   state.aqiData     = null
+  state.forecastMode         = 'days'
+  state.forecastDaysExpanded = false
   searchInput.value = loc.name
   hideSuggestions()
   // Persist so shortcuts (?page=hourly / ?page=models) can reload the last city
@@ -340,6 +359,7 @@ async function selectLocation(loc: GeocodingResult) {
   // Show nav dropdown, reset to forecast
   navDropdown.classList.remove('hidden')
   switchPage('forecast')
+  setForecastMode('days')
 
   // Show location name in header
   headerLocName.textContent = loc.name
@@ -368,8 +388,9 @@ async function selectLocation(loc: GeocodingResult) {
     fetchAlerts(loc.latitude, loc.longitude, loc.country_code),
   ])
 
-  state.wxData  = wxData
-  state.aqiData = aqiData
+  state.wxData     = wxData
+  state.aqiData    = aqiData
+  state.currentObs = obsData
 
   // MeteoBlue
   try {
@@ -462,14 +483,20 @@ window.addEventListener('resize', resizeCanvas)
     return
   }
 
-  // Shortcut: switch to a page after last location is re-loaded
+  // Shortcut: switch to a page or mode after last location is re-loaded
   if (page === 'hourly' || page === 'models') {
     const saved = localStorage.getItem('mm_last_loc')
     if (saved) {
       try {
         const loc = JSON.parse(saved) as GeocodingResult
         window.addEventListener('DOMContentLoaded', () => selectLocation(loc).then(() => {
-          switchPage(page as 'hourly' | 'models')
+          if (page === 'models') {
+            switchPage('models')
+          } else {
+            // hourly → stay on forecast page, switch to hours mode
+            switchPage('forecast')
+            setForecastMode('hours')
+          }
         }))
       } catch { /* ignore bad storage */ }
     }

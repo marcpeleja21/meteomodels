@@ -85,7 +85,6 @@
     <div class="nav-menu" id="navMenu">
       <button class="nav-option active" data-page="forecast" id="navOptForecast">📅 Previsió</button>
       <button class="nav-option" data-page="models" id="navOptModels">🗺 Models</button>
-      <button class="nav-option" data-page="hourly" id="navOptHourly">🕐 Horari</button>
     </div>
   </div>
 
@@ -160,7 +159,21 @@
       <div class="main-card">
         <div id="mainCardTop" class="main-card-top"></div>
         <div class="mc-divider"></div>
-        <div id="forecastStrip" class="forecast-strip"></div>
+        <!-- Forecast mode toggle -->
+        <div class="fcast-mode-bar" id="fcastModeBar">
+          <button class="fmode-tab active" data-fmode="days" id="fmodeDays">📅 Per dies</button>
+          <button class="fmode-tab" data-fmode="hours" id="fmodeHours">🕐 Per hores</button>
+        </div>
+        <!-- Per dies view -->
+        <div id="forecastDaysView">
+          <div id="forecastStrip" class="forecast-strip"></div>
+          <div id="forecastExpandRow" class="forecast-expand-row hidden">
+            <button id="forecastExpandBtn" class="forecast-expand-btn">+ 3 dies ▾</button>
+            <div id="forecastStripExtra" class="forecast-strip forecast-strip-extra"></div>
+          </div>
+        </div>
+        <!-- Per hores view -->
+        <div id="forecastHoursView" class="hidden"></div>
       </div>
       <div id="modelGrid" class="model-grid"></div>
       <div id="chartCard" class="chart-card"></div>
@@ -170,8 +183,6 @@
     <!-- PAGE: MODELS -->
     <div id="pageModels" class="hidden"></div>
 
-    <!-- PAGE: HOURLY -->
-    <div id="pageHourly" class="hidden"></div>
   </div>
 </main>
 
