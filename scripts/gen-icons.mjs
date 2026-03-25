@@ -43,7 +43,15 @@ async function maskable(size) {
 await maskable(192)
 await maskable(512)
 
-// Favicon SVG (just a copy with a viewBox tweak — already done via public/icon.svg)
+// Shortcut icons — 96×96 PNG from each SVG
+const shortcuts = ['search', 'hourly', 'models']
+for (const name of shortcuts) {
+  const src = readFileSync(resolve(root, `public/shortcut-${name}.svg`))
+  await sharp(src).resize(96, 96).png().toFile(resolve(root, `public/icons/shortcut-${name}.png`))
+  console.log(`✓ shortcut-${name}.png`)
+}
+
+// Favicon SVG
 import { copyFileSync } from 'fs'
 copyFileSync(resolve(root, 'public/icon.svg'), resolve(root, 'public/favicon.svg'))
 console.log('✓ favicon.svg')

@@ -37,6 +37,16 @@
 <!-- Microsoft -->
 <meta name="msapplication-TileColor" content="#0b1220">
 <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
+
+<!-- Explicit SW registration — visible to crawlers before the JS bundle loads -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .catch(function (e) { console.warn('[SW] registration failed:', e); });
+    });
+  }
+</script>
 </head>
 <body>
 <canvas id="bgCanvas"></canvas>

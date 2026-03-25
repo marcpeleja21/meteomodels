@@ -10,11 +10,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
+      // Self-destroying SW on unregister (prevents stale SW on redeploy)
+      selfDestroying: false,
+
       // Assets to include verbatim in the SW precache
       includeAssets: [
         'favicon.svg',
         'apple-touch-icon.png',
         'icons/**/*.png',
+        'screenshots/**/*.png',
       ],
 
       // ── Web App Manifest ────────────────────────────────────────────────────
@@ -44,6 +48,50 @@ export default defineConfig({
           { src: 'icons/icon-512x512.png',       sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icons/maskable-192x192.png',   sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: 'icons/maskable-512x512.png',   sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+
+        // ── 1. SHORTCUTS — quick actions from long-press on home screen ──────
+        shortcuts: [
+          {
+            name:       'Cerca localitat',
+            short_name: 'Cerca',
+            description:'Busca una nova localitat meteorològica',
+            url:        '/?action=search',
+            icons: [{ src: 'icons/shortcut-search.png', sizes: '96x96', type: 'image/png' }],
+          },
+          {
+            name:       'Previsió horària',
+            short_name: 'Horari',
+            description:'Consulta la previsió hora a hora (72 h)',
+            url:        '/?page=hourly',
+            icons: [{ src: 'icons/shortcut-hourly.png', sizes: '96x96', type: 'image/png' }],
+          },
+          {
+            name:       'Comparar models',
+            short_name: 'Models',
+            description:'Compara els models meteorològics en el mapa',
+            url:        '/?page=models',
+            icons: [{ src: 'icons/shortcut-models.png', sizes: '96x96', type: 'image/png' }],
+          },
+        ],
+
+        // ── 2. LAUNCH HANDLER — prevent duplicate instances ──────────────────
+        launch_handler: {
+          client_mode: ['navigate-existing', 'auto'],
+        },
+
+        // ── 3. DISPLAY OVERRIDE — window-controls-overlay on desktop ────────
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+
+        // ── 4. PREFER PWA over any related native app ────────────────────────
+        prefer_related_applications: false,
+
+        // ── 5. PROTOCOL HANDLER — web+meteo://Barcelona opens the app ───────
+        protocol_handlers: [
+          {
+            protocol: 'web+meteo',
+            url:      '/?city=%s',
+          },
         ],
 
         screenshots: [

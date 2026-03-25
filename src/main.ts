@@ -334,6 +334,8 @@ async function selectLocation(loc: GeocodingResult) {
   state.aqiData     = null
   searchInput.value = loc.name
   hideSuggestions()
+  // Persist so shortcuts (?page=hourly / ?page=models) can reload the last city
+  localStorage.setItem('mm_last_loc', JSON.stringify(loc))
 
   // Show nav dropdown, reset to forecast
   navDropdown.classList.remove('hidden')
@@ -423,6 +425,56 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
 
 // ── Canvas resize ─────────────────────────────────────────────────────────────
 window.addEventListener('resize', resizeCanvas)
+
+// ── Deep-link / shortcut URL handling ─────────────────────────────────────────
+// Handles:
+//   /?action=search         → open search immediately
+//   /?page=hourly|models    → switch page after the last location loads
+//   /?city=web+meteo://X    → auto-search for X (protocol handler)
+;(function handleStartupUrl() {
+  const params  = new URLSearchParams(location.search)
+  const action  = params.get('action')
+  const page    = params.get('page')
+  const cityRaw = params.get('city')
+
+  // Protocol handler: "web+meteo://Barcelona" arrives as city=web+meteo://Barcelona
+  if (cityRaw) {
+    const city = cityRaw.replace(/^web\+meteo:\/\//i, '').trim()
+    if (city) {
+      // Auto-search on load
+      window.addEventListener('DOMContentLoaded', () => {
+        searchLocations(city, state.lang).then(results => {
+          if (results.length) selectLocation(results[0])
+          else {
+            // Pre-fill the search box so user just has to confirm
+            searchInput.value = city
+            searchInput.focus()
+          }
+        })
+      })
+    }
+    return
+  }
+
+  // Shortcut: open search immediately
+  if (action === 'search') {
+    window.addEventListener('DOMContentLoaded', () => searchInput.focus())
+    return
+  }
+
+  // Shortcut: switch to a page after last location is re-loaded
+  if (page === 'hourly' || page === 'models') {
+    const saved = localStorage.getItem('mm_last_loc')
+    if (saved) {
+      try {
+        const loc = JSON.parse(saved) as GeocodingResult
+        window.addEventListener('DOMContentLoaded', () => selectLocation(loc).then(() => {
+          switchPage(page as 'hourly' | 'models')
+        }))
+      } catch { /* ignore bad storage */ }
+    }
+  }
+})()
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 inject()
