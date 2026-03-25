@@ -39,28 +39,35 @@ export function renderTable() {
     code: number | null,
     rain: number | null,
     wind: number | null,
+    precipMm: number | null = null,
     validModel = true,
   ): string {
     if (!validModel) return `<td><div class="fc-cell fc-na">—</div></td>`
-    const wx      = wxFromCode(code, t.wx)
-    const rainStr = rain !== null ? `<div class="fc-rain">💦 ${Math.round(rain)}%</div>` : ''
-    const windStr = wind !== null ? `<div class="fc-wind-lbl">💨 ${fmt(wind, 0)} km/h</div>` : ''
+    const wx        = wxFromCode(code, t.wx)
+    const rainStr   = rain !== null ? `<div class="fc-rain">💦 ${Math.round(rain)}%</div>` : ''
+    const precipStr = precipMm !== null ? `<div class="fc-precip">🌧 ${fmt(precipMm, 1)} mm</div>` : ''
+    const windStr   = wind !== null ? `<div class="fc-wind-lbl">💨 ${fmt(wind, 0)} km/h</div>` : ''
     return `<td><div class="fc-cell">
       <div class="fc-icon">${wx.icon}</div>
       <div class="fc-temp">${fmt(maxT, 0)}° / ${fmt(minT, 0)}°</div>
       ${rainStr}
+      ${precipStr}
       ${windStr}
     </div></td>`
   }
 
-  // Ensemble row (also needs avg wind)
+  // Ensemble row (also needs avg wind and avg precipitation)
   const ensRow = ensDays.map((d, i) => {
     const validModels = MODELS.filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
     const winds = validModels
       .map(m => state.wxData[m.key]!.daily.windspeed_10m_max[i] ?? null)
       .filter((v): v is number => v !== null)
-    const avgWind = winds.length ? winds.reduce((a, b) => a + b, 0) / winds.length : null
-    return buildCell(d.maxT, d.minT, d.code, d.rain, avgWind)
+    const precips = validModels
+      .map(m => (state.wxData[m.key]!.daily as any).precipitation_sum?.[i] ?? null)
+      .filter((v): v is number => v !== null)
+    const avgWind   = winds.length   ? winds.reduce((a, b) => a + b, 0)   / winds.length   : null
+    const avgPrecip = precips.length ? precips.reduce((a, b) => a + b, 0) / precips.length : null
+    return buildCell(d.maxT, d.minT, d.code, d.rain, avgWind, avgPrecip)
   }).join('')
 
   // Individual model rows
@@ -74,6 +81,7 @@ export function renderTable() {
         data.daily.weathercode[i] ?? null,
         data.daily.precipitation_probability_max[i] ?? null,
         data.daily.windspeed_10m_max[i] ?? null,
+        (data.daily as any).precipitation_sum?.[i] ?? null,
         valid,
       )
     }).join('')

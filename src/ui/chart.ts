@@ -6,17 +6,18 @@ import type { MetricConfig, LangData } from '../types'
 const W = 900, H = 280, PAD = { top: 24, right: 20, bottom: 40, left: 44 }
 const CHART_W = W - PAD.left - PAD.right
 const CHART_H = H - PAD.top  - PAD.bottom
-const DAYS = 7
+const DAYS = 5   // show 5 days in the chart
 
-type MetricKey = 'temp' | 'rain' | 'wind' | 'hum' | 'pres'
+type MetricKey = 'temp' | 'precip' | 'rain' | 'wind' | 'hum' | 'pres'
 
 function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
   return {
-    temp: { key: 'temp', unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
-    rain: { key: 'rain', unit: '%',   color: '#4dd0e1', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
-    wind: { key: 'wind', unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.windspeed_10m_max[i] ?? null },
-    hum:  { key: 'hum',  unit: '%',   color: '#90caf9', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
-    pres: { key: 'pres', unit: 'hPa', color: '#ce93d8', src: (k, i) => {
+    temp:   { key: 'temp',   unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
+    precip: { key: 'precip', unit: 'mm',  color: '#29b6f6', src: (k, i) => (state.wxData[k]?.daily as any).precipitation_sum?.[i] ?? null },
+    rain:   { key: 'rain',   unit: '%',   color: '#4dd0e1', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
+    wind:   { key: 'wind',   unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.windspeed_10m_max[i] ?? null },
+    hum:    { key: 'hum',    unit: '%',   color: '#90caf9', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
+    pres:   { key: 'pres',   unit: 'hPa', color: '#ce93d8', src: (k, i) => {
       const d = state.wxData[k]
       if (!d) return null
       return d.hourly.pressure_msl[i * 24 + 12] ?? null
@@ -30,7 +31,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const el      = document.getElementById('chartCard')!
 
   const metricLabels: Record<MetricKey, string> = {
-    temp: t.mTemp, rain: t.mRain, wind: t.mWind, hum: t.mHum, pres: t.mPres,
+    temp: t.mTemp, precip: t.statPrecip, rain: t.mRain, wind: t.mWind, hum: t.mHum, pres: t.mPres,
   }
 
   const tabsHtml = (Object.keys(metrics) as MetricKey[]).map(k => {
@@ -41,8 +42,8 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const loaded = MODELS.filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = ''; return }
 
-  // Normalise activeMetric — if legacy 'tmax'/'tmin' survived, switch to 'temp'
-  if (state.activeMetric === 'tmax' || state.activeMetric === 'tmin') {
+  // Normalise activeMetric — fall back to 'temp' for unknown/legacy keys
+  if (!Object.keys(metrics).includes(state.activeMetric)) {
     state.activeMetric = 'temp'
   }
 
@@ -181,7 +182,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
 
   el.innerHTML = `
     <div class="chart-header">
-      <div class="section-title">${t.chartTitle} · ${t.days7}</div>
+      <div class="section-title">${t.chartTitle}</div>
       <div class="metric-tabs">${tabsHtml}</div>
     </div>
     <div class="chart-scroll">

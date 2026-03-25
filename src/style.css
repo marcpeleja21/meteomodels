@@ -301,6 +301,7 @@ body{
 .mc-label{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:4px}
 .mc-condition{font-size:1.1rem;font-weight:600;color:var(--text)}
 .mc-feels{font-size:.82rem;color:var(--text-muted);margin-top:2px}
+.mc-delta{font-size:.72rem;color:var(--text-dim);margin-top:3px;letter-spacing:.01em}
 .mc-right{display:flex;flex-direction:column;gap:7px;min-width:150px}
 .stat{display:flex;align-items:center;gap:8px;font-size:.82rem}
 .stat-icon{font-size:.95rem;width:20px;text-align:center}
@@ -337,6 +338,7 @@ body{
 .strip-temps{font-size:.8rem;font-weight:700;color:var(--text);white-space:nowrap}
 .strip-temps span{color:var(--text-muted);font-weight:400}
 .strip-rain{font-size:.7rem;color:var(--accent2)}
+.strip-precip{font-size:.68rem;color:#29b6f6}
 .strip-wind{font-size:.68rem;color:var(--text-muted)}
 .strip-models{font-size:.62rem;color:var(--text-dim);margin-top:1px}
 
@@ -411,6 +413,7 @@ body{
 .fc-icon{font-size:1rem}
 .fc-temp{font-weight:700;font-size:.82rem;white-space:nowrap}
 .fc-rain{font-size:.68rem;color:var(--accent2)}
+.fc-precip{font-size:.65rem;color:#29b6f6}
 .fc-wind-lbl{font-size:.66rem;color:var(--text-muted)}
 .fc-na{color:var(--text-dim);font-size:.75rem}
 .day-hdr{display:flex;flex-direction:column;align-items:center}

@@ -1,31 +1,54 @@
 import { state } from '../state'
+import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getEnsembleForecast } from '../utils/data'
-import { fmt } from '../utils/weather'
+import { fmt, avg } from '../utils/weather'
+import type { OpenMeteoResponse } from '../types'
+
+/** Pre-compute per-day avg wind (km/h) and avg precipitation (mm) from valid models */
+function buildDayExtras(count: number): { wind: (number|null)[]; precip: (number|null)[] } {
+  const wind:   (number|null)[] = []
+  const precip: (number|null)[] = []
+  for (let i = 0; i < count; i++) {
+    const mods = MODELS
+      .filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
+      .map(m => state.wxData[m.key] as OpenMeteoResponse)
+    const winds   = mods.map(m => m.daily.windspeed_10m_max[i] ?? null).filter((v): v is number => v !== null)
+    const precips = mods.map(m => (m.daily as any).precipitation_sum?.[i] ?? null).filter((v): v is number => v !== null)
+    wind.push(winds.length   ? avg(winds)   : null)
+    precip.push(precips.length ? avg(precips) : null)
+  }
+  return { wind, precip }
+}
 
 export function renderForecastStrip() {
   const t    = LANG_DATA[state.lang]
   const days = getEnsembleForecast(state.wxData, t.wx, 7)
-  const el   = document.getElementById('forecastStrip')!
+  const el         = document.getElementById('forecastStrip')!
   const expandRow  = document.getElementById('forecastExpandRow')!
   const expandBtn  = document.getElementById('forecastExpandBtn')!
   const extraEl    = document.getElementById('forecastStripExtra')!
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today  = new Date().toISOString().slice(0, 10)
+  const extras = buildDayExtras(days.length)
 
   function renderDayCards(arr: typeof days, startI: number): string {
     return arr.map((d, offset) => {
-      const i        = startI + offset
-      const date     = new Date(d.date + 'T12:00:00')
-      const isToday  = d.date === today
+      const i          = startI + offset
+      const date       = new Date(d.date + 'T12:00:00')
+      const isToday    = d.date === today
       const isSelected = state.selectedDay === i
-      const dayName  = isToday ? t.today : t.days[date.getDay()]
-      const dayNum   = date.getDate()
-      const mon      = t.months[date.getMonth()]
-      const rainPct  = d.rain !== null ? `${Math.round(d.rain)}%` : ''
+      const dayName    = isToday ? t.today : t.days[date.getDay()]
+      const dayNum     = date.getDate()
+      const mon        = t.months[date.getMonth()]
+      const rainPct    = d.rain !== null ? `${Math.round(d.rain)}%` : ''
+      const windVal    = extras.wind[i]
+      const precipVal  = extras.precip[i]
+
       let cls = 'strip-day'
       if (isToday)    cls += ' today'
       if (isSelected) cls += ' selected'
+
       return `
         <div class="${cls}" data-day="${i}">
           <div class="strip-dname">${dayName}</div>
@@ -33,6 +56,8 @@ export function renderForecastStrip() {
           <div class="strip-icon">${d.cond.icon}</div>
           <div class="strip-temps">${fmt(d.maxT, 0)}° <span>/ ${fmt(d.minT, 0)}°</span></div>
           ${rainPct ? `<div class="strip-rain">💦 ${rainPct}</div>` : ''}
+          ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
+          ${windVal !== null ? `<div class="strip-wind">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
         </div>
       `

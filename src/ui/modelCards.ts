@@ -50,10 +50,6 @@ export function renderModelCards() {
 
     const wx = wxFromCode(code, t.wx)
 
-    const deltaTemp: number | null = (dayI === 0 && state.currentObs?.temp != null && displayTemp !== null)
-      ? displayTemp - state.currentObs.temp
-      : null
-
     return `
       <div class="mc2" style="--mc:${m.color}">
         <div class="mc2-head">
@@ -69,7 +65,6 @@ export function renderModelCards() {
           ${precipMm !== null ? `<span style="color:var(--accent2)"> · 💦 ${fmt(precipMm, 1)} mm</span>` : ''}
         </div>
         <div class="mc2-cond">${wx.icon} <span>${wx.lbl}</span></div>
-        ${deltaTemp !== null ? `<div class="mc2-delta">${deltaTemp >= 0 ? '+' : ''}${deltaTemp.toFixed(1)}° vs ara</div>` : ''}
         <div class="mc2-bar-wrap">
           <div class="mc2-bar-fill" style="width:${rainPct}%;background:var(--accent2)"></div>
         </div>

@@ -36,6 +36,13 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
   const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[0] ?? null).filter((v): v is number => v !== null)
   const avgPrecip = precipVals.length ? avg(precipVals) : null
 
+  // Temp delta vs actual observation
+  const obsTemp  = state.currentObs?.temp ?? null
+  const deltaEns = (cur.temp !== null && obsTemp !== null) ? cur.temp - obsTemp : null
+  const deltaHtml = deltaEns !== null
+    ? `<div class="mc-delta">${deltaEns >= 0 ? '+' : ''}${deltaEns.toFixed(1)}° vs ara</div>`
+    : ''
+
   el.innerHTML = `
     <div class="mc-left">
       <div class="mc-big-icon">${wx.icon}</div>
@@ -44,6 +51,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
         <div class="mc-temp">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="mc-unit">°C</span></div>
         <div class="mc-condition">${wx.lbl}</div>
         <div class="mc-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        ${deltaHtml}
       </div>
     </div>
     <div class="mc-right">
@@ -73,6 +81,12 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
   const aqi  = getCurrentAqi(state.aqiData)
   const aqiI = aqiInfo(aqi, t.aqi)
 
+  const obsTemp2   = state.currentObs?.temp ?? null
+  const deltaSingle = (cur.temp !== null && obsTemp2 !== null) ? cur.temp - obsTemp2 : null
+  const deltaHtml2  = deltaSingle !== null
+    ? `<div class="mc-delta">${deltaSingle >= 0 ? '+' : ''}${deltaSingle.toFixed(1)}° vs ara</div>`
+    : ''
+
   el.innerHTML = `
     <div class="mc-left">
       <div class="mc-big-icon">${wx.icon}</div>
@@ -81,6 +95,7 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
         <div class="mc-temp" style="color:${model.color}">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="mc-unit">°C</span></div>
         <div class="mc-condition">${wx.lbl}</div>
         <div class="mc-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        ${deltaHtml2}
       </div>
     </div>
     <div class="mc-right">
