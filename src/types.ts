@@ -232,4 +232,5 @@ export interface LangData {
   alertDismiss: string
   nModels: (n: number) => string
   ensLabel: (n: number) => string
+  vsActual: string
 }

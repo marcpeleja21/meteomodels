@@ -36,6 +36,7 @@ export const LANG_DATA: Record<string, LangData> = {
     alertDismiss: 'Tancar avís',
     nModels: (n: number) => `${n} models`,
     ensLabel: (n: number) => `Mitjana de ${n} models`,
+    vsActual: 'vs actual',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -72,6 +73,7 @@ export const LANG_DATA: Record<string, LangData> = {
     alertDismiss: 'Cerrar aviso',
     nModels: (n: number) => `${n} modelos`,
     ensLabel: (n: number) => `Media de ${n} modelos`,
+    vsActual: 'vs actual',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -108,6 +110,7 @@ export const LANG_DATA: Record<string, LangData> = {
     alertDismiss: 'Dismiss alert',
     nModels: (n: number) => `${n} models`,
     ensLabel: (n: number) => `Average of ${n} models`,
+    vsActual: 'vs actual',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -144,5 +147,6 @@ export const LANG_DATA: Record<string, LangData> = {
     alertDismiss: 'Fermer l\'alerte',
     nModels: (n: number) => `${n} modèles`,
     ensLabel: (n: number) => `Moyenne de ${n} modèles`,
+    vsActual: 'vs actuel',
   },
 }

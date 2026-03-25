@@ -25,11 +25,11 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg); color:var(--text);
-  min-height:100vh; overflow-x:hidden;
+  min-height:100vh; overflow-x:hidden; max-width:100vw;
 }
 
 /* ── CANVAS ─────────────────────────────────────────────────── */
@@ -146,7 +146,7 @@ body{
 .sugg-loc{font-size:.75rem;color:var(--text-muted)}
 
 /* ── MAIN ───────────────────────────────────────────────────── */
-.main{flex:1;padding:20px 22px;max-width:1380px;margin:0 auto;width:100%}
+.main{flex:1;padding:20px 22px;max-width:1380px;margin:0 auto;width:100%;min-width:0;overflow-x:hidden}
 
 /* ── WELCOME ────────────────────────────────────────────────── */
 .welcome{text-align:center;padding:80px 20px;color:var(--text)}
@@ -467,12 +467,13 @@ body{
 .nav-dropdown{position:relative;flex-shrink:0}
 .nav-current{
   display:flex;align-items:center;gap:5px;
-  padding:4px 11px;
+  padding:8px 13px;
+  min-height:40px;
   background:rgba(255,255,255,0.06);
   border:1px solid var(--card-border);
   border-radius:var(--radius-sm);
   color:var(--text);cursor:pointer;
-  font-size:.78rem;font-weight:700;
+  font-size:.82rem;font-weight:700;
   transition:border-color var(--trans),background var(--trans);
   white-space:nowrap;
 }
@@ -569,12 +570,13 @@ body{
 .flag-svg{width:16px;height:11px;border-radius:2px;vertical-align:middle;flex-shrink:0}
 .lang-current{
   display:flex;align-items:center;gap:5px;
-  padding:4px 9px;
+  padding:8px 11px;
+  min-height:40px;
   background:rgba(255,255,255,0.06);
   border:1px solid var(--card-border);
   border-radius:var(--radius-sm);
   color:var(--text);cursor:pointer;
-  font-size:.73rem;font-weight:700;
+  font-size:.78rem;font-weight:700;
   transition:border-color var(--trans),background var(--trans);
   white-space:nowrap;
 }
@@ -678,7 +680,13 @@ body{
 
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
 @media(max-width:768px){
-  .header{padding:10px 16px;gap:10px}
+  .header{padding:10px 14px;gap:8px;overflow:hidden}
+  .brand-sub{display:none}
+  .brand-icon{font-size:1.4rem}
+  .brand-title{font-size:1.1rem}
+  .header-loc{min-width:0;overflow:hidden}
+  #headerLocName{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .change-loc-btn{padding:6px 10px;min-height:36px;font-size:.75rem}
   .media-row{grid-template-columns:1fr}
   .main{padding:14px}
   .main-card-top{grid-template-columns:1fr;gap:14px}
@@ -690,9 +698,17 @@ body{
   .mc-big-icon{font-size:3.5rem}
   .welcome h2{font-size:1.6rem}
   .station-card{gap:12px}
+  .nav-current{padding:8px 10px;font-size:.78rem}
+  .lang-current{padding:8px 9px}
+  #langCurrentCode{display:none}
+  .nav-chevron,.lang-chevron{display:none}
 }
 @media(max-width:480px){
+  .header{gap:6px;padding:10px 10px}
+  .brand-title{font-size:1rem}
   .model-grid{grid-template-columns:1fr 1fr}
   .strip-day{padding:8px 2px}
   .strip-icon{font-size:1.2rem}
+  #headerLocName{max-width:70px}
+  .change-loc-btn{padding:6px 8px;font-size:.7rem}
 }

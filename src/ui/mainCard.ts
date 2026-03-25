@@ -28,7 +28,7 @@ function windArrowFromDeg(deg: number | null): string {
 }
 
 /** Coloured delta badge + bar. delta = forecast - real */
-function deltaHtml(delta: number | null): string {
+function deltaHtml(delta: number | null, t: LangData): string {
   if (delta === null) return ''
   const abs = Math.abs(delta)
   const sign = delta >= 0 ? '+' : ''
@@ -36,7 +36,7 @@ function deltaHtml(delta: number | null): string {
   const pct = Math.min(abs / 10, 1) * 100
   return `
     <div class="now-delta">
-      <span class="now-delta-val ${cls}">${sign}${delta.toFixed(1)}°C vs ara</span>
+      <span class="now-delta-val ${cls}">${sign}${delta.toFixed(1)}°C ${t.vsActual}</span>
       <div class="now-delta-bar-bg">
         <div class="now-delta-bar-fill ${cls}" style="width:${pct.toFixed(1)}%"></div>
       </div>
@@ -97,7 +97,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
         <div class="cmp-temp">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
         <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
-        ${deltaHtml(delta)}
+        ${deltaHtml(delta, t)}
         <div class="cmp-stats">
           <span>💦 ${fmt(cur.rain, 0)}%</span>
           ${avgPrecip !== null ? `<span>🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
@@ -137,7 +137,7 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
         <div class="cmp-temp" style="color:${model.color}">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
         <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
-        ${deltaHtml(delta)}
+        ${deltaHtml(delta, t)}
         <div class="cmp-stats">
           <span>💦 ${fmt(cur.rain, 0)}%</span>
           <span>💨 ${fmt(cur.wind, 0)} km/h</span>
