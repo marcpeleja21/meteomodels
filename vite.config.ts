@@ -28,6 +28,7 @@ export default defineConfig({
         orientation:      'portrait-primary',
         start_url:        '/',
         scope:            '/',
+        id:               '/',
         lang:             'ca',
         categories:       ['weather', 'utilities'],
         dir:              'ltr',
@@ -43,6 +44,23 @@ export default defineConfig({
           { src: 'icons/icon-512x512.png',       sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icons/maskable-192x192.png',   sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: 'icons/maskable-512x512.png',   sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+
+        screenshots: [
+          {
+            src:         'screenshots/desktop.png',
+            sizes:       '1280x800',
+            type:        'image/png',
+            form_factor: 'wide',
+            label:       'MeteoModels – Comparativa de models meteorològics',
+          },
+          {
+            src:         'screenshots/mobile.png',
+            sizes:       '390x844',
+            type:        'image/png',
+            form_factor: 'narrow',
+            label:       'MeteoModels – previsió mòbil',
+          },
         ],
       },
 
