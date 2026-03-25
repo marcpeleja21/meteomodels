@@ -21,9 +21,16 @@
   </div>
 
   <div id="headerLoc" class="header-loc hidden">
-    <span>📍</span>
+    <!-- Normal display: pin + name + button -->
+    <span class="hloc-pin">📍</span>
     <span id="headerLocName"></span>
     <button id="changeLoc" class="change-loc-btn">✎ Canviar</button>
+    <!-- Inline search (shown when Canviar is clicked) -->
+    <div id="headerSearchWrap" class="header-search-wrap hidden">
+      <input id="headerSearchInput" type="text" class="header-search-input" autocomplete="off" spellcheck="false">
+      <button id="headerSearchCancel" class="header-search-cancel">✕</button>
+      <div id="headerSearchSugg" class="header-sugg-pop"></div>
+    </div>
   </div>
 
   <!-- Nav Dropdown (only shown when location is selected) -->

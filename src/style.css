@@ -53,8 +53,8 @@ body{
 .brand-sub{font-size:.65rem;color:var(--text-muted);margin-top:1px}
 
 /* ── HEADER LOC ──────────────────────────────────────────────── */
-.header-loc{flex:1;display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text-muted);overflow:hidden}
-.header-loc span:first-child{flex-shrink:0}
+.header-loc{flex:1;display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text-muted);overflow:visible;position:relative}
+.hloc-pin{flex-shrink:0}
 #headerLocName{font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .change-loc-btn{
   flex-shrink:0; padding:3px 9px;
@@ -63,6 +63,40 @@ body{
   cursor:pointer; transition:all var(--trans);
 }
 .change-loc-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,210,230,0.08)}
+
+/* ── HEADER INLINE SEARCH ────────────────────────────────────── */
+.header-search-wrap{
+  display:flex; align-items:center; gap:6px;
+  flex:1; position:relative; min-width:0;
+}
+.header-search-input{
+  flex:1; min-width:0; padding:5px 12px;
+  background:rgba(255,255,255,0.07); border:1.5px solid var(--accent);
+  border-radius:var(--radius-sm); color:var(--text); font-size:.85rem;
+  outline:none; transition:background var(--trans);
+}
+.header-search-input::placeholder{color:var(--text-muted)}
+.header-search-input:focus{background:rgba(0,210,230,0.08)}
+.header-search-cancel{
+  flex-shrink:0; padding:4px 9px;
+  background:transparent; border:1px solid var(--card-border);
+  border-radius:var(--radius-sm); color:var(--text-muted); font-size:.8rem;
+  cursor:pointer; transition:all var(--trans);
+}
+.header-search-cancel:hover{border-color:var(--red);color:var(--red)}
+.header-sugg-pop{
+  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:600;
+  background:rgba(12,20,38,0.98); border:1px solid var(--card-border);
+  border-radius:var(--radius-sm); box-shadow:var(--shadow);
+  max-height:260px; overflow-y:auto; display:none;
+}
+.header-sugg-pop .sugg-item{
+  padding:9px 14px; cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  transition:background var(--trans);
+}
+.header-sugg-pop .sugg-item:last-child{border-bottom:none}
+.header-sugg-pop .sugg-item:hover{background:rgba(0,210,230,0.08)}
 
 /* ── SEARCH (legacy keep, not in header) ────────────────────── */
 .search-wrap{width:100%;position:relative}
@@ -323,6 +357,8 @@ body{
 .mc2-bar-wrap{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:4px}
 .mc2-bar-fill{height:100%;border-radius:2px;transition:width .6s ease}
 .mc2-bar-lbl{font-size:.68rem;color:var(--text-muted);display:flex;justify-content:space-between}
+.mc2-wind{margin-top:6px;font-size:.7rem;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center}
+.mc2-gust{color:var(--text-dim);font-size:.65rem}
 .mc2-note{margin-top:7px;font-size:.65rem;color:var(--text-dim);font-style:italic}
 
 /* ── CHART ──────────────────────────────────────────────────── */
@@ -371,9 +407,21 @@ body{
 .fc-icon{font-size:1rem}
 .fc-temp{font-weight:700;font-size:.82rem;white-space:nowrap}
 .fc-rain{font-size:.68rem;color:var(--accent2)}
+.fc-wind-lbl{font-size:.66rem;color:var(--text-muted)}
+.fc-na{color:var(--text-dim);font-size:.75rem}
 .day-hdr{display:flex;flex-direction:column;align-items:center}
 .day-n{font-weight:800;font-size:.82rem}
 .day-d{font-size:.68rem;opacity:.55}
+
+/* Table title row with expand button */
+.table-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tbl-expand-btn{
+  padding:4px 12px; font-size:.72rem; font-weight:700;
+  background:rgba(0,210,230,0.1); border:1px solid rgba(0,210,230,0.25);
+  border-radius:var(--radius-sm); color:var(--accent); cursor:pointer;
+  transition:all var(--trans);
+}
+.tbl-expand-btn:hover{background:rgba(0,210,230,0.2);border-color:var(--accent)}
 .sep-row td{height:2px;background:rgba(255,255,255,0.04);padding:0}
 .model-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 

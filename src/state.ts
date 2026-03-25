@@ -15,4 +15,7 @@ export const state = {
   modelPageModel: 'ecmwf'    as string,
   modelPageVar:   'wind'     as string,
   hourlyModel:    'ensemble' as string,
+
+  // Table
+  tableDays: 4 as number,   // 4 = compact, 7 = full
 }

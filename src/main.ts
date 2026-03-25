@@ -53,9 +53,14 @@ const searchInput   = document.getElementById('searchInput')   as HTMLInputEleme
 const searchBtn     = document.getElementById('searchBtn')     as HTMLButtonElement
 const suggestionsEl = document.getElementById('suggestions')   as HTMLDivElement
 
-const headerLoc     = document.getElementById('headerLoc')!    as HTMLDivElement
-const headerLocName = document.getElementById('headerLocName')! as HTMLSpanElement
-const changeLoc     = document.getElementById('changeLoc')!    as HTMLButtonElement
+const headerLoc        = document.getElementById('headerLoc')!        as HTMLDivElement
+const headerLocName    = document.getElementById('headerLocName')!    as HTMLSpanElement
+const changeLoc        = document.getElementById('changeLoc')!        as HTMLButtonElement
+const headerSearchWrap = document.getElementById('headerSearchWrap')! as HTMLDivElement
+const headerSearchInput= document.getElementById('headerSearchInput')! as HTMLInputElement
+const headerSearchCancel = document.getElementById('headerSearchCancel')! as HTMLButtonElement
+const headerSearchSugg = document.getElementById('headerSearchSugg')! as HTMLDivElement
+const hlPin            = headerLoc.querySelector('.hloc-pin')!         as HTMLElement
 
 const langDropdown  = document.getElementById('langDropdown')  as HTMLDivElement
 const langCurrent   = document.getElementById('langCurrent')   as HTMLButtonElement
@@ -241,6 +246,9 @@ document.addEventListener('click', e => {
   if (!navDropdown.contains(e.target as Node)) {
     navMenu.classList.remove('open')
   }
+  if (!headerSearchWrap.contains(e.target as Node) && e.target !== changeLoc) {
+    if (!headerSearchWrap.classList.contains('hidden')) closeHeaderSearch()
+  }
 })
 
 // ── Nav dropdown ──────────────────────────────────────────────────────────────
@@ -256,13 +264,65 @@ navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(btn => {
   })
 })
 
-// ── Change location button ────────────────────────────────────────────────────
-changeLoc.addEventListener('click', () => {
-  hide(wxDisplay)
-  show(welcomeScreen)
-  navDropdown.classList.add('hidden')
-  searchInput.focus()
+// ── Header inline search ─────────────────────────────────────────────────────
+function openHeaderSearch() {
+  hlPin.classList.add('hidden')
+  headerLocName.classList.add('hidden')
+  changeLoc.classList.add('hidden')
+  headerSearchWrap.classList.remove('hidden')
+  headerSearchInput.value = ''
+  headerSearchInput.placeholder = t().searchPh
+  headerSearchInput.focus()
+}
+
+function closeHeaderSearch() {
+  headerSearchWrap.classList.add('hidden')
+  headerSearchSugg.innerHTML = ''
+  headerSearchSugg.style.display = 'none'
+  hlPin.classList.remove('hidden')
+  headerLocName.classList.remove('hidden')
+  changeLoc.classList.remove('hidden')
+}
+
+let headerSearchTimer = 0
+headerSearchInput.addEventListener('input', () => {
+  clearTimeout(headerSearchTimer)
+  headerSearchTimer = window.setTimeout(async () => {
+    const q = headerSearchInput.value.trim()
+    if (!q) { headerSearchSugg.style.display = 'none'; return }
+    const results = await searchLocations(q, state.lang)
+    if (!results.length) { headerSearchSugg.style.display = 'none'; return }
+    headerSearchSugg.innerHTML = results.map(r => {
+      const sub = [r.admin1, r.country].filter(Boolean).join(', ')
+      return `<div class="sugg-item" data-id="${r.id}">
+        <div class="sugg-name">${r.name}</div>
+        <div class="sugg-loc">${sub}</div>
+      </div>`
+    }).join('')
+    headerSearchSugg.style.display = 'block'
+    headerSearchSugg.querySelectorAll<HTMLDivElement>('.sugg-item').forEach((item, i) => {
+      item.addEventListener('click', () => {
+        closeHeaderSearch()
+        selectLocation(results[i])
+      })
+    })
+  }, 300)
 })
+
+headerSearchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    clearTimeout(headerSearchTimer)
+    searchLocations(headerSearchInput.value.trim(), state.lang).then(results => {
+      if (results.length === 1) { closeHeaderSearch(); selectLocation(results[0]) }
+    })
+  }
+  if (e.key === 'Escape') closeHeaderSearch()
+})
+
+headerSearchCancel.addEventListener('click', closeHeaderSearch)
+
+// ── Change location button ────────────────────────────────────────────────────
+changeLoc.addEventListener('click', openHeaderSearch)
 
 // ── Load weather ──────────────────────────────────────────────────────────────
 async function selectLocation(loc: GeocodingResult) {

@@ -22,6 +22,8 @@ export function renderModelCards() {
     let rainPct: number
     let humPct:  number
     let precipMm: number | null
+    let windKmh:  number | null
+    let gustKmh:  number | null
 
     if (dayI === 0) {
       const cur = getCurrentWeather(data)
@@ -32,6 +34,8 @@ export function renderModelCards() {
       rainPct     = cur.rain ?? 0
       humPct      = cur.hum  ?? 0
       precipMm    = (data.daily as any).precipitation_sum?.[0] ?? null
+      windKmh     = data.daily.windspeed_10m_max[0] ?? null
+      gustKmh     = data.daily.windgusts_10m_max[0] ?? null
     } else {
       displayTemp = data.daily.temperature_2m_max[dayI] ?? null
       maxT        = data.daily.temperature_2m_max[dayI] ?? null
@@ -40,6 +44,8 @@ export function renderModelCards() {
       rainPct     = data.daily.precipitation_probability_max[dayI] ?? 0
       humPct      = 0
       precipMm    = (data.daily as any).precipitation_sum?.[dayI] ?? null
+      windKmh     = data.daily.windspeed_10m_max[dayI] ?? null
+      gustKmh     = data.daily.windgusts_10m_max[dayI] ?? null
     }
 
     const wx = wxFromCode(code, t.wx)
@@ -66,6 +72,11 @@ export function renderModelCards() {
           <span>💦 ${fmt(rainPct, 0)}%</span>
           ${humPct > 0 ? `<span>💧 ${fmt(humPct, 0)}%</span>` : ''}
         </div>
+        ${windKmh !== null ? `
+        <div class="mc2-wind">
+          <span>💨 ${fmt(windKmh, 0)} km/h</span>
+          ${gustKmh !== null ? `<span class="mc2-gust">↑ ${fmt(gustKmh, 0)}</span>` : ''}
+        </div>` : ''}
         ${m.coverage ? `<div class="mc2-note">⚠ ${m.coverage}</div>` : ''}
       </div>
     `
