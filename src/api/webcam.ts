@@ -5,27 +5,47 @@ export interface WebcamData {
   linkUrl:   string | null
 }
 
-const WINDY_KEY = 'GC7hTRIRIMPMcO8qFe27DzAZIWJoOnH3'
-
 export async function fetchNearbyWebcam(lat: number, lon: number): Promise<WebcamData | null> {
   try {
-    const url = `https://api.windy.com/webcams/api/v3/webcams` +
-      `?nearby=${lat},${lon},25` +
-      `&limit=5&orderby=rating&include=images,player`
-
-    const res = await fetch(url, { headers: { 'x-windy-api-key': WINDY_KEY } })
+    // Route through our Vercel edge proxy to avoid CORS restrictions
+    const url = `/api/webcam?lat=${lat}&lon=${lon}`
+    const res = await fetch(url)
     if (!res.ok) return null
 
     const json = await res.json()
-    // Pick first active webcam
-    const wc = (json.webcams ?? []).find((w: any) => w.status === 'active') ?? json.webcams?.[0]
+    const webcams: any[] = json.webcams ?? []
+    if (!webcams.length) return null
+
+    // Prefer active webcams; fall back to first result
+    const wc = webcams.find((w: any) => w.status === 'active') ?? webcams[0]
     if (!wc) return null
 
+    // v3: player can be { day: "url" } or { day: { embed: "url" } }
+    const playerRaw = wc.player?.day
+    const playerUrl: string | null =
+      typeof playerRaw === 'string'
+        ? playerRaw
+        : typeof playerRaw?.embed === 'string'
+          ? playerRaw.embed
+          : typeof playerRaw?.link === 'string'
+            ? playerRaw.link
+            : wc.webcamId
+              ? `https://webcams.windy.com/webcams/public/embed/player/${wc.webcamId}/day`
+              : null
+
+    // v3: images.current.preview or images.current.full
+    const imageUrl: string | null =
+      wc.images?.current?.preview ??
+      wc.images?.current?.full ??
+      null
+
     return {
-      title:     wc.title ?? '',
-      imageUrl:  wc.images?.current?.preview ?? null,
-      playerUrl: wc.player?.day ?? null,          // v3: player.day is a URL string
-      linkUrl:   `https://www.windy.com/webcams/${wc.webcamId}`,
+      title:     wc.title ?? wc.location?.city ?? 'Webcam',
+      imageUrl,
+      playerUrl,
+      linkUrl:   wc.webcamId
+        ? `https://www.windy.com/webcams/${wc.webcamId}`
+        : null,
     }
   } catch { return null }
 }

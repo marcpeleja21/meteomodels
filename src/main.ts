@@ -423,6 +423,26 @@ async function selectLocation(loc: GeocodingResult) {
   else startAnimation('none')
 }
 
+// ── Brand → go home ───────────────────────────────────────────────────────────
+function goHome() {
+  hide(wxDisplay)
+  hide(loadingScreen)
+  show(welcomeScreen)
+  state.currentLoc  = null
+  state.selectedDay = 0
+  state.currentPage = 'forecast'
+  // Reset the header location pill
+  const headerLoc = document.getElementById('headerLoc')
+  if (headerLoc) headerLoc.classList.add('hidden')
+  searchInput.value = ''
+  searchInput.focus()
+}
+
+document.getElementById('brandHome')?.addEventListener('click', goHome)
+document.getElementById('brandHome')?.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome() }
+})
+
 // ── Language dropdown ─────────────────────────────────────────────────────────
 langCurrent.addEventListener('click', e => {
   e.stopPropagation()
