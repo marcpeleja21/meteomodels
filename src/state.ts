@@ -14,6 +14,8 @@ export const state = {
   currentPage:    'forecast' as 'forecast' | 'models',
   modelPageModel: 'ecmwf'    as string,
   modelPageVar:   'wind'     as string,
+  modelPageSource:   'map'   as string,
+  modelPagePlumeVar: 'temp'  as string,
   hourlyModel:    'ensemble' as string,
 
   // Forecast UI state

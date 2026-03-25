@@ -1,0 +1,168 @@
+import { state } from '../state'
+import { MODELS, modelValidForDay } from '../config/models'
+import { LANG_DATA } from '../config/i18n'
+import { avg } from '../utils/weather'
+
+const W = 900, H = 260
+const PAD = { top: 24, right: 24, bottom: 40, left: 52 }
+const CW = W - PAD.left - PAD.right
+const CH = H - PAD.top - PAD.bottom
+const DAYS = 7
+
+type PlumeVar = 'temp' | 'precip' | 'wind'
+
+function getValues(modelKey: string, variable: PlumeVar): (number | null)[] {
+  const d = state.wxData[modelKey]
+  if (!d) return Array(DAYS).fill(null)
+  return Array.from({ length: DAYS }, (_, i) => {
+    if (variable === 'temp')   return d.daily.temperature_2m_max[i]   ?? null
+    if (variable === 'precip') return (d.daily as any).precipitation_sum?.[i] ?? null
+    if (variable === 'wind')   return d.daily.windspeed_10m_max[i]    ?? null
+    return null
+  })
+}
+
+export function renderEnsemblePlume(container: HTMLElement, variable: PlumeVar) {
+  const t = LANG_DATA[state.lang]
+  const loaded = MODELS.filter(m => state.wxData[m.key] != null)
+  if (!loaded.length) { container.innerHTML = ''; return }
+
+  const refData = Object.values(state.wxData).find(d => d != null)!
+  const dayLabels = Array.from({ length: DAYS }, (_, i) => {
+    const date = new Date(refData.daily.time[i] + 'T12:00:00')
+    const isToday = i === 0
+    return isToday ? t.today : t.days[date.getDay()]
+  })
+
+  // Per-day per-model values
+  const modelSeries: { model: (typeof MODELS)[0]; vals: (number|null)[] }[] = loaded.map(m => ({
+    model: m,
+    vals: getValues(m.key, variable),
+  }))
+
+  // Ensemble mean per day
+  const meanVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
+    const vs = modelSeries
+      .filter(s => modelValidForDay(s.model, i))
+      .map(s => s.vals[i])
+      .filter((v): v is number => v !== null)
+    return vs.length ? avg(vs) : null
+  })
+
+  // Min/max envelope
+  const minVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
+    const vs = modelSeries.map(s => s.vals[i]).filter((v): v is number => v !== null)
+    return vs.length ? Math.min(...vs) : null
+  })
+  const maxVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
+    const vs = modelSeries.map(s => s.vals[i]).filter((v): v is number => v !== null)
+    return vs.length ? Math.max(...vs) : null
+  })
+
+  // Scale
+  const allNums = [...minVals, ...maxVals].filter((v): v is number => v !== null)
+  if (!allNums.length) { container.innerHTML = ''; return }
+  let yMin = Math.min(...allNums)
+  let yMax = Math.max(...allNums)
+  const pad = Math.max((yMax - yMin) * 0.15, variable === 'temp' ? 2 : 0.5)
+  yMin -= pad; yMax += pad
+
+  const xScale = (i: number) => PAD.left + (i / (DAYS - 1)) * CW
+  const yScale = (v: number) => PAD.top + CH - ((v - yMin) / (yMax - yMin)) * CH
+
+  const unit = variable === 'temp' ? '°C' : variable === 'precip' ? 'mm' : 'km/h'
+  const color = variable === 'temp' ? '#ff7043' : variable === 'precip' ? '#29b6f6' : '#aed581'
+
+  // SVG paths helper
+  function linePath(vals: (number|null)[]): string {
+    let d = ''
+    vals.forEach((v, i) => {
+      if (v === null) return
+      const x = xScale(i), y = yScale(v)
+      d += d ? ` L${x.toFixed(1)},${y.toFixed(1)}` : `M${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    return d
+  }
+
+  // Envelope fill path (min → max → back)
+  function envelopePath(): string {
+    const fwdPoints = maxVals.map((v, i) => v !== null ? `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}` : null).filter(Boolean)
+    const bwdPoints = [...minVals].reverse().map((v, i) => {
+      const ri = DAYS - 1 - i
+      return v !== null ? `${xScale(ri).toFixed(1)},${yScale(v).toFixed(1)}` : null
+    }).filter(Boolean)
+    if (!fwdPoints.length) return ''
+    return `M${fwdPoints.join(' L')} L${bwdPoints.join(' L')} Z`
+  }
+
+  // Y-axis ticks
+  const tickCount = 5
+  const yTicks = Array.from({ length: tickCount }, (_, i) => {
+    const v = yMin + (i / (tickCount - 1)) * (yMax - yMin)
+    return { v, y: yScale(v) }
+  })
+
+  // Build SVG
+  const modelLines = modelSeries.map(s => {
+    const path = linePath(s.vals)
+    if (!path) return ''
+    return `<path d="${path}" stroke="${s.model.color}" stroke-width="1.5" fill="none" opacity="0.5"/>`
+  }).join('')
+
+  const meanPath = linePath(meanVals)
+  const envPath  = envelopePath()
+
+  const svg = `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%;max-width:${W}px;display:block;overflow:visible">
+      <defs>
+        <linearGradient id="envGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.12"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0.04"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Envelope fill -->
+      ${envPath ? `<path d="${envPath}" fill="url(#envGrad)" stroke="none"/>` : ''}
+
+      <!-- Grid lines + x labels -->
+      ${Array.from({ length: DAYS }, (_, i) => {
+        const x = xScale(i)
+        return `<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${PAD.top + CH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                <text x="${x}" y="${PAD.top + CH + 18}" text-anchor="middle" fill="var(--text-dim, #6b7fa3)" font-size="11">${dayLabels[i]}</text>`
+      }).join('')}
+
+      <!-- Y ticks -->
+      ${yTicks.map(t => `
+        <line x1="${PAD.left - 4}" y1="${t.y}" x2="${PAD.left + CW}" y2="${t.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <text x="${PAD.left - 8}" y="${t.y + 4}" text-anchor="end" fill="var(--text-dim, #6b7fa3)" font-size="11">${Math.round(t.v)}</text>
+      `).join('')}
+
+      <!-- Unit label -->
+      <text x="${PAD.left - 8}" y="${PAD.top - 8}" text-anchor="end" fill="${color}" font-size="11" font-weight="600">${unit}</text>
+
+      <!-- Individual model lines -->
+      ${modelLines}
+
+      <!-- Ensemble mean -->
+      ${meanPath ? `<path d="${meanPath}" stroke="${color}" stroke-width="2.5" fill="none" opacity="0.95"/>` : ''}
+
+      <!-- Axes border -->
+      <rect x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" rx="2"/>
+    </svg>
+  `
+
+  // Legend
+  const legendHtml = modelSeries.map(s =>
+    `<span class="plume-leg-item"><span class="plume-dot" style="background:${s.model.color}"></span>${s.model.flag} ${s.model.name}</span>`
+  ).join('')
+
+  container.innerHTML = `
+    <div class="plume-wrap">
+      ${svg}
+      <div class="plume-legend">${legendHtml}
+        <span class="plume-leg-item"><span class="plume-dot" style="background:${color};width:14px;height:3px;border-radius:2px"></span><strong>Mitjana</strong></span>
+      </div>
+    </div>
+  `
+}

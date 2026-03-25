@@ -498,6 +498,16 @@ body{
 .windy-frame-wrap{border-radius:var(--radius);overflow:hidden;border:1px solid var(--card-border)}
 .models-note{text-align:center;font-size:.7rem;color:var(--text-dim);padding:4px}
 
+/* Ensemble plume chart */
+.models-source-bar{margin-bottom:12px}
+.plume-section{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:18px 20px}
+.plume-title{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.plume-sub{font-size:.72rem;color:var(--text-muted);margin-bottom:16px}
+.plume-wrap{display:flex;flex-direction:column;gap:10px}
+.plume-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:.72rem;color:var(--text-muted)}
+.plume-leg-item{display:flex;align-items:center;gap:5px}
+.plume-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
 /* ── HOURLY PAGE ────────────────────────────────────────────── */
 .hourly-page{display:flex;flex-direction:column;gap:16px}
 .hourly-controls{
