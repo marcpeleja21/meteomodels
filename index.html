@@ -2,8 +2,41 @@
 <html lang="ca">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MeteoModels</title>
+
+<!-- Primary meta -->
+<meta name="description" content="Compara els models meteorològics més precisos del món: GFS, ECMWF, ICON, AROME, ARPEGE i més en temps real.">
+<meta name="author" content="marcpeleja">
+<meta name="keywords" content="meteorologia, models, GFS, ECMWF, ICON, AROME, temps, previsió">
+
+<!-- PWA / Theme -->
+<meta name="theme-color" content="#0b1220">
+<meta name="color-scheme" content="dark">
+
+<!-- Android / Chrome PWA -->
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+
+<!-- iOS Safari PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MeteoModels">
+
+<!-- Icons -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96x96.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<!-- Open Graph (for sharing links) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="MeteoModels">
+<meta property="og:description" content="Compara els models meteorològics més precisos del món en temps real.">
+<meta property="og:image" content="/icons/icon-512x512.png">
+
+<!-- Microsoft -->
+<meta name="msapplication-TileColor" content="#0b1220">
+<meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
 </head>
 <body>
 <canvas id="bgCanvas"></canvas>
@@ -132,7 +165,7 @@
   </div>
 </main>
 
-<footer style="text-align:center;padding:14px;font-size:.68rem;color:var(--text-dim)">
+<footer style="text-align:center;padding:14px;padding-bottom:max(14px,env(safe-area-inset-bottom));font-size:.68rem;color:var(--text-dim)">
   Dades: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2)">Open-Meteo</a> (lliure) ·
   Creat per <span style="color:var(--text-muted);font-weight:600">marcpeleja</span>
 </footer>

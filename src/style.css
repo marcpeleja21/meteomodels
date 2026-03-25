@@ -41,6 +41,10 @@ body{
 /* ── HEADER ─────────────────────────────────────────────────── */
 .header{
   padding:12px 24px;
+  /* Respect iOS notch / Dynamic Island in standalone PWA mode */
+  padding-top:max(12px, env(safe-area-inset-top));
+  padding-left:max(24px, env(safe-area-inset-left));
+  padding-right:max(24px, env(safe-area-inset-right));
   display:flex; align-items:center; gap:16px;
   background:rgba(11,18,32,0.95); backdrop-filter:blur(20px);
   border-bottom:1px solid var(--card-border);
