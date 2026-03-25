@@ -684,9 +684,10 @@ body{
   .brand-sub{display:none}
   .brand-icon{font-size:1.4rem}
   .brand-title{font-size:1.1rem}
-  .header-loc{min-width:0;overflow:hidden}
-  #headerLocName{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .change-loc-btn{padding:6px 10px;min-height:36px;font-size:.75rem}
+  .header-loc{flex:none;min-width:0;overflow:hidden}
+  #headerLocName{display:none}
+  .hloc-pin{display:none}
+  .change-loc-btn{padding:8px 12px;min-height:40px;font-size:.78rem;white-space:nowrap}
   .media-row{grid-template-columns:1fr}
   .main{padding:14px}
   .main-card-top{grid-template-columns:1fr;gap:14px}
@@ -709,6 +710,4 @@ body{
   .model-grid{grid-template-columns:1fr 1fr}
   .strip-day{padding:8px 2px}
   .strip-icon{font-size:1.2rem}
-  #headerLocName{max-width:70px}
-  .change-loc-btn{padding:6px 8px;font-size:.7rem}
 }
