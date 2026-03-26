@@ -127,7 +127,8 @@ input{touch-action:manipulation}
 .search-row{display:flex;gap:8px}
 
 /* ── WELCOME SEARCH ──────────────────────────────────────────── */
-.welcome-search-wrap{max-width:580px;margin:0 auto 32px;position:relative}
+/* z-index:1 creates a stacking context so suggestions paint above .badge-row */
+.welcome-search-wrap{max-width:580px;margin:0 auto 32px;position:relative;z-index:1}
 .welcome-search-row{display:flex;gap:10px}
 .welcome-input{
   flex:1; padding:13px 20px;
@@ -145,15 +146,15 @@ input{touch-action:manipulation}
 .welcome-btn:hover{opacity:.85;transform:translateY(-1px)}
 .welcome-suggestions{
   position:absolute; top:calc(100% + 4px); left:0; right:80px;
-  background:var(--bg2); border:1px solid var(--card-border);
-  border-radius:var(--radius-sm); box-shadow:var(--shadow);
+  background:#0d1828; border:1px solid rgba(0,210,230,0.2);
+  border-radius:var(--radius-sm); box-shadow:0 12px 48px rgba(0,0,0,0.85);
   overflow:hidden; z-index:300; display:none;
 }
 
 .suggestions{
   position:absolute; top:calc(100% + 5px); left:0; right:0;
-  background:var(--bg2); border:1px solid var(--card-border);
-  border-radius:var(--radius-sm); box-shadow:var(--shadow);
+  background:#0d1828; border:1px solid rgba(0,210,230,0.2);
+  border-radius:var(--radius-sm); box-shadow:0 12px 48px rgba(0,0,0,0.85);
   overflow:hidden; z-index:300; display:none;
 }
 .sugg-item{
