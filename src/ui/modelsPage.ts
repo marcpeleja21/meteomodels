@@ -1,4 +1,5 @@
 import { state } from '../state'
+import { LANG_DATA } from '../config/i18n'
 import { renderEnsemblePlume } from './ensemblePlume'
 
 const WINDY_MODELS = [
@@ -9,24 +10,7 @@ const WINDY_MODELS = [
   { key: 'arome', label: 'AROME' },
 ]
 
-const WINDY_VARS = [
-  { key: 'wind',      label: '💨 Vent'         },
-  { key: 'temp',      label: '🌡️ Temperatura'  },
-  { key: 'rain',      label: '💦 Precipitació' },
-  { key: 'clouds',    label: '☁️ Núvols'       },
-  { key: 'pressure',  label: '📊 Pressió'      },
-  { key: 'gust',      label: '💨 Ràfegues'     },
-  { key: 'snowcover', label: '❄️ Neu'           },
-  { key: 'cape',      label: '⚡ CAPE'          },
-]
-
 type ModelsSource = 'map' | 'ensemble'
-
-const PLUME_VARS: { key: 'temp' | 'precip' | 'wind'; label: string }[] = [
-  { key: 'temp',   label: '🌡️ Temperatura' },
-  { key: 'precip', label: '🌧️ Precipitació' },
-  { key: 'wind',   label: '💨 Vent'         },
-]
 
 export function renderModelsPage() {
   const el  = document.getElementById('pageModels')
@@ -34,14 +18,33 @@ export function renderModelsPage() {
   const loc = state.currentLoc
   if (!loc) { el.innerHTML = ''; return }
 
-  const source  = (state.modelPageSource ?? 'map') as ModelsSource
+  const t = LANG_DATA[state.lang]
+  const source   = (state.modelPageSource  ?? 'map')  as ModelsSource
   const plumeVar = (state.modelPagePlumeVar ?? 'temp') as 'temp' | 'precip' | 'wind'
+
+  // Windy variable labels — built from i18n so they update on language change
+  const WINDY_VARS = [
+    { key: 'wind',      label: `💨 ${t.statWind}`    },
+    { key: 'temp',      label: `🌡️ ${t.mTemp}`       },
+    { key: 'rain',      label: `💦 ${t.statPrecip}`  },
+    { key: 'clouds',    label: t.windyClouds          },
+    { key: 'pressure',  label: `📊 ${t.mPres}`       },
+    { key: 'gust',      label: t.windyGusts           },
+    { key: 'snowcover', label: t.windySnow            },
+    { key: 'cape',      label: '⚡ CAPE'              },
+  ]
+
+  const PLUME_VARS: { key: 'temp' | 'precip' | 'wind'; label: string }[] = [
+    { key: 'temp',   label: `🌡️ ${t.mTemp}`      },
+    { key: 'precip', label: `🌧️ ${t.statPrecip}` },
+    { key: 'wind',   label: `💨 ${t.statWind}`   },
+  ]
 
   const sourceTabsHtml = `
     <div class="ctrl-group">
       <div class="ctrl-tabs source-tabs">
-        <button class="ctrl-tab${source === 'map'      ? ' active' : ''}" data-src="map">🗺 Mapa Interactiu</button>
-        <button class="ctrl-tab${source === 'ensemble' ? ' active' : ''}" data-src="ensemble">📊 Ensemble / Plomes</button>
+        <button class="ctrl-tab${source === 'map'      ? ' active' : ''}" data-src="map">${t.mapInteractive}</button>
+        <button class="ctrl-tab${source === 'ensemble' ? ' active' : ''}" data-src="ensemble">${t.ensemblePlumes}</button>
       </div>
     </div>
   `
@@ -89,7 +92,7 @@ export function renderModelsPage() {
         </iframe>
       </div>
       <div class="models-note">
-        ℹ️ Mapa interactiu de <a href="https://windy.com" target="_blank" style="color:var(--accent2)">Windy.com</a>
+        ℹ️ ${t.mapBy} <a href="https://windy.com" target="_blank" style="color:var(--accent2)">Windy.com</a>
       </div>
     `
   } else {
@@ -106,8 +109,8 @@ export function renderModelsPage() {
         </div>
       </div>
       <div class="plume-section">
-        <div class="plume-title">Plomes de previsió · ${PLUME_VARS.find(v => v.key === plumeVar)?.label ?? ''}</div>
-        <div class="plume-sub">Cada línia és un model. La línia gruixuda és la mitjana de l'ensemble.</div>
+        <div class="plume-title">${t.plumesTitle} · ${PLUME_VARS.find(v => v.key === plumeVar)?.label ?? ''}</div>
+        <div class="plume-sub">${t.plumesSubtitle}</div>
         <div id="plumeChart"></div>
       </div>
     `

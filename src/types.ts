@@ -233,4 +233,13 @@ export interface LangData {
   nModels: (n: number) => string
   ensLabel: (n: number) => string
   vsActual: string
+  // Models page
+  mapInteractive:  string
+  ensemblePlumes:  string
+  plumesTitle:     string
+  plumesSubtitle:  string
+  mapBy:           string
+  windyClouds:     string
+  windyGusts:      string
+  windySnow:       string
 }

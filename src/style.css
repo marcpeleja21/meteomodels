@@ -484,7 +484,8 @@ input{touch-action:manipulation}
 }
 
 /* ── NAV DROPDOWN ───────────────────────────────────────────── */
-.nav-dropdown{position:relative;flex-shrink:0}
+/* z-index ensures dropdown paints above #headerLoc (which has css order:4 on mobile) */
+.nav-dropdown{position:relative;flex-shrink:0;z-index:10}
 .nav-current{
   display:flex;align-items:center;gap:5px;
   padding:8px 13px;
@@ -549,10 +550,25 @@ input{touch-action:manipulation}
 .plume-section{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:18px 20px}
 .plume-title{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:4px}
 .plume-sub{font-size:.72rem;color:var(--text-muted);margin-bottom:16px}
-.plume-wrap{display:flex;flex-direction:column;gap:10px}
+.plume-wrap{display:flex;flex-direction:column;gap:10px;position:relative}
 .plume-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:.72rem;color:var(--text-muted)}
 .plume-leg-item{display:flex;align-items:center;gap:5px}
 .plume-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* Hover tooltip for ensemble chart */
+.plume-tooltip{
+  position:absolute;
+  background:rgba(8,14,26,0.95);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--radius-sm);
+  padding:8px 11px;
+  pointer-events:none;
+  display:none;
+  z-index:20;
+  min-width:160px;
+  max-width:200px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);
+}
 
 /* ── HOURLY PAGE ────────────────────────────────────────────── */
 .hourly-page{display:flex;flex-direction:column;gap:16px}
@@ -586,7 +602,7 @@ input{touch-action:manipulation}
 .h-rain,.h-wind,.h-hum,.h-precip{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
 
 /* ── LANGUAGE DROPDOWN ──────────────────────────────────────── */
-.lang-dropdown{position:relative;flex-shrink:0}
+.lang-dropdown{position:relative;flex-shrink:0;z-index:10}
 .flag-svg{width:16px;height:11px;border-radius:2px;vertical-align:middle;flex-shrink:0}
 .lang-current{
   display:flex;align-items:center;gap:5px;
