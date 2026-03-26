@@ -109,9 +109,10 @@ input{touch-action:manipulation}
 }
 .header-search-cancel:hover{border-color:var(--red);color:var(--red)}
 .header-sugg-pop{
-  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:600;
-  background:rgba(12,20,38,0.98); border:1px solid var(--card-border);
-  border-radius:var(--radius-sm); box-shadow:var(--shadow);
+  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:9999;
+  background:#07111f; border:1px solid rgba(0,210,230,0.25);
+  border-radius:var(--radius-sm);
+  box-shadow:0 16px 64px rgba(0,0,0,0.92), 0 0 0 1px rgba(0,210,230,0.08);
   max-height:260px; overflow-y:auto; display:none;
 }
 .header-sugg-pop .sugg-item{
@@ -127,8 +128,12 @@ input{touch-action:manipulation}
 .search-row{display:flex;gap:8px}
 
 /* ── WELCOME SEARCH ──────────────────────────────────────────── */
-/* z-index:1 creates a stacking context so suggestions paint above .badge-row */
-.welcome-search-wrap{max-width:580px;margin:0 auto 32px;position:relative;z-index:1}
+/* isolation:isolate + z-index create a stacking context so the suggestions
+   always paint above .badge-row below, regardless of DOM order */
+.welcome-search-wrap{
+  max-width:580px; margin:0 auto 32px;
+  position:relative; z-index:10; isolation:isolate;
+}
 .welcome-search-row{display:flex;gap:10px}
 .welcome-input{
   flex:1; padding:13px 20px;
@@ -144,26 +149,28 @@ input{touch-action:manipulation}
   cursor:pointer; transition:opacity var(--trans),transform var(--trans); white-space:nowrap;
 }
 .welcome-btn:hover{opacity:.85;transform:translateY(-1px)}
-.welcome-suggestions{
-  position:absolute; top:calc(100% + 4px); left:0; right:80px;
-  background:#0d1828; border:1px solid rgba(0,210,230,0.2);
-  border-radius:var(--radius-sm); box-shadow:0 12px 48px rgba(0,0,0,0.85);
-  overflow:hidden; z-index:300; display:none;
-}
 
+/* Shared suggestion dropdown style — fully opaque, high z-index, strong shadow */
 .suggestions{
-  position:absolute; top:calc(100% + 5px); left:0; right:0;
-  background:#0d1828; border:1px solid rgba(0,210,230,0.2);
-  border-radius:var(--radius-sm); box-shadow:0 12px 48px rgba(0,0,0,0.85);
-  overflow:hidden; z-index:300; display:none;
+  position:absolute; top:calc(100% + 6px); left:0; right:0;
+  background:#07111f;
+  border:1px solid rgba(0,210,230,0.25);
+  border-radius:var(--radius-sm);
+  box-shadow:0 16px 64px rgba(0,0,0,0.92), 0 0 0 1px rgba(0,210,230,0.08);
+  overflow:hidden; z-index:9999; display:none;
 }
+.welcome-suggestions{ right:0 } /* override any width constraint */
+
 .sugg-item{
-  padding:10px 14px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05);
-  display:flex; align-items:center; gap:10px; transition:background var(--trans);
+  padding:11px 16px; cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  display:flex; align-items:center; gap:10px;
+  background:#07111f; /* explicit — no inheritance issues */
+  transition:background var(--trans);
 }
 .sugg-item:last-child{border-bottom:none}
-.sugg-item:hover{background:var(--card-hover)}
-.sugg-name{font-weight:700;font-size:.88rem}
+.sugg-item:hover{background:#0e1f36}
+.sugg-name{font-weight:700;font-size:.88rem;color:var(--text)}
 .sugg-loc{font-size:.75rem;color:var(--text-muted)}
 
 /* ── MAIN ───────────────────────────────────────────────────── */
