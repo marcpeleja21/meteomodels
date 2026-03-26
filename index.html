@@ -206,5 +206,135 @@
 </div>
 
 <script type="module" src="/src/main.ts"></script>
+
+<!-- ── COOKIEBOT: compact bottom bar override ──────────────────────────────
+     Must be LAST in <body> so it wins the cascade after Cookiebot's
+     injected stylesheet. data-cookieconsent="ignore" prevents Cookiebot
+     from blocking the tag itself.
+     ──────────────────────────────────────────────────────────────────── -->
+<style data-cookieconsent="ignore">
+  /* Remove full-screen overlay */
+  #CybotCookiebotDialogBodyUnderlay {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    pointer-events: none !important;
+  }
+
+  /* Thin bottom bar instead of centred modal */
+  #CybotCookiebotDialog {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    transform: none !important;
+    padding: 8px 16px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    background: rgba(9,14,27,0.97) !important;
+    backdrop-filter: blur(18px) saturate(1.4) !important;
+    border-top: 1px solid rgba(255,255,255,0.09) !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.55) !important;
+    z-index: 9999 !important;
+    max-height: 120px !important;
+    overflow: hidden !important;
+  }
+
+  /* Hide noisy chrome */
+  #CybotCookiebotDialogHeader,
+  #CybotCookiebotDialogPoweredbyLink,
+  #CybotCookiebotDialogBodyEdgeDeclineWrapper,
+  #CybotCookiebotDialogBodyLevelButtonWrapper,
+  #CybotCookiebotDialogBodyContentTitle {
+    display: none !important;
+  }
+
+  /* Single flex row: text | buttons */
+  #CybotCookiebotDialogBody {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 0 !important;
+    width: 100% !important;
+    flex-wrap: nowrap !important;
+  }
+
+  #CybotCookiebotDialogBodyContent {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+
+  #CybotCookiebotDialogBodyContentText,
+  #CybotCookiebotDialogBodyContentText * {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    color: rgba(180,200,220,0.65) !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #CybotCookiebotDialogBodyButtonsWrapper {
+    display: flex !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Accept button — styled like app accent */
+  #CybotCookiebotDialogBodyButtonAccept,
+  #CybotCookiebotDialogBodyLevelButtonAccept {
+    background: #00d2e6 !important;
+    color: #000d14 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 5px 14px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    min-height: unset !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    box-shadow: 0 0 12px rgba(0,210,230,0.25) !important;
+  }
+
+  /* Decline / settings buttons — ghost style */
+  #CybotCookiebotDialogBodyButtonDecline,
+  #CybotCookiebotDialogBodyLevelButtonCustomize,
+  .CybotCookiebotDialogBodyButton:not(#CybotCookiebotDialogBodyButtonAccept):not(#CybotCookiebotDialogBodyLevelButtonAccept) {
+    background: transparent !important;
+    color: rgba(160,185,210,0.55) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 6px !important;
+    padding: 5px 10px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    min-height: unset !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    box-shadow: none !important;
+  }
+
+  /* Mobile: wrap text onto 2nd line if needed */
+  @media (max-width: 480px) {
+    #CybotCookiebotDialog { padding: 8px 12px !important; max-height: 140px !important; }
+    #CybotCookiebotDialogBody { flex-wrap: wrap !important; gap: 8px !important; }
+    #CybotCookiebotDialogBodyContent { flex: 0 0 100% !important; }
+    #CybotCookiebotDialogBodyButtonsWrapper { flex: 0 0 100% !important; justify-content: flex-end !important; }
+  }
+</style>
 </body>
 </html>
