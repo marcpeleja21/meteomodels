@@ -57,7 +57,7 @@ function nowPanelHtml(t: LangData): string {
 
   return `
     <div class="cmp-panel now-panel">
-      <div class="cmp-label">📡 ${t.now}${timeLabel}</div>
+      <div class="cmp-label live">📡 ${t.now}${timeLabel}</div>
       <div class="cmp-icon">${wx.icon}</div>
       <div class="cmp-temp">${obs.temp !== null ? obs.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
       <div class="cmp-cond">${wx.lbl}</div>

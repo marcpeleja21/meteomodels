@@ -694,6 +694,216 @@ input{touch-action:manipulation}
   letter-spacing: 0.01em;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ATMOSPHERIC INSTRUMENTS — design language
+   Bold direction: professional NWP workstation, not consumer app.
+   Monospace readouts · instrument-panel strips · live pulse · glow
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. MONOSPACE DATA READOUTS ─────────────────────────────── */
+/* Every numeric instrument readout uses DM Mono for precision    */
+.stat-val,
+.sv-val,
+.strip-temps,
+.h-temp,
+.h-rain,
+.h-wind,
+.h-precip,
+.cmp-temp,
+.mc2-temp,
+.mc-temp,
+.fc-temp,
+.mc2-range {
+  font-family: var(--font-data);
+}
+
+/* Section labels: uppercase mono tracking = instrument labels */
+.section-title,
+.model-tabs-label,
+.cmp-label,
+.station-label,
+.ctrl-label,
+.hourly-day-label,
+.plume-title {
+  font-family: var(--font-data);
+  letter-spacing: 0.12em;
+}
+
+/* ── 2. INSTRUMENT STRIP ON CARDS ───────────────────────────── */
+/* Gradient top-edge on every card = instrument panel border     */
+.main-card::before {
+  content: '';
+  display: block;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    rgba(0,210,230,0.4) 40%,
+    rgba(0,210,230,0.08) 70%,
+    transparent 100%
+  );
+}
+
+.chart-card,
+.table-card,
+.models-controls,
+.plume-section,
+.hourly-day-section {
+  border-top: 2px solid transparent;
+  border-image: linear-gradient(
+    90deg,
+    rgba(0,210,230,0.35) 0%,
+    rgba(0,210,230,0.06) 60%,
+    transparent 100%
+  ) 1;
+}
+
+/* ── 3. LIVE DATA PULSE ─────────────────────────────────────── */
+/* "ARA" / real-time panel gets a breathing live indicator       */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,230,118,0.6); }
+  50%       { opacity: 0.7; box-shadow: 0 0 0 5px rgba(0,230,118,0); }
+}
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.now-panel .cmp-label::before {
+  content: '●';
+  color: var(--green);
+  font-size: 0.5rem;
+  margin-right: 5px;
+  vertical-align: middle;
+  display: inline-block;
+  animation: blink-dot 2s ease infinite;
+}
+
+/* ── 4. CARD HOVER GLOW ─────────────────────────────────────── */
+/* Cards subtly glow on hover — less flat, more instrument-like  */
+.mc2:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0,210,230,0.22);
+  box-shadow: 0 8px 32px rgba(0,210,230,0.08), 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.main-card {
+  transition: box-shadow var(--trans);
+}
+
+/* ── 5. SELECTED FORECAST DAY — atmosphere glow ─────────────── */
+.strip-day.selected {
+  background: rgba(0,210,230,0.12);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(0,210,230,0.25),
+    0 4px 20px rgba(0,210,230,0.12),
+    inset 0 0 16px rgba(0,210,230,0.04);
+}
+.strip-day.today {
+  background: rgba(0,210,230,0.06);
+  border-color: rgba(0,210,230,0.2);
+}
+
+/* ── 6. WELCOME SCREEN — atmospheric orb ───────────────────── */
+.welcome {
+  position: relative;
+  overflow: hidden;
+  padding: 80px 20px 60px;
+}
+.welcome::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 700px;
+  height: 500px;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgba(0,210,230,0.07) 0%,
+    rgba(0,210,230,0.03) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.welcome > * { position: relative; z-index: 1; }
+.welcome h2 {
+  font-family: var(--font-ui);
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── 7. METRIC TABS — more instrument-like ──────────────────── */
+.mtric.active {
+  background: rgba(0,210,230,0.14);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(0,210,230,0.15);
+}
+
+/* ── 8. MODEL TABS — cleaner active state ───────────────────── */
+.mtab.active {
+  background: rgba(0,210,230,0.13);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(0,210,230,0.12);
+}
+
+/* ── 9. NAV + LANG buttons — more prominent on all sizes ────── */
+.nav-current,
+.lang-current {
+  border-color: rgba(255,255,255,0.12);
+  transition: all var(--trans);
+}
+.nav-current:hover,
+.lang-current:hover {
+  border-color: var(--accent);
+  background: rgba(0,210,230,0.1);
+  box-shadow: 0 0 14px rgba(0,210,230,0.1);
+}
+
+/* ── 10. BADGES & CHIPS ─────────────────────────────────────── */
+.badge {
+  background: rgba(0,210,230,0.08);
+  border-color: rgba(0,210,230,0.18);
+  transition: all var(--trans);
+}
+.badge:hover {
+  background: rgba(0,210,230,0.14);
+  border-color: rgba(0,210,230,0.35);
+}
+
+/* ── 11. DATA LOAD FADE-IN ──────────────────────────────────── */
+@keyframes data-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mc2          { animation: data-in 0.35s ease both; }
+.mc2:nth-child(1) { animation-delay: 0.00s; }
+.mc2:nth-child(2) { animation-delay: 0.05s; }
+.mc2:nth-child(3) { animation-delay: 0.10s; }
+.mc2:nth-child(4) { animation-delay: 0.15s; }
+.mc2:nth-child(5) { animation-delay: 0.20s; }
+.mc2:nth-child(6) { animation-delay: 0.25s; }
+
+/* ── 12. HOURLY SLOTS — temperature colour tint ─────────────── */
+.h-slot { transition: background var(--trans), border-color var(--trans); }
+
+/* ── 13. FOOTER / KO-FI ─────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--card-border);
+  background: rgba(11,18,32,0.6);
+  backdrop-filter: blur(8px);
+}
+
 /* ── UTILITIES ──────────────────────────────────────────────── */
 .hidden{display:none!important}
 .muted{color:var(--text-muted)}
