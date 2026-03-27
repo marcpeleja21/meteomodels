@@ -124,12 +124,16 @@ export interface CurrentObs {
   feelsLike: number | null
   humidity:  number | null
   windspeed: number | null
+  windGust:  number | null
   windDir:   number | null
+  pressure:  number | null
   precip:    number | null
+  uv:        number | null
+  solarRadiation: number | null
   code:      number | null
   time:      string | null
-  stationName: string | null   // city name from wttr.in nearest_area
-  stationDist: number | null   // km from searched location
+  stationName: string | null
+  stationDist: number | null
   stationLat:  number | null
   stationLon:  number | null
 }

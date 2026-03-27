@@ -48,12 +48,25 @@ function deltaHtml(delta: number | null, t: LangData): string {
 function nowPanelHtml(t: LangData): string {
   const obs = state.currentObs
   if (!obs) return ''
-  const wx     = wxFromCode(obs.code, t.wx)
-  const arrow  = windArrowFromDeg(obs.windDir)
-  const timeLabel = ''   // wttr.in doesn't expose ISO time
+  const wx    = wxFromCode(obs.code, t.wx)
+  const arrow = windArrowFromDeg(obs.windDir)
+
+  // Time label — show local HH:MM if available
+  let timeLabel = ''
+  if (obs.time) {
+    const d = new Date(obs.time)
+    if (!isNaN(d.getTime())) {
+      timeLabel = ` · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    }
+  }
+
   const locLine = obs.stationName
-    ? `<div class="now-src">📍 ${obs.stationName}${obs.stationDist ? ` · ${obs.stationDist} km` : ''} · wttr.in</div>`
-    : `<div class="now-src">📡 Observació · Open-Meteo</div>`
+    ? `<div class="now-src">📍 ${obs.stationName}${obs.stationDist ? ` · ${obs.stationDist} km` : ''} · Weather Underground</div>`
+    : `<div class="now-src">📡 Observació en temps real</div>`
+
+  const gustStr  = obs.windGust  !== null ? ` ↑${Math.round(obs.windGust)}` : ''
+  const presStr  = obs.pressure  !== null ? `<span>🔵 ${obs.pressure.toFixed(0)} hPa</span>` : ''
+  const uvStr    = obs.uv        !== null ? `<span>☀️ UV ${obs.uv.toFixed(0)}</span>` : ''
 
   return `
     <div class="cmp-panel now-panel">
@@ -64,8 +77,10 @@ function nowPanelHtml(t: LangData): string {
       <div class="cmp-feels">${t.statFeels}: ${obs.feelsLike !== null ? obs.feelsLike.toFixed(1) + '°C' : '—'}</div>
       <div class="cmp-stats">
         <span>💧 ${fmt(obs.humidity, 0)}%</span>
-        <span>💨 ${arrow} ${fmt(obs.windspeed, 0)} km/h</span>
-        <span>💦 ${fmt(obs.precip, 1)} mm</span>
+        <span>💨 ${arrow} ${fmt(obs.windspeed, 0)}${gustStr} km/h</span>
+        <span>🌧️ ${fmt(obs.precip, 1)} mm</span>
+        ${presStr}
+        ${uvStr}
       </div>
       ${locLine}
     </div>
