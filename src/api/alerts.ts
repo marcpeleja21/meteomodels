@@ -55,11 +55,9 @@ async function fetchEUAlerts(countryCode: string): Promise<WeatherAlert[]> {
   if (!slug) return []
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 6000)
-    const res = await fetch(
-      `https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-${slug}`,
-      { signal: controller.signal }
-    )
+    const timer = setTimeout(() => controller.abort(), 8000)
+    // Use our server-side proxy to avoid CORS/network blocks
+    const res = await fetch(`/api/alerts?cc=${countryCode}`, { signal: controller.signal })
     clearTimeout(timer)
     if (!res.ok) return []
 

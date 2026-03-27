@@ -246,4 +246,24 @@ export interface LangData {
   windyClouds:     string
   windyGusts:      string
   windySnow:       string
+  // Controls
+  ctrlModel:       string
+  ctrlVariable:    string
+  // Webcam
+  noWebcam:        string
+  webcamLive:      string
+  webcamViewLive:  string
+  // Welcome screen
+  modelsAvailable: string
+  feat1:           string
+  feat2:           string
+  feat3:           string
+  feat4:           string
+  // Alerts severity badges
+  alertExtreme:    string
+  alertSevere:     string
+  alertModerate:   string
+  alertInfo:       string
+  // Station obs fallback
+  liveObsLabel:    string
 }

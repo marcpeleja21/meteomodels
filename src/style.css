@@ -266,6 +266,36 @@ input{touch-action:manipulation}
 }
 
 /* ── ALERTS BANNER ──────────────────────────────────────────── */
+/* Sticky disclaimer bar — always visible when alerts are active */
+.alert-disclaimer{
+  border:1px solid;border-radius:var(--radius);
+  padding:10px 14px;
+  transition:border-radius .2s ease;
+}
+.alert-disclaimer-inner{display:flex;align-items:center;gap:10px}
+.alert-disclaimer-icon{font-size:1.25rem;flex-shrink:0}
+.alert-disclaimer-text{
+  flex:1;font-size:.83rem;font-weight:600;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.alert-count-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:19px;height:19px;border-radius:50%;
+  font-size:.62rem;font-weight:800;color:#000;flex-shrink:0;
+}
+.alert-toggle-btn{
+  background:none;border:none;color:inherit;cursor:pointer;
+  padding:2px 8px;font-size:1.05rem;opacity:.7;flex-shrink:0;
+  transition:opacity var(--trans);
+}
+.alert-toggle-btn:hover{opacity:1}
+.alert-toggle-chevron{display:inline-block;transition:transform .25s ease}
+/* Expanded detail cards */
+.alerts-detail{
+  border:1px solid rgba(255,255,255,0.1);border-top:none;
+  border-bottom-left-radius:var(--radius);border-bottom-right-radius:var(--radius);
+  overflow:hidden;display:flex;flex-direction:column;
+}
 .alerts-wrap{display:flex;flex-direction:column;gap:8px}
 .alerts-title{
   font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;

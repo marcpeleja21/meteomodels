@@ -20,8 +20,8 @@ export default async function handler(request) {
 
   const windyUrl =
     `https://api.windy.com/webcams/api/v3/webcams` +
-    `?nearby=${lat},${lon},25` +
-    `&limit=5&sortKey=popularity&sortDirection=desc` +
+    `?nearby=${lat},${lon},10` +
+    `&limit=10&sortKey=distance&sortDirection=asc` +
     `&include=images,player,location`
 
   try {
