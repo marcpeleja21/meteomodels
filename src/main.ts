@@ -222,12 +222,12 @@ searchInput.addEventListener('keydown', e => {
 searchBtn.addEventListener('click', doSearch)
 
 async function doSearch() {
-  const results = await searchLocations(searchInput.value, state.lang)
-  if (results.length === 1) {
-    selectLocation(results[0])
-  } else {
-    showSuggestions(results)
-  }
+  const q = searchInput.value.trim()
+  if (!q) return
+  const results = await searchLocations(q, state.lang)
+  if (!results.length) { hideSuggestions(); return }
+  // Always select the best (first) match — show dropdown only when called from input event
+  selectLocation(results[0])
 }
 
 function showSuggestions(results: GeocodingResult[]) {
