@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MeteoModels</title>
 
-<!-- Primary meta -->
-<meta name="description" content="Compara els models meteorològics més precisos del món: GFS, ECMWF, ICON, AROME, ARPEGE i més en temps real.">
+<!-- ── Primary SEO ──────────────────────────────────────────────────────────── -->
+<title>MeteoModels — Compare GFS, ECMWF, ICON, AROME Weather Forecast Models</title>
+<meta name="description" content="Compare the world's most accurate weather forecast models — GFS, ECMWF IFS, ICON, AROME, ARPEGE and more — side by side, in real time. Free, no sign-up required.">
 <meta name="author" content="marcpeleja">
-<meta name="keywords" content="meteorologia, models, GFS, ECMWF, ICON, AROME, temps, previsió">
+<meta name="keywords" content="weather forecast, weather models, GFS, ECMWF, ICON, AROME, ARPEGE, MeteoBlue, weather comparison, ensemble forecast, NWP models, meteorology, previsió meteorològica, modelos meteorológicos">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<link rel="canonical" href="https://meteomodels.vercel.app/">
 
-<!-- PWA / Theme -->
+<!-- ── PWA / Theme ──────────────────────────────────────────────────────────── -->
 <meta name="theme-color" content="#0b1220">
 <meta name="color-scheme" content="dark">
 
@@ -23,27 +25,74 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MeteoModels">
 
-<!-- Icons -->
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- ── Open Graph ───────────────────────────────────────────────────────────── -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MeteoModels">
+<meta property="og:url" content="https://meteomodels.vercel.app/">
+<meta property="og:title" content="MeteoModels — Compare GFS, ECMWF, ICON & More">
+<meta property="og:description" content="Compare the world's most accurate weather forecast models — GFS, ECMWF, ICON, AROME, ARPEGE and more — side by side, in real time. Free, no sign-up required.">
+<meta property="og:image" content="https://meteomodels.vercel.app/screenshots/desktop.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="MeteoModels dashboard showing weather model comparison for a selected city">
+<meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="ca_ES">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
 
+<!-- ── Twitter / X Card ────────────────────────────────────────────────────── -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MeteoModels — Compare GFS, ECMWF, ICON & More">
+<meta name="twitter:description" content="Compare the world's most accurate weather models — GFS, ECMWF, ICON, AROME and more — side by side, in real time.">
+<meta name="twitter:image" content="https://meteomodels.vercel.app/screenshots/desktop.png">
+<meta name="twitter:image:alt" content="MeteoModels weather model comparison dashboard">
+
+<!-- ── Icons & Fonts ────────────────────────────────────────────────────────── -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96x96.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 
-<!-- Open Graph (for sharing links) -->
-<meta property="og:type" content="website">
-<meta property="og:title" content="MeteoModels">
-<meta property="og:description" content="Compara els models meteorològics més precisos del món en temps real.">
-<meta property="og:image" content="/icons/icon-512x512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-<!-- Microsoft -->
+<!-- ── Microsoft ────────────────────────────────────────────────────────────── -->
 <meta name="msapplication-TileColor" content="#0b1220">
 <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
 
-<!-- Explicit SW registration — visible to crawlers before the JS bundle loads -->
+<!-- ── JSON-LD Structured Data ─────────────────────────────────────────────── -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "MeteoModels",
+  "url": "https://meteomodels.vercel.app/",
+  "description": "Compare the world's most accurate weather forecast models — GFS, ECMWF IFS, ICON, AROME, ARPEGE and more — side by side, in real time.",
+  "applicationCategory": "WeatherApplication",
+  "operatingSystem": "Web, iOS, Android",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "EUR"
+  },
+  "screenshot": "https://meteomodels.vercel.app/screenshots/desktop.png",
+  "featureList": [
+    "Compare GFS, ECMWF, ICON, AROME, ARPEGE weather models",
+    "Hourly and daily forecast",
+    "Temperature, precipitation, wind ensemble comparison",
+    "Official weather alerts (NWS, MeteoAlarm)",
+    "Real-time weather station observations",
+    "Interactive map and nearby webcam"
+  ],
+  "inLanguage": ["en", "ca", "es", "fr"],
+  "author": {
+    "@type": "Person",
+    "name": "marcpeleja"
+  }
+}
+</script>
+
+<!-- ── Service Worker ────────────────────────────────────────────────────────── -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -111,7 +160,7 @@
 </header>
 
 <!-- MAIN -->
-<main class="main">
+<main class="main" id="main" role="main" aria-label="Weather forecast comparison">
 
   <!-- WELCOME -->
   <div id="welcomeScreen" class="welcome">
@@ -125,7 +174,7 @@
       <span style="--d:1.4s">⛈️</span>
     </div>
 
-    <h2 id="welcomeTitle"></h2>
+    <h1 id="welcomeTitle"></h1>
     <p id="welcomeSub"></p>
 
     <!-- Search -->
