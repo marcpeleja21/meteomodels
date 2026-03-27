@@ -115,25 +115,51 @@
 
   <!-- WELCOME -->
   <div id="welcomeScreen" class="welcome">
+
+    <!-- Animated weather icon row -->
+    <div class="welcome-icons" aria-hidden="true">
+      <span style="--d:0s">⛅</span>
+      <span style="--d:.35s">🌡️</span>
+      <span style="--d:.7s">🌧️</span>
+      <span style="--d:1.05s">❄️</span>
+      <span style="--d:1.4s">⛈️</span>
+    </div>
+
     <h2 id="welcomeTitle"></h2>
     <p id="welcomeSub"></p>
+
+    <!-- Search -->
     <div class="welcome-search-wrap">
       <div class="welcome-search-row">
         <input id="searchInput" type="text" placeholder="Cerca una localitat..." autocomplete="off" spellcheck="false" class="welcome-input">
         <button id="searchBtn" class="welcome-btn">🔍 Cerca</button>
       </div>
-      <div id="suggestions" class="suggestions welcome-suggestions"></div>
+      <div id="suggestions" class="suggestions"></div>
     </div>
-    <div class="badge-row">
-      <span class="badge">🇺🇸 GFS</span>
-      <span class="badge">🇪🇺 ECMWF IFS</span>
-      <span class="badge">🇩🇪 ICON</span>
-      <span class="badge">🇩🇪 ICON EU</span>
-      <span class="badge">🇨🇭 MeteoBlue</span>
-      <span class="badge">🇫🇷 AROME HD</span>
-      <span class="badge">🇫🇷 AROME 2.5 km</span>
-      <span class="badge">🇫🇷 ARPEGE EU</span>
+
+    <!-- Models showcase — fades out when search is active -->
+    <div class="models-section">
+      <p class="models-section-label">Models disponibles</p>
+      <div class="model-cards-scroll">
+        <div class="model-card-home"><span class="mcf">🇺🇸</span><span class="mcn">GFS</span><span class="mco">NOAA · Global</span></div>
+        <div class="model-card-home"><span class="mcf">🇪🇺</span><span class="mcn">ECMWF IFS</span><span class="mco">ECMWF · Global</span></div>
+        <div class="model-card-home"><span class="mcf">🇩🇪</span><span class="mcn">ICON</span><span class="mco">DWD · Global</span></div>
+        <div class="model-card-home"><span class="mcf">🇩🇪</span><span class="mcn">ICON EU</span><span class="mco">DWD · Europa</span></div>
+        <div class="model-card-home"><span class="mcf">🇨🇭</span><span class="mcn">MeteoBlue</span><span class="mco">MeteoBlue · Global</span></div>
+        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">AROME HD</span><span class="mco">Météo-France · 2km</span></div>
+        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">AROME 2.5km</span><span class="mco">Météo-France · 2.5km</span></div>
+        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">ARPEGE EU</span><span class="mco">Météo-France · EU</span></div>
+      </div>
     </div>
+
+    <!-- Feature strip -->
+    <div class="feature-strip">
+      <span class="feat">📊 Comparativa de models</span>
+      <span class="feat">🌡️ Temperatura &amp; vent</span>
+      <span class="feat">🌧️ Precipitació &amp; neu</span>
+      <span class="feat">📍 Alertes oficials</span>
+    </div>
+
   </div>
 
   <!-- LOADING -->

@@ -4,7 +4,7 @@ export function renderWebcamCard(data: WebcamData | null) {
   const el = document.getElementById('webcamCard')
   if (!el) return
 
-  if (!data) {
+  if (!data || !data.imageUrl) {
     // Show a neutral placeholder so the media-row grid stays balanced with the map
     el.innerHTML = `
       <div class="media-card webcam-placeholder">
@@ -13,32 +13,37 @@ export function renderWebcamCard(data: WebcamData | null) {
     return
   }
 
-  const linkAttr = data.linkUrl ? `href="${data.linkUrl}" target="_blank"` : ''
+  const linkAttr = data.linkUrl ? `href="${data.linkUrl}" target="_blank" rel="noopener"` : ''
 
-  if (data.playerUrl) {
-    // Embed the Windy player iframe + overlay label linked to Windy
-    el.innerHTML = `
-      <div class="media-card">
-        <div class="media-label">
-          <a ${linkAttr} style="color:inherit;text-decoration:none">📷 ${data.title}</a>
-        </div>
-        <iframe
-          src="${data.playerUrl}"
-          frameborder="0"
-          allowfullscreen
-          class="webcam-frame"
-          loading="lazy">
-        </iframe>
-      </div>`
-  } else if (data.imageUrl) {
-    el.innerHTML = `
-      <div class="media-card">
-        <div class="media-label">
-          <a ${linkAttr} style="color:inherit;text-decoration:none">📷 ${data.title}</a>
-        </div>
-        <a ${linkAttr}>
-          <img src="${data.imageUrl}" class="webcam-img" alt="${data.title}" loading="lazy"/>
-        </a>
-      </div>`
+  // Always use the static image (iframe embeds are blocked without a Windy premium plan).
+  // The image auto-refreshes every 5 min via a timestamp query-param rotation.
+  el.innerHTML = `
+    <div class="media-card">
+      <div class="media-label">
+        <a ${linkAttr} style="color:inherit;text-decoration:none">📷 ${data.title}</a>
+      </div>
+      ${data.playerUrl ? `
+        <a class="webcam-live-badge" ${linkAttr} title="Veure en directe a Windy">
+          🔴 EN DIRECTE
+        </a>` : ''}
+      <a ${linkAttr}>
+        <img
+          id="webcamImg"
+          src="${data.imageUrl}"
+          class="webcam-img"
+          alt="${data.title}"
+          loading="lazy"
+          onerror="this.parentElement.parentElement.querySelector('.webcam-img-wrap')?.classList.add('hidden')"
+        />
+      </a>
+    </div>`
+
+  // Auto-refresh the snapshot every 5 minutes
+  const img = el.querySelector<HTMLImageElement>('#webcamImg')
+  if (img && data.imageUrl) {
+    const base = data.imageUrl.split('?')[0]
+    setInterval(() => {
+      img.src = `${base}?t=${Date.now()}`
+    }, 5 * 60 * 1000)
   }
 }
