@@ -6,7 +6,7 @@ import { currentHourIdx } from '../utils/data'
 import { wxFromCode, fmt, avg } from '../utils/weather'
 
 const WIND_DIRS = ['↑','↗','→','↘','↓','↙','←','↖']
-const STEP = 3   // show every 3 hours
+const STEP = 1   // show every hour
 const HOURS = 72 // 3 days
 
 function modalCode(codes: (number | null)[]): number | null {

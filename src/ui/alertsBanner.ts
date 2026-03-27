@@ -93,12 +93,13 @@ export function renderAlertsBanner(alerts: WeatherAlert[]) {
   const disclaimerEl = el.querySelector<HTMLDivElement>('.alert-disclaimer')!
 
   toggleBtn.addEventListener('click', () => {
-    const open = detailEl.style.display === 'none'
-    detailEl.style.display = open ? 'block' : 'none'
-    chevronEl.style.transform = open ? 'rotate(180deg)' : ''
-    disclaimerEl.style.borderBottomLeftRadius  = open ? '0' : ''
-    disclaimerEl.style.borderBottomRightRadius = open ? '0' : ''
-    toggleBtn.setAttribute('aria-expanded', String(open))
+    const isHidden = detailEl.style.display === 'none' || detailEl.style.display === ''
+    // Use 'flex' to match the CSS display value, not 'block'
+    detailEl.style.display = isHidden ? 'flex' : 'none'
+    chevronEl.style.transform = isHidden ? 'rotate(180deg)' : ''
+    disclaimerEl.style.borderBottomLeftRadius  = isHidden ? '0' : ''
+    disclaimerEl.style.borderBottomRightRadius = isHidden ? '0' : ''
+    toggleBtn.setAttribute('aria-expanded', String(isHidden))
   })
 
   // Dismiss individual alert cards

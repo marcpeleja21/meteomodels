@@ -385,7 +385,7 @@ async function selectLocation(loc: GeocodingResult) {
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
-    fetchAlerts(loc.latitude, loc.longitude, loc.country_code),
+    fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc),
   ])
 
   state.wxData     = wxData

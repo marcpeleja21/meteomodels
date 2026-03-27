@@ -1,3 +1,5 @@
+import type { GeocodingResult } from '../types'
+
 export type AlertSeverity = 'Extreme' | 'Severe' | 'Moderate' | 'Minor' | 'Unknown'
 
 export interface WeatherAlert {
@@ -36,6 +38,49 @@ async function fetchUSAlerts(lat: number, lon: number): Promise<WeatherAlert[]> 
   }
 }
 
+// ── Location-based filter helpers ─────────────────────────────────────────────
+
+/**
+ * Normalise a region string for fuzzy matching:
+ * lowercase → strip accents → remove "Province/Region/Community of" prefixes.
+ */
+function normalise(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip accents
+    .replace(/\b(province|region|comarca|autonomous|community|comunitat|comunidad|departement|department|district|county)\b[^a-z]*/gi, '')
+    .replace(/\bof\b|\bde\b|\bdel\b|\bde la\b|\bdes\b|\bdu\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Returns true if the alert's areaDesc is relevant to the selected location.
+ * Matches against city name, admin2 (province), and a 6-char prefix of admin1
+ * (to bridge language differences like "Catalonia" ↔ "Catalunya"/"Cataluña").
+ */
+function alertMatchesLocation(area: string, loc: GeocodingResult): boolean {
+  const normArea = normalise(area)
+  if (!normArea) return false
+
+  const candidates: string[] = [
+    loc.name,
+    loc.admin2,
+    loc.admin1,
+    loc.country,
+  ].filter(Boolean) as string[]
+
+  return candidates.some(c => {
+    const norm = normalise(c)
+    if (norm.length < 3) return false
+    // Full match first
+    if (normArea.includes(norm) || norm.includes(normArea)) return true
+    // Partial prefix match (≥5 chars) bridges language variants
+    const prefix = norm.slice(0, 6)
+    return prefix.length >= 5 && normArea.includes(prefix)
+  })
+}
+
 // ── Meteoalarm — Europe ───────────────────────────────────────────────────────
 const EU_COUNTRIES: Record<string, string> = {
   ES: 'spain',    FR: 'france',       DE: 'germany',       IT: 'italy',
@@ -50,14 +95,14 @@ const EU_COUNTRIES: Record<string, string> = {
   MD: 'moldova',  UA: 'ukraine',      IS: 'iceland',
 }
 
-async function fetchEUAlerts(countryCode: string): Promise<WeatherAlert[]> {
-  const slug = EU_COUNTRIES[countryCode]
+async function fetchEUAlerts(loc: GeocodingResult): Promise<WeatherAlert[]> {
+  const slug = EU_COUNTRIES[loc.country_code]
   if (!slug) return []
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 8000)
-    // Use our server-side proxy to avoid CORS/network blocks
-    const res = await fetch(`/api/alerts?cc=${countryCode}`, { signal: controller.signal })
+    // Server-side proxy avoids CORS/network blocks
+    const res = await fetch(`/api/alerts?cc=${loc.country_code}`, { signal: controller.signal })
     clearTimeout(timer)
     if (!res.ok) return []
 
@@ -77,10 +122,14 @@ async function fetchEUAlerts(countryCode: string): Promise<WeatherAlert[]> {
       // Only show Moderate and above
       if (severity === 'Minor' || severity === 'Unknown') return []
 
+      const area = entry.querySelector('areaDesc')?.textContent ?? ''
+
+      // ── Location filter: skip alerts not relevant to the selected city ──
+      if (!alertMatchesLocation(area, loc)) return []
+
       const event   = entry.querySelector('event')?.textContent ?? ''
       const title   = entry.querySelector('title')?.textContent ?? event
       const summary = (entry.querySelector('summary')?.textContent ?? '').slice(0, 400)
-      const area    = entry.querySelector('areaDesc')?.textContent ?? ''
 
       return [{
         id:          entry.querySelector('id')?.textContent ?? crypto.randomUUID(),
@@ -100,9 +149,9 @@ async function fetchEUAlerts(countryCode: string): Promise<WeatherAlert[]> {
 
 // ── Public entry point ────────────────────────────────────────────────────────
 export async function fetchAlerts(
-  lat: number, lon: number, countryCode: string
+  lat: number, lon: number, countryCode: string, loc?: GeocodingResult
 ): Promise<WeatherAlert[]> {
   if (countryCode === 'US') return fetchUSAlerts(lat, lon)
-  if (EU_COUNTRIES[countryCode])  return fetchEUAlerts(countryCode)
+  if (EU_COUNTRIES[countryCode] && loc) return fetchEUAlerts(loc)
   return []
 }
