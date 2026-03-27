@@ -94,9 +94,9 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label">${t.ensLabel(n)}</div>
         <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-temp">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</div>
         ${deltaHtml(delta, t)}
         <div class="cmp-stats">
           <span>💦 ${fmt(cur.rain, 0)}%</span>
@@ -134,9 +134,9 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label" style="color:${model.color}">${model.flag} ${model.fullName}</div>
         <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp" style="color:${model.color}">${cur.temp !== null ? Math.round(cur.temp) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-temp" style="color:${model.color}">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? Math.round(cur.feels) + '°C' : '—'}</div>
+        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</div>
         ${deltaHtml(delta, t)}
         <div class="cmp-stats">
           <span>💦 ${fmt(cur.rain, 0)}%</span>
