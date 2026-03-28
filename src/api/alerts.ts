@@ -13,6 +13,61 @@ export interface WeatherAlert {
   areas:       string
 }
 
+// ── MeteoAlarm cap:event translation ─────────────────────────────────────────
+
+/** Map lowercase keywords found in cap:event → translated label per language */
+const EVENT_KEYWORDS: Array<{ match: string[]; ca: string; es: string; en: string; fr: string }> = [
+  { match: ['wind'],            ca: 'Vent',              es: 'Viento',             en: 'Wind',             fr: 'Vent' },
+  { match: ['thunderstorm'],    ca: 'Tempesta',          es: 'Tormenta',           en: 'Thunderstorm',     fr: 'Orage' },
+  { match: ['snow', 'ice'],     ca: 'Neu/Gel',           es: 'Nieve/Hielo',        en: 'Snow/Ice',         fr: 'Neige/Verglas' },
+  { match: ['snow'],            ca: 'Neu',               es: 'Nieve',              en: 'Snow',             fr: 'Neige' },
+  { match: ['ice'],             ca: 'Gel',               es: 'Hielo',              en: 'Ice',              fr: 'Verglas' },
+  { match: ['fog'],             ca: 'Boira',             es: 'Niebla',             en: 'Fog',              fr: 'Brouillard' },
+  { match: ['rain', 'flood'],   ca: 'Pluges/Inundació',  es: 'Lluvia/Inundación',  en: 'Rain/Flood',       fr: 'Pluie/Inondation' },
+  { match: ['rain'],            ca: 'Pluges',            es: 'Lluvia',             en: 'Rain',             fr: 'Pluie' },
+  { match: ['flood'],           ca: 'Inundació',         es: 'Inundación',         en: 'Flood',            fr: 'Inondation' },
+  { match: ['coastalevent', 'coastal'], ca: 'Temporal costaner', es: 'Temporal costero', en: 'Coastal event', fr: 'Événement côtier' },
+  { match: ['hightemperature', 'high temperature', 'heat'], ca: 'Calor extrem', es: 'Calor extremo', en: 'High temperature', fr: 'Températures élevées' },
+  { match: ['lowtemperature',  'low temperature', 'cold'],  ca: 'Fred extrem',   es: 'Frío extremo',   en: 'Low temperature',  fr: 'Températures baixes' },
+  { match: ['forestfire', 'forest fire'],                   ca: 'Incendi forestal', es: 'Incendio forestal', en: 'Forest fire', fr: 'Feux de forêt' },
+  { match: ['avalanche'],       ca: 'Allau',             es: 'Alud',               en: 'Avalanche',        fr: 'Avalanche' },
+  { match: ['dust'],            ca: 'Pols',              es: 'Polvo',              en: 'Dust',             fr: 'Poussière' },
+]
+
+const SEVERITY_LABEL: Record<string, Record<string, string>> = {
+  extreme:  { ca: 'Extrem',   es: 'Extremo',   en: 'Extreme',  fr: 'Extrême'  },
+  severe:   { ca: 'Sever',    es: 'Severo',     en: 'Severe',   fr: 'Sévère'   },
+  moderate: { ca: 'Moderat',  es: 'Moderado',   en: 'Moderate', fr: 'Modéré'   },
+  minor:    { ca: 'Menor',    es: 'Menor',      en: 'Minor',    fr: 'Mineur'   },
+}
+
+/**
+ * Translate a MeteoAlarm cap:event string (always English in the feed, e.g.
+ * "Severe wind warning") into the app language.
+ */
+function translateEvent(event: string, lang: string): string {
+  const lower = event.toLowerCase()
+
+  // Find event type translation
+  let typeTr: string | null = null
+  for (const entry of EVENT_KEYWORDS) {
+    // All keywords in the match array must appear in the event string
+    if (entry.match.every(k => lower.includes(k))) {
+      typeTr = (entry as unknown as Record<string, string>)[lang] ?? entry.en
+      break
+    }
+  }
+  if (!typeTr) return event   // unknown type — return raw string
+
+  // Find severity prefix
+  const sevKey = Object.keys(SEVERITY_LABEL).find(k => lower.includes(k))
+  if (sevKey) {
+    const sevTr = SEVERITY_LABEL[sevKey][lang] ?? SEVERITY_LABEL[sevKey]['en']
+    return `${typeTr} (${sevTr})`
+  }
+  return typeTr
+}
+
 // ── NWS — United States ───────────────────────────────────────────────────────
 async function fetchUSAlerts(lat: number, lon: number): Promise<WeatherAlert[]> {
   try {
@@ -107,16 +162,27 @@ const EU_COUNTRIES: Record<string, string> = {
   MD: 'moldova',  UA: 'ukraine',      IS: 'iceland',
 }
 
-async function fetchEUAlerts(loc: GeocodingResult): Promise<WeatherAlert[]> {
+async function fetchEUAlerts(
+  lat: number, lon: number, loc: GeocodingResult, lang: string,
+): Promise<WeatherAlert[]> {
   const slug = EU_COUNTRIES[loc.country_code]
   if (!slug) return []
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 8000)
-    // Server-side proxy avoids CORS/network blocks
-    const res = await fetch(`/api/alerts?cc=${loc.country_code}`, { signal: controller.signal })
+    // Pass lat/lon so the server can resolve EMMA zone IDs for this point
+    const res = await fetch(
+      `/api/alerts?cc=${loc.country_code}&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`,
+      { signal: controller.signal },
+    )
     clearTimeout(timer)
     if (!res.ok) return []
+
+    // EMMA IDs for this point (from server-side zone lookup), if available
+    const emmaHeader = res.headers.get('X-Emma-Ids')
+    const allowedEmmaIds: Set<string> | null = emmaHeader
+      ? new Set(emmaHeader.split(',').map(s => s.trim()).filter(Boolean))
+      : null
 
     const xml = await res.text()
     const doc  = new DOMParser().parseFromString(xml, 'application/xml')
@@ -136,12 +202,28 @@ async function fetchEUAlerts(loc: GeocodingResult): Promise<WeatherAlert[]> {
 
       const area = entry.querySelector('areaDesc')?.textContent ?? ''
 
-      // ── Location filter: skip alerts not relevant to the selected city ──
-      if (!alertMatchesLocation(area, loc)) return []
+      // ── Location filter ────────────────────────────────────────────────────
+      if (allowedEmmaIds) {
+        // Server resolved EMMA zone IDs → use precise geographic filter
+        const geocodeEls = Array.from(entry.querySelectorAll('geocode'))
+        let entryEmmaId: string | null = null
+        for (const gc of geocodeEls) {
+          if (gc.querySelector('valueName')?.textContent === 'EMMA_ID') {
+            entryEmmaId = gc.querySelector('value')?.textContent ?? null
+            break
+          }
+        }
+        // Reject alert if its zone is not in the allowed set
+        if (!entryEmmaId || !allowedEmmaIds.has(entryEmmaId)) return []
+      } else {
+        // Fallback: text-based matching against city name and province
+        if (!alertMatchesLocation(area, loc)) return []
+      }
 
-      const event   = entry.querySelector('event')?.textContent ?? ''
-      const title   = entry.querySelector('title')?.textContent ?? event
-      const summary = (entry.querySelector('summary')?.textContent ?? '').slice(0, 400)
+      const rawEvent = entry.querySelector('event')?.textContent ?? ''
+      const event    = translateEvent(rawEvent, lang)
+      const title    = entry.querySelector('title')?.textContent ?? rawEvent
+      const summary  = (entry.querySelector('summary')?.textContent ?? '').slice(0, 400)
 
       return [{
         id:          entry.querySelector('id')?.textContent ?? crypto.randomUUID(),
@@ -161,9 +243,9 @@ async function fetchEUAlerts(loc: GeocodingResult): Promise<WeatherAlert[]> {
 
 // ── Public entry point ────────────────────────────────────────────────────────
 export async function fetchAlerts(
-  lat: number, lon: number, countryCode: string, loc?: GeocodingResult
+  lat: number, lon: number, countryCode: string, loc?: GeocodingResult, lang = 'en',
 ): Promise<WeatherAlert[]> {
   if (countryCode === 'US') return fetchUSAlerts(lat, lon)
-  if (EU_COUNTRIES[countryCode] && loc) return fetchEUAlerts(loc)
+  if (EU_COUNTRIES[countryCode] && loc) return fetchEUAlerts(lat, lon, loc, lang)
   return []
 }

@@ -25,6 +25,7 @@ import { renderStationCard } from './ui/stationCard'
 import { renderMapCard } from './ui/mapCard'
 import { renderWebcamCard } from './ui/webcamCard'
 import { renderAlertsBanner } from './ui/alertsBanner'
+import { renderPredictionCard } from './ui/predictionCard'
 import { renderModelsPage } from './ui/modelsPage'
 import { renderHourlyPage } from './ui/hourlyPage'
 
@@ -387,7 +388,7 @@ async function selectLocation(loc: GeocodingResult) {
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
-    fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc),
+    fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc, state.lang),
   ])
 
   state.wxData     = wxData
@@ -409,6 +410,7 @@ async function selectLocation(loc: GeocodingResult) {
   wxDisplay.classList.add('fade-up')
 
   renderAlertsBanner(alertsData)
+  renderPredictionCard(state.wxData)
   renderLocBar(loc, t())
   renderStationCard(obsData)
   renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
@@ -459,6 +461,7 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
     applyLang()
     updateNavLabels()
     if (state.currentLoc) {
+      renderPredictionCard(state.wxData)
       renderLocBar(state.currentLoc, t())
       renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
       renderAll()
