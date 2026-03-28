@@ -1,282 +1,327 @@
 import { state } from '../state'
-import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
-import { avg } from '../utils/weather'
+import {
+  fetchEnsembleMembers,
+  ENS_MODELS,
+  type EnsModelKey,
+  type EnsVarKey,
+} from '../api/ensembleMembers'
 
-const W = 900, H = 260
-const PAD = { top: 24, right: 24, bottom: 40, left: 52 }
+const W = 920, H = 300
+const PAD = { top: 28, right: 20, bottom: 44, left: 52 }
 const CW = W - PAD.left - PAD.right
-const CH = H - PAD.top - PAD.bottom
-const DAYS = 7
+const CH = H - PAD.top  - PAD.bottom
 
-type PlumeVar = 'temp' | 'precip' | 'wind'
+// ── Maths helpers ─────────────────────────────────────────────────────────────
 
-function getValues(modelKey: string, variable: PlumeVar): (number | null)[] {
-  const d = state.wxData[modelKey]
-  if (!d) return Array(DAYS).fill(null)
-  return Array.from({ length: DAYS }, (_, i) => {
-    if (variable === 'temp')   return d.daily.temperature_2m_max[i]   ?? null
-    if (variable === 'precip') return (d.daily as any).precipitation_sum?.[i] ?? null
-    if (variable === 'wind')   return d.daily.windspeed_10m_max[i]    ?? null
-    return null
-  })
+function percentile(sorted: number[], p: number): number {
+  const idx = (p / 100) * (sorted.length - 1)
+  const lo  = Math.floor(idx)
+  const hi  = Math.ceil(idx)
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo)
 }
 
-export function renderEnsemblePlume(container: HTMLElement, variable: PlumeVar) {
-  const t = LANG_DATA[state.lang]
-  const loaded = MODELS.filter(m => state.wxData[m.key] != null)
-  if (!loaded.length) { container.innerHTML = ''; return }
+function smartTicks(lo: number, hi: number, n = 5): number[] {
+  const range = hi - lo
+  const step  = Math.pow(10, Math.floor(Math.log10(range / n)))
+  const nice  = [1, 2, 2.5, 5, 10].map(f => f * step).find(s => range / s <= n + 1) ?? step
+  const start = Math.ceil(lo / nice) * nice
+  const ticks: number[] = []
+  for (let v = start; v <= hi + nice * 0.01; v = parseFloat((v + nice).toFixed(10)))
+    ticks.push(parseFloat(v.toFixed(6)))
+  return ticks
+}
 
-  const refData = Object.values(state.wxData).find(d => d != null)!
-  const dayLabels = Array.from({ length: DAYS }, (_, i) => {
-    const date = new Date(refData.daily.time[i] + 'T12:00:00')
-    const isToday = i === 0
-    return isToday ? t.today : t.days[date.getDay()]
-  })
+// ── Main render ───────────────────────────────────────────────────────────────
 
-  // Per-day per-model values
-  const modelSeries: { model: (typeof MODELS)[0]; vals: (number|null)[] }[] = loaded.map(m => ({
-    model: m,
-    vals: getValues(m.key, variable),
-  }))
+export async function renderEnsemblePlume(
+  container: HTMLElement,
+  variable: EnsVarKey,
+  model: EnsModelKey,
+) {
+  const t   = LANG_DATA[state.lang]
+  const loc = state.currentLoc
+  if (!loc) { container.innerHTML = ''; return }
 
-  // Ensemble mean per day
-  const meanVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
-    const vs = modelSeries
-      .filter(s => modelValidForDay(s.model, i))
-      .map(s => s.vals[i])
-      .filter((v): v is number => v !== null)
-    return vs.length ? avg(vs) : null
-  })
+  container.innerHTML = `<div class="plume-loading">⏳ ${t.loading}</div>`
 
-  // Min/max envelope
-  const minVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
-    const vs = modelSeries.map(s => s.vals[i]).filter((v): v is number => v !== null)
-    return vs.length ? Math.min(...vs) : null
-  })
-  const maxVals: (number|null)[] = Array.from({ length: DAYS }, (_, i) => {
-    const vs = modelSeries.map(s => s.vals[i]).filter((v): v is number => v !== null)
-    return vs.length ? Math.max(...vs) : null
-  })
+  const data = await fetchEnsembleMembers(loc.latitude, loc.longitude, model, variable)
+  if (!data || !data.members.length) {
+    container.innerHTML = `<div class="plume-loading" style="color:var(--text-muted)">${t.noData}</div>`
+    return
+  }
 
-  // Scale
-  const allNums = [...minVals, ...maxVals].filter((v): v is number => v !== null)
-  if (!allNums.length) { container.innerHTML = ''; return }
-  let yMin = Math.min(...allNums)
-  let yMax = Math.max(...allNums)
-  const pad = Math.max((yMax - yMin) * 0.15, variable === 'temp' ? 2 : 0.5)
-  yMin -= pad; yMax += pad
+  // ── Sub-sample every 3 hours → ≤ 56 rendered points over 7 days ─────────────
+  const STEP = 3
+  const idxs = data.times.map((_, i) => i).filter(i => i % STEP === 0)
+  const times   = idxs.map(i => data.times[i])
+  const members = data.members.map(m => idxs.map(i => m[i]))
+  const n       = times.length
 
-  const xScale = (i: number) => PAD.left + (i / (DAYS - 1)) * CW
-  const yScale = (v: number) => PAD.top + CH - ((v - yMin) / (yMax - yMin)) * CH
+  // ── Per-time statistics ───────────────────────────────────────────────────────
+  const medians: number[] = [], q25: number[] = [], q75: number[] = []
+  const mins:    number[] = [], maxs: number[] = []
 
-  const unit  = variable === 'temp' ? '°C' : variable === 'precip' ? 'mm' : 'km/h'
-  const color = variable === 'temp' ? '#ff7043' : variable === 'precip' ? '#29b6f6' : '#aed581'
+  for (let ti = 0; ti < n; ti++) {
+    const vals = members
+      .map(m => m[ti])
+      .filter((v): v is number => v !== null && !isNaN(v))
+      .sort((a, b) => a - b)
 
-  function linePath(vals: (number|null)[]): string {
+    if (!vals.length) {
+      medians.push(NaN); q25.push(NaN); q75.push(NaN)
+      mins.push(NaN);    maxs.push(NaN)
+      continue
+    }
+    medians.push(percentile(vals, 50))
+    q25.push(percentile(vals, 25))
+    q75.push(percentile(vals, 75))
+    mins.push(vals[0])
+    maxs.push(vals[vals.length - 1])
+  }
+
+  // ── Y scale (3rd–97th pct to avoid extreme outlier stretch) ──────────────────
+  const allVals = members.flat().filter((v): v is number => v !== null && !isNaN(v)).sort((a,b)=>a-b)
+  const rawMin  = percentile(allVals, 3)
+  const rawMax  = percentile(allVals, 97)
+  const rangePad = Math.max((rawMax - rawMin) * 0.12, 1)
+  let yMin = rawMin - rangePad
+  let yMax = rawMax + rangePad
+
+  const ticks = smartTicks(yMin, yMax)
+  if (ticks.length) {
+    yMin = Math.min(yMin, ticks[0])
+    yMax = Math.max(yMax, ticks[ticks.length - 1])
+  }
+
+  const xScale = (i: number) => PAD.left + (i / (n - 1)) * CW
+  const yScale = (v: number) => PAD.top  + CH - ((v - yMin) / (yMax - yMin)) * CH
+
+  // ── Path helpers ──────────────────────────────────────────────────────────────
+  function pathFrom(vals: (number | null | undefined)[]): string {
     let d = ''
     vals.forEach((v, i) => {
-      if (v === null) return
-      const x = xScale(i), y = yScale(v)
-      d += d ? ` L${x.toFixed(1)},${y.toFixed(1)}` : `M${x.toFixed(1)},${y.toFixed(1)}`
+      if (v === null || v === undefined || isNaN(v as number)) return
+      const px = xScale(i).toFixed(1), py = yScale(v as number).toFixed(1)
+      d += (!d || isNaN(vals[i - 1] as number) || vals[i - 1] === null)
+        ? `M${px},${py}`
+        : ` L${px},${py}`
     })
     return d
   }
 
-  function envelopePath(): string {
-    const fwdPoints = maxVals.map((v, i) => v !== null ? `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}` : null).filter(Boolean)
-    const bwdPoints = [...minVals].reverse().map((v, i) => {
-      const ri = DAYS - 1 - i
-      return v !== null ? `${xScale(ri).toFixed(1)},${yScale(v).toFixed(1)}` : null
+  function envelopePath(lo: number[], hi: number[]): string {
+    const fwd = hi.map((v, i) => isNaN(v) ? null : `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).filter(Boolean)
+    const bwd = [...lo].reverse().map((v, i) => {
+      const ri = n - 1 - i
+      return isNaN(v) ? null : `${xScale(ri).toFixed(1)},${yScale(v).toFixed(1)}`
     }).filter(Boolean)
-    if (!fwdPoints.length) return ''
-    return `M${fwdPoints.join(' L')} L${bwdPoints.join(' L')} Z`
+    return fwd.length ? `M${fwd.join(' L')} L${bwd.join(' L')} Z` : ''
   }
 
-  const tickCount = 5
-  const yTicks = Array.from({ length: tickCount }, (_, i) => {
-    const v = yMin + (i / (tickCount - 1)) * (yMax - yMin)
-    return { v, y: yScale(v) }
+  // ── Day separators ────────────────────────────────────────────────────────────
+  const now    = new Date()
+  const todayKey = now.toISOString().slice(0, 10)
+  const dayLines: { x: number; label: string; isFirst: boolean }[] = []
+  let lastDay = ''
+  times.forEach((ts, i) => {
+    const dayKey = ts.slice(0, 10)
+    if (dayKey !== lastDay) {
+      lastDay = dayKey
+      const d      = new Date(ts)
+      const isFirst = dayLines.length === 0
+      const label   = dayKey === todayKey
+        ? t.today
+        : `${t.days[d.getDay()]} ${d.getDate()}`
+      dayLines.push({ x: xScale(i), label, isFirst })
+    }
   })
 
-  const modelLines = modelSeries.map((s, idx) => {
-    const path = linePath(s.vals)
-    if (!path) return ''
-    return `<path class="plume-line-${idx}" d="${path}" stroke="${s.model.color}" stroke-width="1.5" fill="none" opacity="0.5"/>`
-  }).join('')
+  // Current-time indicator
+  const nowTs  = now.toISOString().slice(0, 13) + ':00'
+  const nowIdx = times.findIndex(ts => ts >= nowTs)
+  const nowX   = nowIdx >= 0 ? xScale(nowIdx) : -1
 
-  const meanPath   = linePath(meanVals)
-  const envPath    = envelopePath()
+  // ── Colours ───────────────────────────────────────────────────────────────────
+  const color =
+    variable === 'temp'   ? '#ff7043' :
+    variable === 'precip' ? '#29b6f6' : '#aed581'
 
-  // Crosshair + interactive dots (initially hidden)
-  const dotCircles = modelSeries.map((s, idx) =>
-    `<circle class="pd-${idx}" cx="0" cy="0" r="4" fill="${s.model.color}" stroke="rgba(0,0,0,0.4)" stroke-width="1" opacity="0" pointer-events="none"/>`
+  const unit     = data.unit
+  const modelMeta = ENS_MODELS.find(m => m.key === model)!
+  const memberLinesSvg = members.map(m =>
+    `<path d="${pathFrom(m)}" stroke="${color}" stroke-width="1" fill="none" opacity="0.18"/>`
   ).join('')
 
-  const svg = `
-    <svg class="plume-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
-         style="width:100%;max-width:${W}px;display:block;overflow:visible;cursor:crosshair">
-      <defs>
-        <linearGradient id="envGrad-${variable}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${color}" stop-opacity="0.12"/>
-          <stop offset="100%" stop-color="${color}" stop-opacity="0.04"/>
-        </linearGradient>
-      </defs>
+  const iqrPath    = envelopePath(q25, q75)
+  const spreadPath = envelopePath(mins, maxs)
+  const medPath    = pathFrom(medians)
 
-      <!-- Envelope fill -->
-      ${envPath ? `<path d="${envPath}" fill="url(#envGrad-${variable})" stroke="none"/>` : ''}
-
-      <!-- Grid lines + x labels -->
-      ${Array.from({ length: DAYS }, (_, i) => {
-        const x = xScale(i)
-        return `<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${PAD.top + CH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-                <text x="${x}" y="${PAD.top + CH + 18}" text-anchor="middle" fill="var(--text-dim, #6b7fa3)" font-size="11">${dayLabels[i]}</text>`
-      }).join('')}
-
-      <!-- Y ticks -->
-      ${yTicks.map(tk => `
-        <line x1="${PAD.left - 4}" y1="${tk.y}" x2="${PAD.left + CW}" y2="${tk.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-        <text x="${PAD.left - 8}" y="${tk.y + 4}" text-anchor="end" fill="var(--text-dim, #6b7fa3)" font-size="11">${Math.round(tk.v)}</text>
-      `).join('')}
-
-      <!-- Unit label -->
-      <text x="${PAD.left - 8}" y="${PAD.top - 8}" text-anchor="end" fill="${color}" font-size="11" font-weight="600">${unit}</text>
-
-      <!-- Individual model lines -->
-      ${modelLines}
-
-      <!-- Ensemble mean -->
-      ${meanPath ? `<path d="${meanPath}" stroke="${color}" stroke-width="2.5" fill="none" opacity="0.95"/>` : ''}
-
-      <!-- Axes border -->
-      <rect x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" rx="2"/>
-
-      <!-- Interactive: crosshair + dots (shown on hover) -->
-      <line class="plume-crosshair" x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + CH}"
-            stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-dasharray="4,3" opacity="0" pointer-events="none"/>
-      ${dotCircles}
-      <circle class="pd-mean" cx="0" cy="0" r="5.5" fill="${color}" stroke="#0b1220" stroke-width="2" opacity="0" pointer-events="none"/>
-
-      <!-- Transparent overlay for mouse events -->
-      <rect class="plume-hitbox" x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}" fill="transparent"/>
-    </svg>
-  `
-
-  // Legend
-  const legendHtml = modelSeries.map(s =>
-    `<span class="plume-leg-item"><span class="plume-dot" style="background:${s.model.color}"></span>${s.model.flag} ${s.model.name}</span>`
-  ).join('')
-
+  // ── Render ────────────────────────────────────────────────────────────────────
   container.innerHTML = `
     <div class="plume-wrap">
-      ${svg}
-      <div class="plume-legend">${legendHtml}
-        <span class="plume-leg-item"><span class="plume-dot" style="background:${color};width:14px;height:3px;border-radius:2px"></span><strong>${t.ensemble}</strong></span>
+      <div class="plume-source-note">
+        ${modelMeta.flag} ${modelMeta.label} · ${data.nMembers} membres · Open-Meteo
       </div>
-      <div class="plume-tooltip" id="plumeTooltip"></div>
+      <svg class="plume-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+           style="width:100%;max-width:${W}px;display:block;overflow:visible;cursor:crosshair">
+        <defs>
+          <linearGradient id="iqrGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="${color}" stop-opacity="0.24"/>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0.08"/>
+          </linearGradient>
+          <linearGradient id="spreadGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="${color}" stop-opacity="0.07"/>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+          </linearGradient>
+          <clipPath id="chartClip">
+            <rect x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}"/>
+          </clipPath>
+        </defs>
+
+        <!-- Y grid + labels -->
+        ${ticks.map(v => `
+          <line x1="${PAD.left}" y1="${yScale(v).toFixed(1)}"
+                x2="${PAD.left + CW}" y2="${yScale(v).toFixed(1)}"
+                stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+          <text x="${(PAD.left - 7).toFixed(1)}" y="${(yScale(v) + 4).toFixed(1)}"
+                text-anchor="end" fill="var(--text-dim,#6b7fa3)" font-size="10.5">
+            ${v % 1 === 0 ? v : v.toFixed(1)}
+          </text>`).join('')}
+
+        <!-- Unit -->
+        <text x="${PAD.left - 7}" y="${PAD.top - 10}"
+              text-anchor="end" fill="${color}" font-size="11" font-weight="600">${unit}</text>
+
+        <!-- Day separators + labels -->
+        ${dayLines.map(dl => `
+          ${!dl.isFirst ? `
+            <line x1="${dl.x.toFixed(1)}" y1="${PAD.top}" x2="${dl.x.toFixed(1)}" y2="${PAD.top + CH}"
+                  stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3,3"/>` : ''}
+          <text x="${dl.x.toFixed(1)}" y="${(PAD.top + CH + 18).toFixed(1)}"
+                text-anchor="${dl.isFirst ? 'start' : 'middle'}"
+                fill="var(--text-dim,#6b7fa3)" font-size="11">${dl.label}</text>`).join('')}
+
+        <g clip-path="url(#chartClip)">
+          <!-- Spread band (min–max) -->
+          ${spreadPath ? `<path d="${spreadPath}" fill="url(#spreadGrad)" stroke="none"/>` : ''}
+          <!-- IQR band (25–75 pct) -->
+          ${iqrPath ? `<path d="${iqrPath}" fill="url(#iqrGrad)"
+                            stroke="${color}" stroke-opacity="0.2" stroke-width="0.5"/>` : ''}
+          <!-- Individual member spaghetti -->
+          ${memberLinesSvg}
+          <!-- Median line -->
+          ${medPath ? `<path d="${medPath}" stroke="${color}" stroke-width="2.5" fill="none" opacity="0.95"/>` : ''}
+          <!-- Current-time indicator -->
+          ${nowX > 0 ? `
+            <line x1="${nowX.toFixed(1)}" y1="${PAD.top}" x2="${nowX.toFixed(1)}" y2="${PAD.top + CH}"
+                  stroke="#00e5ff" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.75"/>` : ''}
+        </g>
+
+        <!-- Chart border -->
+        <rect x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}"
+              fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" rx="2"/>
+
+        <!-- Crosshair (hidden by default) -->
+        <line class="plume-crosshair"
+              x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + CH}"
+              stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-dasharray="4,3"
+              opacity="0" pointer-events="none"/>
+        <circle class="plume-med-dot" cx="0" cy="0" r="5"
+                fill="${color}" stroke="#0b1220" stroke-width="2"
+                opacity="0" pointer-events="none"/>
+
+        <!-- Invisible hitbox for mouse events -->
+        <rect class="plume-hitbox"
+              x="${PAD.left}" y="${PAD.top}" width="${CW}" height="${CH}" fill="transparent"/>
+      </svg>
+
+      <!-- Legend -->
+      <div class="plume-legend">
+        <span class="plume-leg-item">
+          <span style="display:inline-block;width:22px;height:2px;background:${color};opacity:0.35;border-radius:1px;vertical-align:middle"></span>
+          ${data.nMembers} membres
+        </span>
+        <span class="plume-leg-item">
+          <span style="display:inline-block;width:22px;height:8px;background:${color};opacity:0.3;border-radius:2px;vertical-align:middle"></span>
+          IQR 25–75%
+        </span>
+        <span class="plume-leg-item">
+          <span style="display:inline-block;width:22px;height:3px;background:${color};border-radius:2px;vertical-align:middle"></span>
+          Mediana
+        </span>
+        ${nowX > 0 ? `
+        <span class="plume-leg-item">
+          <span style="display:inline-block;width:3px;height:14px;background:#00e5ff;border-radius:1px;vertical-align:middle"></span>
+          ${t.now}
+        </span>` : ''}
+      </div>
+
+      <!-- Floating tooltip -->
+      <div class="plume-tooltip" id="plumeTooltip" style="display:none;position:absolute;pointer-events:none"></div>
     </div>
   `
 
-  // ── Interactive hover ────────────────────────────────────────────────────────
-  const svgEl      = container.querySelector('.plume-svg')    as SVGSVGElement
-  const tooltip    = container.querySelector('#plumeTooltip') as HTMLElement
-  const crosshair  = container.querySelector('.plume-crosshair') as SVGLineElement
-  const meanDot    = container.querySelector('.pd-mean')      as SVGCircleElement
+  // ── Interactivity ─────────────────────────────────────────────────────────────
+  const svgEl     = container.querySelector<SVGSVGElement>('.plume-svg')!
+  const tooltip   = container.querySelector<HTMLElement>('#plumeTooltip')!
+  const crosshair = container.querySelector<SVGLineElement>('.plume-crosshair')!
+  const medDot    = container.querySelector<SVGCircleElement>('.plume-med-dot')!
+  const hitbox    = container.querySelector<SVGRectElement>('.plume-hitbox')!
 
-  function getNearestDay(clientX: number): number {
+  function nearestIdx(clientX: number): number {
     const rect  = svgEl.getBoundingClientRect()
-    const ratio = W / rect.width                        // viewBox → screen scale
-    const svgX  = (clientX - rect.left) * ratio
-    const raw   = (svgX - PAD.left) / CW * (DAYS - 1)
-    return Math.max(0, Math.min(DAYS - 1, Math.round(raw)))
+    const svgX  = (clientX - rect.left) * (W / rect.width)
+    const raw   = (svgX - PAD.left) / CW * (n - 1)
+    return Math.max(0, Math.min(n - 1, Math.round(raw)))
   }
 
-  function showTooltip(dayIdx: number, clientX: number) {
-    const x = xScale(dayIdx)
-
-    // Crosshair
-    crosshair.setAttribute('x1', x.toFixed(1))
-    crosshair.setAttribute('x2', x.toFixed(1))
+  function showTip(idx: number, clientX: number) {
+    const x = xScale(idx)
+    crosshair.setAttribute('x1', x.toFixed(1)); crosshair.setAttribute('x2', x.toFixed(1))
     crosshair.setAttribute('opacity', '1')
 
-    // Model dots
-    modelSeries.forEach((s, idx) => {
-      const dot = container.querySelector(`.pd-${idx}`) as SVGCircleElement
-      const val = s.vals[dayIdx]
-      if (!dot) return
-      if (val !== null) {
-        dot.setAttribute('cx', x.toFixed(1))
-        dot.setAttribute('cy', yScale(val).toFixed(1))
-        dot.setAttribute('opacity', '0.9')
-      } else {
-        dot.setAttribute('opacity', '0')
-      }
-    })
-
-    // Mean dot
-    const mv = meanVals[dayIdx]
-    if (mv !== null) {
-      meanDot.setAttribute('cx', x.toFixed(1))
-      meanDot.setAttribute('cy', yScale(mv).toFixed(1))
-      meanDot.setAttribute('opacity', '1')
-    } else {
-      meanDot.setAttribute('opacity', '0')
+    const med = medians[idx]
+    if (!isNaN(med)) {
+      medDot.setAttribute('cx', x.toFixed(1)); medDot.setAttribute('cy', yScale(med).toFixed(1))
+      medDot.setAttribute('opacity', '1')
     }
 
-    // Tooltip content
-    const rows = modelSeries
-      .filter(s => s.vals[dayIdx] !== null)
-      .sort((a, b) => (b.vals[dayIdx] ?? 0) - (a.vals[dayIdx] ?? 0))
-      .map(s => `
-        <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
-          <span style="width:8px;height:8px;border-radius:50%;background:${s.model.color};flex-shrink:0;display:inline-block"></span>
-          <span style="color:rgba(180,200,220,0.7);font-size:10px;flex:1">${s.model.flag} ${s.model.name}</span>
-          <span style="font-weight:700;font-size:11px;font-family:var(--font-data);color:var(--text)">${s.vals[dayIdx]!.toFixed(1)}${unit}</span>
-        </div>`)
-
-    const meanRow = mv !== null ? `
-      <div style="display:flex;align-items:center;gap:6px;padding:3px 0 2px;border-top:1px solid rgba(255,255,255,0.08);margin-top:3px">
-        <span style="width:12px;height:3px;border-radius:1px;background:${color};flex-shrink:0;display:inline-block"></span>
-        <span style="color:${color};font-size:10px;font-weight:700;flex:1">${t.ensemble}</span>
-        <span style="font-weight:800;font-size:12px;color:${color};font-family:var(--font-data)">${mv.toFixed(1)}${unit}</span>
-      </div>` : ''
+    const d    = new Date(times[idx])
+    const hh   = d.getHours().toString().padStart(2, '0')
+    const lbl  = `${t.days[d.getDay()]} ${d.getDate()} ${t.months[d.getMonth()]} · ${hh}:00`
 
     tooltip.innerHTML = `
-      <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;letter-spacing:.02em">${dayLabels[dayIdx]}</div>
-      ${rows.join('')}
-      ${meanRow}
-    `
+      <div style="font-weight:700;font-size:11px;margin-bottom:5px;color:var(--text)">${lbl}</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px">
+        <span style="color:rgba(180,200,220,0.65)">Mediana</span>
+        <span style="font-weight:700;color:${color};font-family:var(--font-data)">${isNaN(med) ? '—' : med.toFixed(1)}${unit}</span>
+        <span style="color:rgba(180,200,220,0.65)">IQR</span>
+        <span style="font-family:var(--font-data);color:var(--text)">${isNaN(q25[idx]) ? '—' : q25[idx].toFixed(1)}–${isNaN(q75[idx]) ? '—' : q75[idx].toFixed(1)}${unit}</span>
+        <span style="color:rgba(180,200,220,0.65)">Rang</span>
+        <span style="font-family:var(--font-data);color:var(--text)">${isNaN(mins[idx]) ? '—' : mins[idx].toFixed(1)}–${isNaN(maxs[idx]) ? '—' : maxs[idx].toFixed(1)}${unit}</span>
+      </div>`
 
-    // Position tooltip: flip left if near right edge
-    const rect    = svgEl.getBoundingClientRect()
-    const xPct    = (clientX - rect.left) / rect.width
+    const rect = svgEl.getBoundingClientRect()
+    const xPct = (clientX - rect.left) / rect.width
     tooltip.style.display = 'block'
-    tooltip.style.top     = '0px'
+    tooltip.style.top     = '16px'
     tooltip.style.left    = xPct > 0.6
-      ? `${((x - 16) / W * rect.width) - 180}px`
-      : `${(x + 16) / W * rect.width}px`
+      ? `${Math.max(0, (x / W * rect.width) - 175)}px`
+      : `${(x + 18) / W * rect.width}px`
   }
 
-  function hideTooltip() {
+  function hideTip() {
     crosshair.setAttribute('opacity', '0')
-    meanDot.setAttribute('opacity', '0')
-    modelSeries.forEach((_, idx) => {
-      const dot = container.querySelector(`.pd-${idx}`) as SVGCircleElement
-      if (dot) dot.setAttribute('opacity', '0')
-    })
+    medDot.setAttribute('opacity', '0')
     tooltip.style.display = 'none'
   }
 
-  svgEl.addEventListener('mousemove', (e: MouseEvent) => {
-    showTooltip(getNearestDay(e.clientX), e.clientX)
-  })
-  svgEl.addEventListener('mouseleave', hideTooltip)
-
-  // Touch support
-  svgEl.addEventListener('touchmove', (e: TouchEvent) => {
+  hitbox.addEventListener('mousemove', e => showTip(nearestIdx(e.clientX), e.clientX))
+  hitbox.addEventListener('mouseleave', hideTip)
+  hitbox.addEventListener('touchmove', e => {
     e.preventDefault()
-    const touch = e.touches[0]
-    showTooltip(getNearestDay(touch.clientX), touch.clientX)
+    showTip(nearestIdx(e.touches[0].clientX), e.touches[0].clientX)
   }, { passive: false })
-  svgEl.addEventListener('touchend', hideTooltip)
+  hitbox.addEventListener('touchend', hideTip)
 }

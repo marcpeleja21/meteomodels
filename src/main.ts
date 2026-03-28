@@ -12,6 +12,7 @@ import { fetchAqi } from './api/aqi'
 import { fetchCurrentObs } from './api/station'
 import { fetchNearbyWebcam } from './api/webcam'
 import { fetchAlerts } from './api/alerts'
+import { clearEnsembleCache } from './api/ensembleMembers'
 
 import { renderLocBar } from './ui/locBar'
 import { renderModelTabs } from './ui/modelTabs'
@@ -349,6 +350,7 @@ async function selectLocation(loc: GeocodingResult) {
   state.currentPage = 'forecast'
   state.wxData      = {}
   state.aqiData     = null
+  clearEnsembleCache()
   state.forecastMode         = 'days'
   state.forecastDaysExpanded = false
   searchInput.value = loc.name

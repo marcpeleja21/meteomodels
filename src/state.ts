@@ -15,7 +15,8 @@ export const state = {
   modelPageModel: 'ecmwf'    as string,
   modelPageVar:   'wind'     as string,
   modelPageSource:   'map'   as string,
-  modelPagePlumeVar: 'temp'  as string,
+  modelPagePlumeVar:   'temp'          as string,
+  modelPagePlumeModel: 'gfs_seamless' as string,
   hourlyModel:    'ensemble' as string,
 
   // Forecast UI state

@@ -1,6 +1,7 @@
 import { state } from '../state'
 import { LANG_DATA } from '../config/i18n'
 import { renderEnsemblePlume } from './ensemblePlume'
+import { ENS_MODELS, type EnsModelKey, type EnsVarKey } from '../api/ensembleMembers'
 
 const WINDY_MODELS = [
   { key: 'ecmwf', label: 'ECMWF' },
@@ -19,8 +20,9 @@ export function renderModelsPage() {
   if (!loc) { el.innerHTML = ''; return }
 
   const t = LANG_DATA[state.lang]
-  const source   = (state.modelPageSource  ?? 'map')  as ModelsSource
-  const plumeVar = (state.modelPagePlumeVar ?? 'temp') as 'temp' | 'precip' | 'wind'
+  const source     = (state.modelPageSource     ?? 'map')          as ModelsSource
+  const plumeVar   = (state.modelPagePlumeVar   ?? 'temp')         as EnsVarKey
+  const plumeModel = (state.modelPagePlumeModel ?? 'gfs_seamless') as EnsModelKey
 
   // Windy variable labels — built from i18n so they update on language change
   const WINDY_VARS = [
@@ -100,7 +102,15 @@ export function renderModelsPage() {
     bodyHtml = `
       <div class="models-controls">
         <div class="ctrl-group">
-          <span class="ctrl-label">Variable:</span>
+          <span class="ctrl-label">${t.ctrlModel}:</span>
+          <div class="ctrl-tabs">
+            ${ENS_MODELS.map(m =>
+              `<button class="ctrl-tab${m.key === plumeModel ? ' active' : ''}" data-pmdl="${m.key}">${m.flag} ${m.label}</button>`
+            ).join('')}
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <span class="ctrl-label">${t.ctrlVariable}:</span>
           <div class="ctrl-tabs">
             ${PLUME_VARS.map(v =>
               `<button class="ctrl-tab${v.key === plumeVar ? ' active' : ''}" data-pvar="${v.key}">${v.label}</button>`
@@ -111,7 +121,7 @@ export function renderModelsPage() {
       <div class="plume-section">
         <div class="plume-title">${t.plumesTitle} · ${PLUME_VARS.find(v => v.key === plumeVar)?.label ?? ''}</div>
         <div class="plume-sub">${t.plumesSubtitle}</div>
-        <div id="plumeChart"></div>
+        <div id="plumeChart" style="position:relative"></div>
       </div>
     `
   }
@@ -145,6 +155,13 @@ export function renderModelsPage() {
       })
     })
   } else {
+    // Plume model selector
+    el.querySelectorAll<HTMLButtonElement>('[data-pmdl]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        ;(state as any).modelPagePlumeModel = btn.dataset.pmdl!
+        renderModelsPage()
+      })
+    })
     // Plume variable selector
     el.querySelectorAll<HTMLButtonElement>('[data-pvar]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -152,8 +169,8 @@ export function renderModelsPage() {
         renderModelsPage()
       })
     })
-    // Render the plume chart
+    // Render the plume chart with real ensemble members
     const plumeEl = document.getElementById('plumeChart')
-    if (plumeEl) renderEnsemblePlume(plumeEl, plumeVar)
+    if (plumeEl) renderEnsemblePlume(plumeEl, plumeVar, plumeModel)
   }
 }
