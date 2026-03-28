@@ -16,26 +16,29 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
     const webcams: any[] = json.webcams ?? []
     if (!webcams.length) return null
 
-    // Prefer active webcams; fall back to first result
-    const wc = webcams.find((w: any) => w.status === 'active') ?? webcams[0]
+    // Pick the best webcam: prefer active + has preview image, then any with preview
+    const hasPreview = (w: any): boolean =>
+      !!(w.images?.current?.preview ?? w.images?.current?.thumbnail ?? w.images?.current?.full)
+    const wc =
+      webcams.find((w: any) => w.status === 'active' && hasPreview(w)) ??
+      webcams.find((w: any) => hasPreview(w)) ??
+      webcams.find((w: any) => w.status === 'active') ??
+      webcams[0]
     if (!wc) return null
 
-    // v3: player can be { day: "url" } or { day: { embed: "url" } }
+    // v3: player.day is a plain string
     const playerRaw = wc.player?.day
     const playerUrl: string | null =
       typeof playerRaw === 'string'
         ? playerRaw
-        : typeof playerRaw?.embed === 'string'
-          ? playerRaw.embed
-          : typeof playerRaw?.link === 'string'
-            ? playerRaw.link
-            : wc.webcamId
-              ? `https://webcams.windy.com/webcams/public/embed/player/${wc.webcamId}/day`
-              : null
+        : wc.webcamId
+          ? `https://webcams.windy.com/webcams/public/embed/player/${wc.webcamId}/day`
+          : null
 
-    // v3: images.current.preview or images.current.full
+    // v3: images.current.preview > thumbnail > full
     const imageUrl: string | null =
       wc.images?.current?.preview ??
+      wc.images?.current?.thumbnail ??
       wc.images?.current?.full ??
       null
 

@@ -54,30 +54,42 @@ function normalise(s: string): string {
     .trim()
 }
 
+/** Escape a string for use inside a RegExp */
+function reEsc(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Returns true if the alert's areaDesc is relevant to the selected location.
- * Matches against city name, admin2 (province), and a 6-char prefix of admin1
- * (to bridge language differences like "Catalonia" ↔ "Catalunya"/"Cataluña").
+ *
+ * Uses **word-boundary** regex so that e.g. admin1="Aragon" does NOT match
+ * zone names like "Pirineo aragonés" (normalises to "aragones") — the old
+ * `.includes()` approach caused false positives for adjective-form zone names.
+ *
+ * Candidates: city name + admin2 (province) only.
+ * admin1 (autonomous community) is intentionally excluded — MeteoAlarm zone
+ * names use adjective forms of the region ("aragonés", "catalán") that would
+ * incorrectly match any location in that region regardless of the specific zone.
  */
 function alertMatchesLocation(area: string, loc: GeocodingResult): boolean {
   const normArea = normalise(area)
   if (!normArea) return false
 
+  // Only match on city name and province (admin2) — region/country too broad
   const candidates: string[] = [
     loc.name,
     loc.admin2,
-    loc.admin1,
-    loc.country,
   ].filter(Boolean) as string[]
 
   return candidates.some(c => {
     const norm = normalise(c)
     if (norm.length < 3) return false
-    // Full match first
-    if (normArea.includes(norm) || norm.includes(normArea)) return true
-    // Partial prefix match (≥5 chars) bridges language variants
+    // Word-boundary match: "aragon" must NOT match inside "aragones"
+    if (new RegExp(`\\b${reEsc(norm)}\\b`).test(normArea)) return true
+    // Prefix match (≥5 chars) for cross-language variants: "catalo" ↔ Catalonia/Catalunya
     const prefix = norm.slice(0, 6)
-    return prefix.length >= 5 && normArea.includes(prefix)
+    if (prefix.length >= 5 && new RegExp(`\\b${reEsc(prefix)}`).test(normArea)) return true
+    return false
   })
 }
 
