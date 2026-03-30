@@ -5,7 +5,7 @@ import { state } from './state'
 import { MODELS } from './config/models'
 import { LANG_DATA } from './config/i18n'
 
-import { searchLocations } from './api/geocoding'
+import { searchLocations, reverseGeocode } from './api/geocoding'
 import { fetchAllModels } from './api/openmeteo'
 import { fetchMeteoblue } from './api/meteoblue'
 import { fetchAqi } from './api/aqi'
@@ -128,6 +128,9 @@ function applyLang() {
   const fmodeHoursEl = document.getElementById('fmodeHours')
   if (fmodeDaysEl)  fmodeDaysEl.textContent  = `📅 ${lang.forecastByDay}`
   if (fmodeHoursEl) fmodeHoursEl.textContent = `🕐 ${lang.forecastByHour}`
+
+  // Geolocation button label (defined later but safe to call via function ref)
+  applyGeolocLang()
 }
 
 // ── Globe animation ───────────────────────────────────────────────────────────
@@ -236,6 +239,54 @@ searchInput.addEventListener('keydown', e => {
 })
 
 searchBtn.addEventListener('click', doSearch)
+
+// ── Geolocation ───────────────────────────────────────────────────────────────
+const geolocBtnEl = document.getElementById('geolocBtn') as HTMLButtonElement | null
+const geolocMsgEl = document.getElementById('geolocMsg') as HTMLSpanElement | null
+
+function setGeolocMsg(text: string, isError = false) {
+  if (!geolocMsgEl) return
+  geolocMsgEl.textContent = text
+  geolocMsgEl.className   = 'geoloc-msg' + (isError ? ' err' : '')
+}
+
+geolocBtnEl?.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    setGeolocMsg(t().geolocError, true)
+    return
+  }
+
+  geolocBtnEl.disabled    = true
+  setGeolocMsg(t().geolocLoading)
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords
+      const result = await reverseGeocode(latitude, longitude, state.lang)
+      geolocBtnEl.disabled = false
+      if (!result) {
+        setGeolocMsg(t().geolocError, true)
+        return
+      }
+      setGeolocMsg('')
+      selectLocation(result)
+    },
+    (err) => {
+      geolocBtnEl.disabled = false
+      if (err.code === err.PERMISSION_DENIED) {
+        setGeolocMsg(t().geolocDenied, true)
+      } else {
+        setGeolocMsg(t().geolocError, true)
+      }
+    },
+    { timeout: 10_000, maximumAge: 60_000 },
+  )
+})
+
+// Update geoloc button label when language changes
+function applyGeolocLang() {
+  if (geolocBtnEl && !geolocBtnEl.disabled) geolocBtnEl.textContent = t().geolocBtn
+}
 
 async function doSearch() {
   const q = searchInput.value.trim()

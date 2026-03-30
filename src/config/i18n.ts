@@ -60,6 +60,10 @@ export const LANG_DATA: Record<string, LangData> = {
     alertModerate:  'Moderat',
     alertInfo:      'Avís',
     liveObsLabel:   'Observació en temps real',
+    geolocBtn:      '📍 La meva ubicació',
+    geolocLoading:  'Obtenint la teva ubicació...',
+    geolocError:    'No s\'ha pogut obtenir la ubicació. Cerca manualment.',
+    geolocDenied:   'Permís denegat. Cerca la teva localitat manualment.',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -120,6 +124,10 @@ export const LANG_DATA: Record<string, LangData> = {
     alertModerate:  'Moderado',
     alertInfo:      'Aviso',
     liveObsLabel:   'Observación en tiempo real',
+    geolocBtn:      '📍 Mi ubicación',
+    geolocLoading:  'Obteniendo tu ubicación...',
+    geolocError:    'No se pudo obtener la ubicación. Busca manualmente.',
+    geolocDenied:   'Permiso denegado. Busca tu localidad manualmente.',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -180,6 +188,10 @@ export const LANG_DATA: Record<string, LangData> = {
     alertModerate:  'Moderate',
     alertInfo:      'Advisory',
     liveObsLabel:   'Live observation',
+    geolocBtn:      '📍 Use my location',
+    geolocLoading:  'Getting your location...',
+    geolocError:    'Could not get your location. Search manually.',
+    geolocDenied:   'Location access denied. Search for your city manually.',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -240,5 +252,9 @@ export const LANG_DATA: Record<string, LangData> = {
     alertModerate:  'Modéré',
     alertInfo:      'Avis',
     liveObsLabel:   'Observation en temps réel',
+    geolocBtn:      '📍 Ma position',
+    geolocLoading:  'Obtention de votre position...',
+    geolocError:    'Impossible d\'obtenir la position. Cherchez manuellement.',
+    geolocDenied:   'Accès refusé. Recherchez votre ville manuellement.',
   },
 }

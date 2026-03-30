@@ -266,4 +266,9 @@ export interface LangData {
   alertInfo:       string
   // Station obs fallback
   liveObsLabel:    string
+  // Geolocation
+  geolocBtn:       string
+  geolocLoading:   string
+  geolocError:     string
+  geolocDenied:    string
 }

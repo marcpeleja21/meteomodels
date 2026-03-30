@@ -62,6 +62,61 @@ function mapResult(r: any): GeocodingResult | null {
   }
 }
 
+/**
+ * Reverse-geocode a lat/lon coordinate via Nominatim.
+ * Used for the "Use my location" geolocation feature.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lon: number,
+  lang: string,
+): Promise<GeocodingResult | null> {
+  const params = new URLSearchParams({
+    lat:            String(lat),
+    lon:            String(lon),
+    format:         'jsonv2',
+    addressdetails: '1',
+    zoom:           '10',  // city-level precision
+    'accept-language': lang + ',en',
+  })
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${params}`,
+      { headers: HEADERS },
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    // Reverse endpoint may return a non-place class; try with a relaxed SKIP_CLASS check
+    const addr = json.address ?? {}
+    const name: string =
+      addr.city       ??
+      addr.town       ??
+      addr.village    ??
+      addr.hamlet     ??
+      addr.suburb     ??
+      addr.municipality ??
+      addr.county     ??
+      (json.display_name as string)?.split(',')[0]?.trim() ??
+      json.name
+    if (!name) return null
+    const country_code = (addr.country_code ?? '').toUpperCase()
+    return {
+      id:          json.place_id ?? 0,
+      name,
+      latitude:    lat,
+      longitude:   lon,
+      country:     addr.country ?? '',
+      admin1:      addr.state ?? undefined,
+      admin2:      addr.state_district ?? addr.province ?? addr.county_district ?? addr.county ?? undefined,
+      timezone:    'auto',
+      country_code,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function searchLocations(
   query: string,
   lang: string,
