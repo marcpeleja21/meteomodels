@@ -5,7 +5,7 @@ import { state } from './state'
 import { MODELS } from './config/models'
 import { LANG_DATA } from './config/i18n'
 
-import { searchLocations, reverseGeocode } from './api/geocoding'
+import { searchLocations, reverseGeocode, fetchElevation } from './api/geocoding'
 import { fetchAllModels } from './api/openmeteo'
 import { fetchMeteoblue } from './api/meteoblue'
 import { fetchAqi } from './api/aqi'
@@ -448,13 +448,17 @@ async function selectLocation(loc: GeocodingResult) {
     if (tag) tag.className = `lm-tag ${ok ? 'ok' : 'err'}`
   }
 
-  // Fetch weather, AQI, current obs and alerts in parallel
-  const [wxData, aqiData, obsData, alertsData] = await Promise.all([
+  // Fetch weather, AQI, current obs, alerts and elevation in parallel
+  const [wxData, aqiData, obsData, alertsData, elevation] = await Promise.all([
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
     fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc, state.lang),
+    loc.elevation == null ? fetchElevation(loc.latitude, loc.longitude) : Promise.resolve(null),
   ])
+
+  // Attach elevation to loc so locBar and localStorage both include it
+  if (elevation != null) loc.elevation = elevation
 
   state.wxData     = wxData
   state.aqiData    = aqiData

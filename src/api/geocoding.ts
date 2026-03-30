@@ -63,6 +63,24 @@ function mapResult(r: any): GeocodingResult | null {
 }
 
 /**
+ * Fetch elevation (metres) for a coordinate from the Open-Meteo elevation API.
+ * Returns null on any failure — callers treat missing elevation gracefully.
+ */
+export async function fetchElevation(lat: number, lon: number): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`,
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    const elev = json.elevation?.[0]
+    return typeof elev === 'number' ? Math.round(elev) : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Reverse-geocode a lat/lon coordinate via Nominatim.
  * Used for the "Use my location" geolocation feature.
  */
