@@ -147,21 +147,25 @@ export async function renderEnsemblePlume(
     variable === 'temp'   ? '#ff7043' :
     variable === 'precip' ? '#29b6f6' : '#aed581'
 
-  const unit     = data.unit
+  const unit      = data.unit
+  const isDet     = data.deterministic        // AROME HD — single line, no spread
   const modelMeta = ENS_MODELS.find(m => m.key === model)!
-  const memberLinesSvg = members.map(m =>
-    `<path d="${pathFrom(m)}" stroke="${color}" stroke-width="1" fill="none" opacity="0.18"/>`
-  ).join('')
 
-  const iqrPath    = envelopePath(q25, q75)
-  const spreadPath = envelopePath(mins, maxs)
+  const memberLinesSvg = isDet
+    ? ''   // deterministic: rendered as thick median line below
+    : members.map(m =>
+        `<path d="${pathFrom(m)}" stroke="${color}" stroke-width="1" fill="none" opacity="0.18"/>`
+      ).join('')
+
+  const iqrPath    = isDet ? '' : envelopePath(q25, q75)
+  const spreadPath = isDet ? '' : envelopePath(mins, maxs)
   const medPath    = pathFrom(medians)
 
   // ── Render ────────────────────────────────────────────────────────────────────
   container.innerHTML = `
     <div class="plume-wrap">
       <div class="plume-source-note">
-        ${modelMeta.flag} ${modelMeta.label} · ${data.nMembers} membres · Open-Meteo
+        ${modelMeta.flag} ${modelMeta.label} · ${isDet ? 'Determinístic (1 línia)' : `${data.nMembers} membres`} · Open-Meteo
       </div>
       <svg class="plume-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
            style="width:100%;max-width:${W}px;display:block;overflow:visible;cursor:crosshair">
@@ -238,6 +242,11 @@ export async function renderEnsemblePlume(
 
       <!-- Legend -->
       <div class="plume-legend">
+        ${isDet ? `
+        <span class="plume-leg-item">
+          <span style="display:inline-block;width:22px;height:3px;background:${color};border-radius:2px;vertical-align:middle"></span>
+          ${modelMeta.label} (det.)
+        </span>` : `
         <span class="plume-leg-item">
           <span style="display:inline-block;width:22px;height:2px;background:${color};opacity:0.35;border-radius:1px;vertical-align:middle"></span>
           ${data.nMembers} membres
@@ -249,7 +258,7 @@ export async function renderEnsemblePlume(
         <span class="plume-leg-item">
           <span style="display:inline-block;width:22px;height:3px;background:${color};border-radius:2px;vertical-align:middle"></span>
           Mediana
-        </span>
+        </span>`}
         ${nowX > 0 ? `
         <span class="plume-leg-item">
           <span style="display:inline-block;width:3px;height:14px;background:#00e5ff;border-radius:1px;vertical-align:middle"></span>

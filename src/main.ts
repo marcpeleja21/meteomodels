@@ -109,6 +109,20 @@ function applyLang() {
   if (wSub)   wSub.textContent   = lang.welcomeSub
   if (bSub)   bSub.textContent   = lang.appSub
 
+  // Welcome screen — static elements hardcoded in HTML
+  const modelsLblEl = document.querySelector<HTMLElement>('.models-section-label')
+  if (modelsLblEl) modelsLblEl.textContent = lang.modelsAvailable
+
+  const featEls = document.querySelectorAll<HTMLElement>('.feat')
+  const feats   = [lang.feat1, lang.feat2, lang.feat3, lang.feat4]
+  featEls.forEach((el, i) => { if (feats[i]) el.textContent = feats[i] })
+
+  // Loading screen text
+  if (loadingText) loadingText.textContent = lang.loading
+
+  // Header inline search placeholder
+  headerSearchInput.placeholder = lang.searchPh
+
   // Update forecast mode tab labels
   const fmodeDaysEl  = document.getElementById('fmodeDays')
   const fmodeHoursEl = document.getElementById('fmodeHours')
