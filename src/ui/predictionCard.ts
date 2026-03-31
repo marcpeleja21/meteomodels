@@ -3,44 +3,91 @@
  *
  * Computes hourly median values across all loaded models for the next 48 h
  * and produces:
- *   1. A weather prediction (~120 chars)
- *   2. A clothes-recommendation sentence (~120 chars)
+ *   1. A weather prediction (~120 chars) — includes wind chill when relevant
+ *   2. A clothes-recommendation sentence (~120 chars) — based on feels-like temp
+ *
+ * Wind chill uses the Canadian Environment / NOAA formula:
+ *   WC = 13.12 + 0.6215·T − 11.37·V^0.16 + 0.3965·T·V^0.16
+ *   valid for T ≤ 10 °C and V > 4.8 km/h
  *
  * All text is generated in the four supported languages (ca/es/en/fr).
  */
 import { state } from '../state'
 import type { OpenMeteoResponse } from '../types'
 
+// ── Wind chill ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the "feels like" temperature (°C).
+ * Applies Canadian wind chill index when T ≤ 10 °C and wind > 4.8 km/h,
+ * otherwise returns the dry-bulb temperature unchanged.
+ */
+function windChill(tempC: number, windKmh: number): number {
+  if (windKmh <= 4.8 || tempC > 10) return tempC
+  const v16 = Math.pow(windKmh, 0.16)
+  return 13.12 + 0.6215 * tempC - 11.37 * v16 + 0.3965 * tempC * v16
+}
+
+// ── Model weights ─────────────────────────────────────────────────────────────
+//
+// Priority models get a fixed relative weight (out of 100).
+// All other present models share the remaining 35 points equally.
+// If a priority model is absent its weight redistributes proportionally.
+
+const PRIORITY_W: Record<string, number> = {
+  arome_hd: 25,
+  gfs:      20,
+  ecmwf:    20,
+}
+const OTHER_SLOT = 35 // shared among non-priority models
+
+/** Compute a weighted average given an array of {modelKey, val} pairs. */
+function weightedAvg(vals: Array<{ k: string; v: number }>): number {
+  if (vals.length === 0) return 0
+  if (vals.length === 1) return vals[0].v
+
+  const priority = vals.filter(x => PRIORITY_W[x.k] !== undefined)
+  const others   = vals.filter(x => PRIORITY_W[x.k] === undefined)
+
+  const perOther = others.length > 0 ? OTHER_SLOT / others.length : 0
+  let totalW = 0
+  for (const x of priority) totalW += PRIORITY_W[x.k]
+  totalW += others.length * perOther
+
+  let result = 0
+  for (const x of priority) result += x.v * (PRIORITY_W[x.k] / totalW)
+  for (const x of others)   result += x.v * (perOther / totalW)
+  return result
+}
+
 // ── Stats extraction ──────────────────────────────────────────────────────────
 
 interface Stats48h {
-  avgTemp:    number
-  minTemp:    number
-  maxTemp:    number
-  totalPrecip: number   // median-model accumulated mm over 48 h
-  maxWind:    number    // km/h, per-step median max
-  hasStorm:   boolean   // any thunderstorm weather codes detected
-}
-
-function stepMedian(arr: number[]): number {
-  if (arr.length === 0) return 0
-  const s = [...arr].sort((a, b) => a - b)
-  const m = Math.floor(s.length / 2)
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+  avgTemp:      number   // weighted-average hourly temperature
+  minTemp:      number   // hourly minimum (weighted)
+  maxTemp:      number   // hourly maximum (weighted)
+  totalPrecip:  number   // weighted-average accumulated mm over 48 h
+  maxWind:      number   // km/h, weighted hourly max
+  avgWind:      number   // km/h, weighted hourly average
+  avgFeelsLike: number   // wind-chill-adjusted weighted average feels-like
+  minFeelsLike: number   // wind-chill-adjusted minimum feels-like
+  hasStorm:     boolean  // any thunderstorm weather codes detected
 }
 
 function compute48hStats(
   wxData: Record<string, OpenMeteoResponse | null>,
 ): Stats48h | null {
-  const now  = Date.now()
-  const end  = now + 48 * 3600_000
+  const now = Date.now()
+  const end = now + 48 * 3600_000
 
-  const tempMap:   Map<string, number[]> = new Map()
-  const precipMap: Map<string, number[]> = new Map()
-  const windMap:   Map<string, number[]> = new Map()
-  const codeMap:   Map<string, number[]> = new Map()
+  // Per-timestamp, per-model values
+  type ModelVal = { k: string; v: number }
+  const tempMap:   Map<string, ModelVal[]> = new Map()
+  const precipMap: Map<string, ModelVal[]> = new Map()
+  const windMap:   Map<string, ModelVal[]> = new Map()
+  const codeMap:   Map<string, ModelVal[]> = new Map()
 
-  for (const data of Object.values(wxData)) {
+  for (const [modelKey, data] of Object.entries(wxData)) {
     if (!data?.hourly) continue
     const { time, temperature_2m, precipitation, windspeed_10m, weathercode } = data.hourly
     for (let i = 0; i < time.length; i++) {
@@ -48,44 +95,57 @@ function compute48hStats(
       if (ts < now || ts > end) continue
       const k = time[i]
       if (!tempMap.has(k)) {
-        tempMap.set(k, [])
-        precipMap.set(k, [])
-        windMap.set(k, [])
-        codeMap.set(k, [])
+        tempMap.set(k, []);  precipMap.set(k, [])
+        windMap.set(k, []);  codeMap.set(k, [])
       }
-      if (temperature_2m[i] != null) tempMap.get(k)!.push(temperature_2m[i]!)
-      if (precipitation[i] != null)  precipMap.get(k)!.push(precipitation[i]!)
-      if (windspeed_10m[i] != null)  windMap.get(k)!.push(windspeed_10m[i]!)
-      if (weathercode[i] != null)    codeMap.get(k)!.push(weathercode[i]!)
+      if (temperature_2m?.[i] != null) tempMap.get(k)!.push({ k: modelKey, v: temperature_2m[i]! })
+      if (precipitation?.[i]  != null) precipMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
+      if (windspeed_10m?.[i]  != null) windMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
+      if (weathercode?.[i]    != null) codeMap.get(k)!.push({ k: modelKey, v: weathercode[i]! })
     }
   }
 
   if (tempMap.size === 0) return null
 
-  const mTemps:  number[] = []
-  const mPrecip: number[] = []
-  const mWinds:  number[] = []
+  const wTemps:     number[] = []
+  const wPrecip:    number[] = []
+  const wWinds:     number[] = []
+  const wFeelsLike: number[] = []
   let   hasStorm = false
 
   for (const k of tempMap.keys()) {
-    const t = tempMap.get(k)!
-    const p = precipMap.get(k) ?? []
-    const w = windMap.get(k) ?? []
-    const c = codeMap.get(k) ?? []
-    if (t.length) mTemps.push(stepMedian(t))
-    if (p.length) mPrecip.push(stepMedian(p))
-    if (w.length) mWinds.push(stepMedian(w))
-    if (c.length && stepMedian(c) >= 95) hasStorm = true
+    const tVals = tempMap.get(k)!
+    const pVals = precipMap.get(k) ?? []
+    const wVals = windMap.get(k) ?? []
+    const cVals = codeMap.get(k) ?? []
+
+    if (tVals.length) {
+      const t = weightedAvg(tVals)
+      const w = wVals.length ? weightedAvg(wVals) : 0
+      wTemps.push(t)
+      wFeelsLike.push(windChill(t, w))
+    }
+    if (pVals.length) wPrecip.push(weightedAvg(pVals))
+    if (wVals.length) wWinds.push(weightedAvg(wVals))
+    // Storm: use majority vote — if weighted-avg code ≥ 95, storm present
+    if (cVals.length && weightedAvg(cVals) >= 95) hasStorm = true
   }
 
-  if (!mTemps.length) return null
+  if (!wTemps.length) return null
+
+  const avgTemp = wTemps.reduce((a, b) => a + b, 0) / wTemps.length
+  const avgFL   = wFeelsLike.reduce((a, b) => a + b, 0) / wFeelsLike.length
+  const avgWind = wWinds.length ? wWinds.reduce((a, b) => a + b, 0) / wWinds.length : 0
 
   return {
-    avgTemp:     mTemps.reduce((a, b) => a + b, 0) / mTemps.length,
-    minTemp:     Math.min(...mTemps),
-    maxTemp:     Math.max(...mTemps),
-    totalPrecip: mPrecip.reduce((a, b) => a + b, 0),
-    maxWind:     mWinds.length ? Math.max(...mWinds) : 0,
+    avgTemp,
+    minTemp:      Math.min(...wTemps),
+    maxTemp:      Math.max(...wTemps),
+    totalPrecip:  wPrecip.reduce((a, b) => a + b, 0),
+    maxWind:      wWinds.length ? Math.max(...wWinds) : 0,
+    avgWind:      Math.round(avgWind),
+    avgFeelsLike: avgFL,
+    minFeelsLike: Math.min(...wFeelsLike),
     hasStorm,
   }
 }
@@ -105,47 +165,61 @@ function generatePrediction(s: Stats48h, lang: string): string {
   const tot = Math.round(s.totalPrecip)
   const wnd = Math.round(s.maxWind)
   const avg = Math.round(s.avgTemp)
+  const fl  = Math.round(s.avgFeelsLike)
+  const mfl = Math.round(s.minFeelsLike)
+
+  // How much colder it feels vs actual — used to inject wind chill note
+  const wcDiff       = s.avgTemp - s.avgFeelsLike
+  const significantWC = wcDiff >= 4 && s.avgTemp <= 15
+
+  // Wind chill note appended to cold/dry scenarios
+  const wcNote = significantWC ? pick({
+    ca: ' Sensació tèrmica real de ' + fl + '\u00b0C pel vent (' + wnd + 'km/h).',
+    es: ' Sensación térmica real de ' + fl + '\u00b0C por el viento (' + wnd + 'km/h).',
+    en: ' Wind chill brings the real feel to ' + fl + '\u00b0C (' + wnd + 'km/h gusts).',
+    fr: ' Le vent (' + wnd + 'km/h) ramène le ressenti à ' + fl + '\u00b0C réels.',
+  }, lang) : ''
 
   if (s.hasStorm && s.totalPrecip > 5) return pick({
-    ca: 'Tempestes previstes amb precipitació intensa (' + tot + 'mm en 48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Ràfegues de vent fins a ' + wnd + 'km/h.',
-    es: 'Tormentas previstas con precipitación intensa (' + tot + 'mm en 48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Rachas de viento de hasta ' + wnd + 'km/h.',
-    en: 'Storms forecast with heavy rainfall (' + tot + 'mm over 48h). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind gusts expected up to ' + wnd + 'km/h.',
-    fr: 'Orages prévus avec fortes précipitations (' + tot + 'mm en 48h). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Rafales de vent jusqu\'à ' + wnd + 'km/h.',
+    ca: 'Tempestes previstes amb precipitació intensa (' + tot + 'mm en 48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Ràfegues de vent fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació tèrmica de ' + fl + '\u00b0C.' : ''),
+    es: 'Tormentas previstas con precipitación intensa (' + tot + 'mm en 48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Rachas de viento de hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación térmica de ' + fl + '\u00b0C.' : ''),
+    en: 'Storms forecast with heavy rainfall (' + tot + 'mm over 48h). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind gusts up to ' + wnd + 'km/h.' + (significantWC ? ' Feels like ' + fl + '\u00b0C.' : ''),
+    fr: 'Orages prévus avec fortes précipitations (' + tot + 'mm en 48h). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Rafales jusqu\'à ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + fl + '\u00b0C.' : ''),
   }, lang)
 
   if (s.maxTemp < 3 && s.totalPrecip > 1) return pick({
-    ca: 'Possibles nevades les pròximes 48h (' + tot + 'mm acumulats). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Superfícies lliscants probables.',
-    es: 'Posibles nevadas en las próximas 48h (' + tot + 'mm acumulados). Temperatures entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Superficies resbaladizas probables.',
-    en: 'Possible snowfall over the next 48 hours (' + tot + 'mm). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Watch out for icy and slippery surfaces.',
-    fr: 'Chutes de neige possibles dans les 48h (' + tot + 'mm). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Surfaces glissantes possibles.',
+    ca: 'Possibles nevades les pròximes 48h (' + tot + 'mm acumulats). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació tèrmica de ' + mfl + '\u00b0C.' : ' Superfícies lliscants probables.'),
+    es: 'Posibles nevadas en las próximas 48h (' + tot + 'mm acumulados). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación térmica de ' + mfl + '\u00b0C.' : ' Superficies resbaladizas probables.'),
+    en: 'Possible snowfall over the next 48 hours (' + tot + 'mm). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h.' + (significantWC ? ' Feels like ' + mfl + '\u00b0C with wind chill.' : ' Watch for icy, slippery surfaces.'),
+    fr: 'Chutes de neige possibles dans les 48h (' + tot + 'mm). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + mfl + '\u00b0C.' : ' Surfaces glissantes possibles.'),
   }, lang)
 
   if (s.totalPrecip > 20) return pick({
-    ca: 'Pluges molt intenses: ' + tot + 'mm acumulats en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Risc d\'inundacions puntuals; vent fins a ' + wnd + 'km/h.',
-    es: 'Lluvias muy intensas: ' + tot + 'mm acumulados en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Riesgo de inundaciones puntuales; viento hasta ' + wnd + 'km/h.',
-    en: 'Very heavy rainfall: ' + tot + 'mm accumulation over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Risk of localised flooding; wind gusts up to ' + wnd + 'km/h.',
-    fr: 'Pluies très fortes\u00a0: ' + tot + 'mm cumulés en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Risque d\'inondations locales\u00a0; vent jusqu\'à ' + wnd + 'km/h.',
+    ca: 'Pluges molt intenses: ' + tot + 'mm acumulats en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Risc d\'inundacions puntuals; vent fins a ' + wnd + 'km/h.' + wcNote,
+    es: 'Lluvias muy intensas: ' + tot + 'mm acumulados en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Riesgo de inundaciones puntuales; viento hasta ' + wnd + 'km/h.' + wcNote,
+    en: 'Very heavy rainfall: ' + tot + 'mm over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Risk of localised flooding; wind gusts up to ' + wnd + 'km/h.' + wcNote,
+    fr: 'Pluies très fortes\u00a0: ' + tot + 'mm en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Risque d\'inondations locales\u00a0; vent jusqu\'à ' + wnd + 'km/h.' + wcNote,
   }, lang)
 
   if (s.totalPrecip > 8) return pick({
-    ca: 'Pluja moderada a intensa: ' + tot + 'mm previstos en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Episodis de pluja persistent esperats.',
-    es: 'Lluvia moderada a intensa: ' + tot + 'mm previstos en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Episodios de lluvia persistente esperados.',
-    en: 'Moderate to heavy rain: ' + tot + 'mm expected over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Persistent spells of rain likely.',
-    fr: 'Pluie modérée à forte\u00a0: ' + tot + 'mm prévus en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Épisodes pluvieux persistants attendus.',
+    ca: 'Pluja moderada a intensa: ' + tot + 'mm previstos en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (wcNote || ' Episodis de pluja persistent esperats.'),
+    es: 'Lluvia moderada a intensa: ' + tot + 'mm previstos en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (wcNote || ' Episodios de lluvia persistente esperados.'),
+    en: 'Moderate to heavy rain: ' + tot + 'mm expected over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h.' + (wcNote || ' Persistent spells of rain likely.'),
+    fr: 'Pluie modérée à forte\u00a0: ' + tot + 'mm en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h.' + (wcNote || ' Épisodes pluvieux persistants attendus.'),
   }, lang)
 
   if (s.totalPrecip > 2) return pick({
-    ca: 'Intervals de pluja possibles al llarg de les 48h (' + tot + 'mm). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Cel variable amb algun ruixat.',
-    es: 'Posibles intervalos de lluvia a lo largo de 48h (' + tot + 'mm). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Cielo variable con algún chubasco.',
-    en: 'Scattered rainfall possible over the next 48h (' + tot + 'mm total). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Variable skies with occasional showers.',
-    fr: 'Intervalles pluvieux possibles sur 48h (' + tot + 'mm). Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Ciel variable avec quelques averses.',
+    ca: 'Intervals de pluja possibles al llarg de les 48h (' + tot + 'mm). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (wcNote || ' Cel variable amb algun ruixat.'),
+    es: 'Posibles intervalos de lluvia a lo largo de 48h (' + tot + 'mm). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (wcNote || ' Cielo variable con algún chubasco.'),
+    en: 'Scattered rainfall possible over the next 48h (' + tot + 'mm total). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h.' + (wcNote || ' Variable skies with occasional showers.'),
+    fr: 'Intervalles pluvieux possibles sur 48h (' + tot + 'mm). Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h.' + (wcNote || ' Ciel variable avec quelques averses.'),
   }, lang)
 
   if (avg > 28) return pick({
-    ca: 'Temps molt calorós i assolellat les pròximes 48h. Temperatures de ' + mn + ' a ' + mx + '\u00b0C. Vent feble fins a ' + wnd + 'km/h. Sense precipitació prevista.',
-    es: 'Tiempo muy cálido y soleado en las próximas 48h. Temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Viento suave hasta ' + wnd + 'km/h. Sin precipitación prevista.',
-    en: 'Very hot and sunny for the next 48 hours. Temperatures from ' + mn + ' to ' + mx + '\u00b0C. Light wind up to ' + wnd + 'km/h. No precipitation expected.',
-    fr: 'Temps très chaud et ensoleillé pour les 48h à venir. Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent faible jusqu\'à ' + wnd + 'km/h. Aucune précipitation prévue.',
+    ca: 'Temps molt calorós i assolellat les pròximes 48h. Temperatures de ' + mn + ' a ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Sense precipitació prevista.',
+    es: 'Tiempo muy cálido y soleado en las próximas 48h. Temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Sin precipitación prevista.',
+    en: 'Very hot and sunny for the next 48 hours. Temperatures from ' + mn + ' to ' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. No precipitation expected.',
+    fr: 'Temps très chaud et ensoleillé pour les 48h à venir. Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Aucune précipitation prévue.',
   }, lang)
 
   if (avg > 20) return pick({
@@ -156,100 +230,122 @@ function generatePrediction(s: Stats48h, lang: string): string {
   }, lang)
 
   if (avg > 10) return pick({
-    ca: 'Temps fresc i principalment sec les pròximes 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Cap precipitació significativa prevista.',
-    es: 'Tiempo fresco y principalmente seco en las próximas 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Sin precipitación significativa prevista.',
-    en: 'Cool and mostly dry conditions over the next 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. No significant precipitation expected.',
-    fr: 'Temps frais et principalement sec pour les 48h à venir. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Aucune précipitation significative prévue.',
+    ca: 'Temps fresc i principalment sec les pròximes 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + wcNote,
+    es: 'Tiempo fresco y principalmente seco en las próximas 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + wcNote,
+    en: 'Cool and mostly dry conditions over the next 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h.' + wcNote,
+    fr: 'Temps frais et principalement sec pour les 48h à venir. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h.' + wcNote,
   }, lang)
 
+  // Cold / dry — always mention wind chill
   return pick({
-    ca: 'Temperatures fredes entre ' + mn + ' i ' + mx + '\u00b0C les pròximes 48h. Vent fins a ' + wnd + 'km/h. Temps sec, sense precipitació prevista. Possible gelada nocturna.',
-    es: 'Temperaturas frías entre ' + mn + ' y ' + mx + '\u00b0C en las próximas 48h. Viento hasta ' + wnd + 'km/h. Tiempo seco, sin precipitación prevista. Posible helada nocturna.',
-    en: 'Cold temperatures between ' + mn + ' and ' + mx + '\u00b0C over the next 48 hours. Wind up to ' + wnd + 'km/h. Dry conditions, no precipitation forecast. Possible overnight frost.',
-    fr: 'Températures froides entre ' + mn + ' et ' + mx + '\u00b0C dans les 48h. Vent jusqu\'à ' + wnd + 'km/h. Temps sec, sans précipitation prévue. Gel nocturne possible.',
+    ca: 'Temperatures fredes entre ' + mn + ' i ' + mx + '\u00b0C les pròximes 48h. Vent fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació tèrmica real de ' + fl + '\u00b0C. Fred accentuat pel vent.' : ' Temps sec, sense precipitació prevista. Possible gelada nocturna.'),
+    es: 'Temperaturas frías entre ' + mn + ' y ' + mx + '\u00b0C en las próximas 48h. Viento hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación térmica real de ' + fl + '\u00b0C. Frío acentuado por el viento.' : ' Tiempo seco, sin precipitación prevista. Posible helada nocturna.'),
+    en: 'Cold temperatures between ' + mn + ' and ' + mx + '\u00b0C over the next 48 hours. Wind up to ' + wnd + 'km/h.' + (significantWC ? ' Wind chill brings the real feel to ' + fl + '\u00b0C. Biting cold when exposed.' : ' Dry conditions, no precipitation forecast. Possible overnight frost.'),
+    fr: 'Températures froides entre ' + mn + ' et ' + mx + '\u00b0C dans les 48h. Vent jusqu\'à ' + wnd + 'km/h.' + (significantWC ? ' Le vent ramène le ressenti à ' + fl + '\u00b0C réels. Froid mordant.' : ' Temps sec, sans précipitation prévue. Gel nocturne possible.'),
   }, lang)
 }
 
 function generateClothesAdvice(s: Stats48h, lang: string): string {
-  const avg       = s.avgTemp
+  // Use feels-like temperature for all threshold decisions.
+  // This means 5 °C actual + 30 km/h wind (~2 °C feels-like) → winter gear.
+  const fl        = s.avgFeelsLike
+  const mfl       = s.minFeelsLike
+  const wnd       = Math.round(s.maxWind)
   const hasRain   = s.totalPrecip > 1
   const heavyRain = s.totalPrecip > 10
   const hasSnow   = s.maxTemp < 3 && s.totalPrecip > 0.5
   const veryWindy = s.maxWind > 55
   const windy     = s.maxWind > 35
+  // Significant wind chill: actual temp noticeably warmer than feels-like
+  const wcDiff    = s.avgTemp - fl
+  const hasWC     = wcDiff >= 4 && s.avgTemp <= 15
+  const wcSuffix  = hasWC ? pick({
+    ca: ' La sensació tèrmica és de ' + Math.round(fl) + '\u00b0C pel vent (' + wnd + 'km/h).',
+    es: ' La sensación térmica es de ' + Math.round(fl) + '\u00b0C por el viento (' + wnd + 'km/h).',
+    en: ' Wind chill makes it feel like ' + Math.round(fl) + '\u00b0C (' + wnd + 'km/h wind).',
+    fr: ' Le vent (' + wnd + 'km/h) fait ressentir ' + Math.round(fl) + '\u00b0C.',
+  }, lang) : ''
 
   if (hasSnow) return pick({
-    ca: 'Abric d\'hivern, capes tèrmiques, guants, gorra, bufanda i botes impermeables antilliscants imprescindibles.',
-    es: 'Abrigo de invierno, capas térmicas, guantes, gorro, bufanda y botas impermeables antideslizantes imprescindibles.',
-    en: 'Heavy winter coat, thermal layers, gloves, warm hat, scarf and waterproof non-slip boots are all essential today.',
-    fr: 'Manteau d\'hiver, couches thermiques, gants, bonnet, écharpe et bottes imperméables antidérapantes indispensables.',
+    ca: 'Abric d\'hivern, capes tèrmiques, guants, gorra, bufanda i botes impermeables antilliscants imprescindibles.' + wcSuffix,
+    es: 'Abrigo de invierno, capas térmicas, guantes, gorro, bufanda y botas impermeables antideslizantes imprescindibles.' + wcSuffix,
+    en: 'Heavy winter coat, thermal layers, gloves, warm hat, scarf and waterproof non-slip boots are all essential.' + wcSuffix,
+    fr: 'Manteau d\'hiver, couches thermiques, gants, bonnet, écharpe et bottes imperméables antidérapantes indispensables.' + wcSuffix,
   }, lang)
 
-  if (avg < 5) return pick({
+  // All thresholds below use feels-like (fl / mfl) not avgTemp
+  if (fl < 0) return pick({
+    ca: 'Fred extrem: abric d\'hivern, guants tèrmics, gorra, bufanda gruixuda i botes d\'hivern imprescindibles. Sensació de ' + Math.round(mfl) + '\u00b0C mínima.' + (veryWindy ? ' Para-vent obligatori.' : ''),
+    es: 'Frío extremo: abrigo de invierno, guantes térmicos, gorro, bufanda gruesa y botas de invierno imprescindibles. Sensación de ' + Math.round(mfl) + '\u00b0C mínima.' + (veryWindy ? ' Cortavientos obligatorio.' : ''),
+    en: 'Extreme cold: heavy winter coat, thermal gloves, hat, thick scarf and winter boots essential. Wind chill down to ' + Math.round(mfl) + '\u00b0C.' + (veryWindy ? ' Windproof layer mandatory.' : ''),
+    fr: 'Grand froid\u00a0: manteau d\'hiver, gants thermiques, bonnet, écharpe épaisse et bottes d\'hiver indispensables. Ressenti jusqu\'à ' + Math.round(mfl) + '\u00b0C.' + (veryWindy ? ' Coupe-vent obligatoire.' : ''),
+  }, lang)
+
+  if (fl < 5) return pick({
     ca: veryWindy
-      ? 'Abric d\'hivern, bufanda, guants i gorra imprescindibles. Molt ventós: afegeix una capa para-vent per protegir-te del fred.'
-      : 'Abric d\'hivern, bufanda, guants i gorra imprescindibles. Fred molt intens: porta capes tèrmiques per mantenir la calor.',
+      ? 'Abric d\'hivern, bufanda, guants i gorra imprescindibles. Molt ventós (' + wnd + 'km/h): la sensació tèrmica és de ' + Math.round(fl) + '\u00b0C. Capa para-vent necessària.'
+      : 'Abric d\'hivern, bufanda, guants i gorra imprescindibles. Fred intens' + (hasWC ? ' amb sensació de ' + Math.round(fl) + '\u00b0C pel vent.' : ': porta capes tèrmiques per mantenir la calor.'),
     es: veryWindy
-      ? 'Abrigo de invierno, bufanda, guantes y gorro imprescindibles. Mucho viento: añade una capa cortavientos para protegerte del frío.'
-      : 'Abrigo de invierno, bufanda, guantes y gorro imprescindibles. Frío muy intenso: lleva capas térmicas para mantener el calor.',
+      ? 'Abrigo de invierno, bufanda, guantes y gorro imprescindibles. Muy ventoso (' + wnd + 'km/h): la sensación térmica es de ' + Math.round(fl) + '\u00b0C. Capa cortavientos necesaria.'
+      : 'Abrigo de invierno, bufanda, guantes y gorro imprescindibles. Frío intenso' + (hasWC ? ' con sensación de ' + Math.round(fl) + '\u00b0C por el viento.' : ': lleva capas térmicas para mantener el calor.'),
     en: veryWindy
-      ? 'Heavy winter coat, scarf, gloves and hat are essential. Very windy: add a windproof outer layer to stay warm and protected.'
-      : 'Heavy winter coat, scarf, gloves and hat are essential. Intense cold: add thermal underlayers to retain body heat.',
+      ? 'Heavy winter coat, scarf, gloves and hat essential. Very windy (' + wnd + 'km/h): feels like ' + Math.round(fl) + '\u00b0C. A windproof outer layer is necessary.'
+      : 'Heavy winter coat, scarf, gloves and hat essential. Intense cold' + (hasWC ? ' — feels like ' + Math.round(fl) + '\u00b0C with wind chill.' : ': add thermal underlayers to retain body heat.'),
     fr: veryWindy
-      ? 'Manteau d\'hiver, écharpe, gants et bonnet indispensables. Vent fort\u00a0: ajoutez un coupe-vent pour vous protéger du froid.'
-      : 'Manteau d\'hiver, écharpe, gants et bonnet indispensables. Grand froid\u00a0: portez des sous-couches thermiques pour garder la chaleur.',
+      ? 'Manteau d\'hiver, écharpe, gants et bonnet indispensables. Vent fort (' + wnd + 'km/h)\u00a0: ressenti ' + Math.round(fl) + '\u00b0C. Coupe-vent nécessaire.'
+      : 'Manteau d\'hiver, écharpe, gants et bonnet indispensables. Grand froid' + (hasWC ? '\u00a0: ressenti ' + Math.round(fl) + '\u00b0C avec le vent.' : '\u00a0: portez des sous-couches thermiques.'),
   }, lang)
 
-  if (avg < 12) {
+  if (fl < 12) {
     if (heavyRain) return pick({
-      ca: 'Jaqueta d\'hivern, jersei gruixut, botes impermeables i paraigua imprescindibles. Pluja intensa prevista; evita sortir si no és necessari.',
-      es: 'Chaqueta de invierno, jersey grueso, botas impermeables y paraguas imprescindibles. Lluvia intensa prevista; evita salir si no es necesario.',
-      en: 'Winter jacket, thick jumper, waterproof boots and umbrella are a must. Heavy rain forecast; avoid going out unless necessary.',
-      fr: 'Veste d\'hiver, pull épais, bottes imperméables et parapluie indispensables. Fortes pluies prévues\u00a0; évitez de sortir si possible.',
+      ca: 'Jaqueta d\'hivern, jersei gruixut, botes impermeables i paraigua imprescindibles. Pluja intensa prevista.' + wcSuffix,
+      es: 'Chaqueta de invierno, jersey grueso, botas impermeables y paraguas imprescindibles. Lluvia intensa prevista.' + wcSuffix,
+      en: 'Winter jacket, thick jumper, waterproof boots and umbrella are a must. Heavy rain forecast.' + wcSuffix,
+      fr: 'Veste d\'hiver, pull épais, bottes imperméables et parapluie indispensables. Fortes pluies prévues.' + wcSuffix,
     }, lang)
     if (hasRain) return pick({
-      ca: 'Jaqueta tèrmica, jersei i paraigua recomanats. Temps fred i plujós; porta roba que s\'asseca ràpid i calçat impermeable.',
-      es: 'Chaqueta térmica, jersey y paraguas recomendados. Tiempo frío y lluvioso; lleva ropa que se seca rápido y calzado impermeable.',
-      en: 'Thermal jacket, jumper and umbrella are recommended. Cold and rainy; opt for quick-dry fabrics and waterproof footwear.',
-      fr: 'Veste thermique, pull et parapluie recommandés. Temps froid et pluvieux\u00a0; préférez des tissus séchant vite et des chaussures imperméables.',
+      ca: 'Jaqueta tèrmica, jersei i paraigua recomanats. Temps fred i plujós; roba que s\'asseca ràpid i calçat impermeable.' + wcSuffix,
+      es: 'Chaqueta térmica, jersey y paraguas recomendados. Tiempo frío y lluvioso; ropa de secado rápido y calzado impermeable.' + wcSuffix,
+      en: 'Thermal jacket, jumper and umbrella recommended. Cold and rainy; opt for quick-dry fabrics and waterproof footwear.' + wcSuffix,
+      fr: 'Veste thermique, pull et parapluie recommandés. Froid et pluvieux\u00a0; préférez tissus séchant vite et chaussures imperméables.' + wcSuffix,
     }, lang)
     return pick({
       ca: windy
-        ? 'Jaqueta d\'hivern o abric de mig temps, jersei i capa para-vent. Vent moderat que augmenta la sensació de fred.'
-        : 'Jaqueta d\'hivern o abric de mig temps amb jersei. Temps fresc i sec; còmode per a activitats a l\'exterior.',
+        ? 'Jaqueta d\'hivern o abric de mig temps, jersei i capa para-vent. Vent de ' + wnd + 'km/h' + (hasWC ? ' fa sentir ' + Math.round(fl) + '\u00b0C' : '') + ': augmenta la sensació de fred.'
+        : 'Jaqueta d\'hivern o abric de mig temps amb jersei. Temps fresc i sec; còmode per a activitats a l\'exterior.' + wcSuffix,
       es: windy
-        ? 'Chaqueta de invierno o abrigo de entretiempo, jersey y capa cortavientos. El viento moderado aumenta la sensación de frío.'
-        : 'Chaqueta de invierno o abrigo de entretiempo con jersey. Tiempo fresco y seco; cómodo para actividades al aire libre.',
+        ? 'Chaqueta de invierno o abrigo de entretiempo, jersey y capa cortavientos. Viento de ' + wnd + 'km/h' + (hasWC ? ' hace sentir ' + Math.round(fl) + '\u00b0C' : '') + ': aumenta la sensación de frío.'
+        : 'Chaqueta de invierno o abrigo de entretiempo con jersey. Tiempo fresco y seco; cómodo para actividades al aire libre.' + wcSuffix,
       en: windy
-        ? 'Winter jacket or mid-season coat with a jumper and a windproof layer. Moderate wind will make it feel colder than it is.'
-        : 'Winter jacket or mid-season coat with a jumper. Cool and dry; comfortable for outdoor activities.',
+        ? 'Winter jacket or mid-season coat with a jumper and windproof layer. ' + wnd + 'km/h wind' + (hasWC ? ' makes it feel like ' + Math.round(fl) + '\u00b0C' : '') + ': colder than it looks.'
+        : 'Winter jacket or mid-season coat with a jumper. Cool and dry; comfortable for outdoor activities.' + wcSuffix,
       fr: windy
-        ? 'Veste d\'hiver ou manteau mi-saison, pull et coupe-vent. Le vent modéré accentue la sensation de froid.'
-        : 'Veste d\'hiver ou manteau mi-saison avec pull. Temps frais et sec\u00a0; agréable pour les activités en extérieur.',
+        ? 'Veste d\'hiver ou manteau mi-saison, pull et coupe-vent. Vent de ' + wnd + 'km/h' + (hasWC ? ' fait ressentir ' + Math.round(fl) + '\u00b0C' : '') + '\u00a0: accentue la sensation de froid.'
+        : 'Veste d\'hiver ou manteau mi-saison avec pull. Temps frais et sec\u00a0; agréable pour les activités en extérieur.' + wcSuffix,
     }, lang)
   }
 
-  if (avg < 18) {
+  if (fl < 18) {
     if (hasRain) return pick({
-      ca: 'Jaqueta lleugera impermeable i paraigua recomanats. Temps fresc amb pluja; roba còmoda de mig temps i calçat resistent a l\'aigua.',
-      es: 'Chaqueta ligera impermeable y paraguas recomendados. Tiempo fresco con lluvia; ropa cómoda de entretiempo y calzado resistente al agua.',
-      en: 'Light waterproof jacket and umbrella are recommended. Cool and wet; comfortable mid-season clothing and water-resistant footwear.',
-      fr: 'Veste légère imperméable et parapluie recommandés. Frais et pluvieux\u00a0; vêtements mi-saison confortables et chaussures résistantes à l\'eau.',
+      ca: 'Jaqueta lleugera impermeable i paraigua recomanats. Temps fresc amb pluja; roba còmoda de mig temps i calçat resistent a l\'aigua.' + wcSuffix,
+      es: 'Chaqueta ligera impermeable y paraguas recomendados. Fresco con lluvia; ropa cómoda de entretiempo y calzado resistente al agua.' + wcSuffix,
+      en: 'Light waterproof jacket and umbrella recommended. Cool and wet; comfortable mid-season clothing and water-resistant footwear.' + wcSuffix,
+      fr: 'Veste légère imperméable et parapluie recommandés. Frais et pluvieux\u00a0; vêtements mi-saison et chaussures résistantes à l\'eau.' + wcSuffix,
     }, lang)
     return pick({
-      ca: 'Jaqueta lleugera o jerseis. Temps fresc però agradable, ideal per a capes fines. Porta alguna capa extra per si refresca.',
-      es: 'Chaqueta ligera o jerseis. Tiempo fresco pero agradable, ideal para capas finas. Lleva alguna capa extra por si refresca.',
-      en: 'Light jacket or jumper. Cool but pleasant; ideal for layering. Carry an extra layer in case temperatures drop later.',
-      fr: 'Veste légère ou pull. Temps frais mais agréable, idéal pour les couches légères. Prévoyez une couche en plus si les températures baissent.',
+      ca: 'Jaqueta lleugera o jersei. Temps fresc però agradable.' + (windy ? ' Vent de ' + wnd + 'km/h: porta una capa extra, la sensació és més fresca del que indica el termòmetre.' : ' Porta alguna capa extra per si refresca a la tarda.'),
+      es: 'Chaqueta ligera o jersey. Tiempo fresco pero agradable.' + (windy ? ' Viento de ' + wnd + 'km/h: lleva una capa extra, la sensación es más fresca de lo que marca el termómetro.' : ' Lleva alguna capa extra por si refresca por la tarde.'),
+      en: 'Light jacket or jumper. Cool but pleasant.' + (windy ? ' ' + wnd + 'km/h wind: bring an extra layer — it feels fresher than the thermometer suggests.' : ' Carry an extra layer in case temperatures drop in the evening.'),
+      fr: 'Veste légère ou pull. Frais mais agréable.' + (windy ? ' Vent de ' + wnd + 'km/h\u00a0: prévoyez une couche en plus, le ressenti est plus frais que le thermomètre.' : ' Prévoyez une couche supplémentaire si les températures baissent le soir.'),
     }, lang)
   }
 
-  if (avg < 26) {
+  if (fl < 26) {
     if (hasRain) return pick({
-      ca: 'Roba còmoda i lleugera, paraigua i una jaqueta fina per als intervals de pluja o les estones de vent.',
-      es: 'Ropa cómoda y ligera, paraguas y una chaqueta fina para los intervalos de lluvia o las rachas de viento.',
-      en: 'Comfortable, light clothing with an umbrella and a thin jacket for rainy spells or gusty moments.',
-      fr: 'Vêtements légers et confortables, parapluie et veste fine pour les intervalles pluvieux ou les coups de vent.',
+      ca: 'Roba còmoda i lleugera, paraigua i una jaqueta fina per als intervals de pluja o les estones de vent.' + wcSuffix,
+      es: 'Ropa cómoda y ligera, paraguas y una chaqueta fina para los intervalos de lluvia o las rachas de viento.' + wcSuffix,
+      en: 'Comfortable, light clothing with an umbrella and a thin jacket for rainy spells or gusty moments.' + wcSuffix,
+      fr: 'Vêtements légers et confortables, parapluie et veste fine pour les intervalles pluvieux ou les coups de vent.' + wcSuffix,
     }, lang)
     return pick({
       ca: 'Roba còmoda i lleugera. Porta una capa extra per al vespre o si bufa el vent; el temps és agradable durant el dia.',
@@ -259,7 +355,7 @@ function generateClothesAdvice(s: Stats48h, lang: string): string {
     }, lang)
   }
 
-  // Hot (≥26°C avg)
+  // Hot (≥26 °C feels-like)
   if (hasRain) return pick({
     ca: 'Roba lleugera d\'estiu, protecció solar (FPS 30+) i paraigua o poncho impermeable lleuger per als possibles ruixats.',
     es: 'Ropa ligera de verano, protección solar (FPS 30+) y paraguas o poncho impermeable ligero para los posibles chubascos.',
@@ -296,20 +392,23 @@ export function renderPredictionCard(
   const prediction    = generatePrediction(stats, lang)
   const clothesAdvice = generateClothesAdvice(stats, lang)
 
-  // Condition icon
+  // Condition icon — driven by feels-like for cold/windy accuracy
   let condIcon = '⛅'
-  if (stats.hasStorm || stats.totalPrecip > 15)            condIcon = '⛈️'
-  else if (stats.maxTemp < 3 && stats.totalPrecip > 0.5)   condIcon = '❄️'
-  else if (stats.totalPrecip > 8)                          condIcon = '🌧️'
-  else if (stats.totalPrecip > 1)                          condIcon = '🌦️'
-  else if (stats.avgTemp > 28)                             condIcon = '☀️'
-  else if (stats.avgTemp > 20)                             condIcon = '🌤️'
+  if (stats.hasStorm || stats.totalPrecip > 15)              condIcon = '⛈️'
+  else if (stats.maxTemp < 3 && stats.totalPrecip > 0.5)     condIcon = '❄️'
+  else if (stats.totalPrecip > 8)                            condIcon = '🌧️'
+  else if (stats.totalPrecip > 1)                            condIcon = '🌦️'
+  else if (stats.avgFeelsLike < 2)                           condIcon = '🥶'
+  else if (stats.avgTemp > 28)                               condIcon = '☀️'
+  else if (stats.avgTemp > 20)                               condIcon = '🌤️'
 
-  // Clothes icon
+  // Clothes icon — driven by feels-like
+  const fl = stats.avgFeelsLike
   let clothesIcon = '🧥'
-  if (stats.avgTemp > 25 && stats.totalPrecip < 1)         clothesIcon = '👕'
-  else if (stats.totalPrecip > 1)                          clothesIcon = '☂️'
-  else if (stats.avgTemp > 15)                             clothesIcon = '🧣'
+  if (fl > 25 && stats.totalPrecip < 1)                      clothesIcon = '👕'
+  else if (stats.totalPrecip > 1)                            clothesIcon = '☂️'
+  else if (fl > 15)                                          clothesIcon = '🧣'
+  else if (fl < 0)                                           clothesIcon = '🧤'
 
   const TITLE_LABEL: Record<string, string> = {
     ca: 'Predicció properes 48h',
