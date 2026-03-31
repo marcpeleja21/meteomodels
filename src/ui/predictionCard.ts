@@ -422,9 +422,16 @@ export function renderPredictionCard(
     en: 'What to wear',
     fr: 'Quoi porter',
   }
+  const INFO_TOOLTIP: Record<string, string> = {
+    ca: 'Mitjana ponderada dels models disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nResta repartida a parts iguals entre ICON, ICON EU, ARPEGE i altres.\nS\'aplica wind chill quan T ≤ 10 °C i vent > 5 km/h.',
+    es: 'Media ponderada de los modelos disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nEl resto se reparte a partes iguales entre ICON, ICON EU, ARPEGE y otros.\nSe aplica sensación térmica cuando T ≤ 10 °C y viento > 5 km/h.',
+    en: 'Weighted average of available models:\nAROME HD 25% · GFS 20% · ECMWF 20%\nRemaining 35% split equally among ICON, ICON EU, ARPEGE and others.\nWind chill applied when T ≤ 10 °C and wind > 5 km/h.',
+    fr: 'Moyenne pondérée des modèles disponibles :\nAROME HD 25% · GFS 20% · ECMWF 20%\nLes 35% restants répartis entre ICON, ICON EU, ARPEGE et autres.\nRefroidissement éolien appliqué quand T ≤ 10 °C et vent > 5 km/h.',
+  }
 
-  const tl = TITLE_LABEL[lang] ?? TITLE_LABEL.en
-  const cl = CLOTHES_LABEL[lang] ?? CLOTHES_LABEL.en
+  const tl      = TITLE_LABEL[lang]  ?? TITLE_LABEL.en
+  const cl      = CLOTHES_LABEL[lang] ?? CLOTHES_LABEL.en
+  const tipText = (INFO_TOOLTIP[lang] ?? INFO_TOOLTIP.en).replace(/'/g, '&#39;').replace(/"/g, '&quot;')
 
   el.innerHTML =
     '<div class="prediction-card">' +
@@ -433,6 +440,10 @@ export function renderPredictionCard(
           '<div class="prediction-item-header">' +
             '<span class="prediction-icon" aria-hidden="true">' + condIcon + '</span>' +
             '<span class="prediction-label">' + tl + '</span>' +
+            '<span class="pred-info-btn" aria-label="Model info" tabindex="0">' +
+              'ⓘ' +
+              '<span class="pred-info-tooltip">' + tipText + '</span>' +
+            '</span>' +
           '</div>' +
           '<p class="prediction-text">' + prediction + '</p>' +
         '</div>' +

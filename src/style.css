@@ -431,10 +431,46 @@ input{touch-action:manipulation}
 .prediction-divider{
   width:1px; background:var(--card-border); margin:0 16px; flex-shrink:0; align-self:stretch;
 }
+
+/* ── Info button + tooltip ─────────────────────────────────────── */
+.pred-info-btn{
+  position:relative; display:inline-flex; align-items:center;
+  margin-left:5px; font-size:.7rem; color:var(--text-dim);
+  cursor:default; line-height:1; flex-shrink:0;
+  transition:color .15s;
+}
+.pred-info-btn:hover{ color:var(--accent2) }
+.pred-info-tooltip{
+  pointer-events:none;
+  position:absolute; left:50%; bottom:calc(100% + 7px);
+  transform:translateX(-50%);
+  width:260px; padding:9px 11px;
+  background:var(--card); border:1px solid var(--card-border);
+  border-radius:8px;
+  font-size:.72rem; line-height:1.55; color:var(--text-muted);
+  white-space:pre-line; text-transform:none; letter-spacing:0; font-weight:400;
+  box-shadow:0 4px 16px rgba(0,0,0,.45);
+  opacity:0; visibility:hidden;
+  transition:opacity .18s, visibility .18s;
+  z-index:40;
+}
+/* small arrow */
+.pred-info-tooltip::after{
+  content:''; position:absolute; top:100%; left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;
+  border-top-color:var(--card-border);
+}
+.pred-info-btn:hover .pred-info-tooltip,
+.pred-info-btn:focus .pred-info-tooltip{ opacity:1; visibility:visible }
+
 @media(max-width:540px){
   .prediction-row{ flex-direction:column; gap:14px }
   .prediction-divider{ width:auto; height:1px; margin:0 }
   .prediction-item{ padding:0 }
+  /* on mobile tooltip opens upward but anchors to the left edge to avoid overflow */
+  .pred-info-tooltip{ left:0; transform:none; width:230px }
+  .pred-info-tooltip::after{ left:10px; transform:none }
 }
 
 /* Location bar */
