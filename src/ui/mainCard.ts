@@ -11,14 +11,14 @@ export function renderMainCard() {
 
   if (state.selectedDay > 0) {
     renderDayView(el, t, state.selectedDay)
-    return
-  }
-
-  if (state.activeModel === 'ensemble') {
+  } else if (state.activeModel === 'ensemble') {
     renderEnsemble(el, t)
   } else {
     renderSingleModel(el, t)
   }
+
+  // Wire up fixed-position tooltip for ⓘ buttons (escapes overflow:hidden parents)
+  initEnsInfoTooltip(el)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label">
           ${t.ensLabel(n)}
-          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info">ⓘ<span class="ens-info-tooltip">${t.ensInfoTip}</span></span>
+          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
         <div class="cmp-icon">${wx.icon}</div>
         <div class="cmp-temp">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
@@ -188,7 +188,10 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   el.innerHTML = `
     <div class="cmp-row cmp-row-single">
       <div class="cmp-panel fcast-panel">
-        <div class="cmp-label">${dateLabel} · ${t.nModels(day.n)}</div>
+        <div class="cmp-label">
+          ${dateLabel} · ${t.nModels(day.n)}
+          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
+        </div>
         <div class="cmp-icon">${wx.icon}</div>
         <div class="cmp-temp">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
@@ -201,4 +204,60 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
       </div>
     </div>
   `
+}
+
+// ── Fixed-position tooltip (escapes overflow:hidden) ─────────────────────────
+let _tipEl: HTMLElement | null = null
+
+function getOrCreateTip(): HTMLElement {
+  if (!_tipEl) {
+    _tipEl = document.createElement('div')
+    _tipEl.className = 'ens-info-floating-tip'
+    _tipEl.setAttribute('aria-hidden', 'true')
+    document.body.appendChild(_tipEl)
+  }
+  return _tipEl
+}
+
+function initEnsInfoTooltip(container: HTMLElement) {
+  const buttons = container.querySelectorAll<HTMLElement>('.ens-info-btn')
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      const tip   = getOrCreateTip()
+      const text  = btn.dataset.ensTip ?? ''
+      tip.textContent = text          // plain text — newlines rendered via white-space:pre-line
+      tip.style.visibility = 'hidden'
+      tip.style.display    = 'block'
+
+      const r   = btn.getBoundingClientRect()
+      const tw  = tip.offsetWidth
+      const th  = tip.offsetHeight
+      const vw  = window.innerWidth
+      const vh  = window.innerHeight
+      const GAP = 8
+
+      // Prefer below; flip above if not enough room
+      let top = r.bottom + GAP
+      if (top + th > vh - 8) top = r.top - th - GAP
+
+      // Centre on button, clamp to viewport
+      let left = r.left + r.width / 2 - tw / 2
+      left = Math.max(8, Math.min(left, vw - tw - 8))
+
+      tip.style.top        = top  + 'px'
+      tip.style.left       = left + 'px'
+      tip.style.visibility = 'visible'
+      tip.style.opacity    = '1'
+    })
+
+    btn.addEventListener('mouseleave', () => {
+      const tip = getOrCreateTip()
+      tip.style.opacity = '0'
+      tip.style.display = 'none'
+    })
+
+    // Keyboard support
+    btn.addEventListener('focus', () => btn.dispatchEvent(new MouseEvent('mouseenter')))
+    btn.addEventListener('blur',  () => btn.dispatchEvent(new MouseEvent('mouseleave')))
+  })
 }

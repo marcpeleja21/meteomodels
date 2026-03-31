@@ -432,43 +432,34 @@ input{touch-action:manipulation}
   width:1px; background:var(--card-border); margin:0 16px; flex-shrink:0; align-self:stretch;
 }
 
-/* ── Ensemble info button + tooltip (in main card "Mitjana de N models" label) ── */
+/* ── Ensemble info button (in "Mitjana de N models" label) ── */
 .ens-info-btn{
-  position:relative; display:inline-flex; align-items:center;
+  display:inline-flex; align-items:center;
   margin-left:6px; font-size:.75rem; color:var(--text-dim);
   cursor:default; line-height:1; flex-shrink:0; vertical-align:middle;
   transition:color .15s;
 }
-.ens-info-btn:hover{ color:var(--accent2) }
-.ens-info-tooltip{
-  pointer-events:none;
-  position:absolute; left:50%; bottom:calc(100% + 8px);
-  transform:translateX(-50%);
+.ens-info-btn:hover,
+.ens-info-btn:focus{ color:var(--accent2); outline:none }
+
+/* Fixed-position floating tooltip — rendered into <body> to escape overflow:hidden */
+.ens-info-floating-tip{
+  display:none; position:fixed; z-index:9999;
   width:270px; padding:10px 12px;
   background:var(--card); border:1px solid var(--card-border);
   border-radius:8px;
   font-size:.72rem; line-height:1.6; color:var(--text-muted);
   white-space:pre-line; text-transform:none; letter-spacing:0; font-weight:400;
-  box-shadow:0 4px 18px rgba(0,0,0,.5);
-  opacity:0; visibility:hidden;
-  transition:opacity .18s, visibility .18s;
-  z-index:50;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);
+  pointer-events:none;
+  transition:opacity .15s;
 }
-.ens-info-tooltip::after{
-  content:''; position:absolute; top:100%; left:50%;
-  transform:translateX(-50%);
-  border:5px solid transparent;
-  border-top-color:var(--card-border);
-}
-.ens-info-btn:hover .ens-info-tooltip,
-.ens-info-btn:focus .ens-info-tooltip{ opacity:1; visibility:visible }
 
 @media(max-width:540px){
   .prediction-row{ flex-direction:column; gap:14px }
   .prediction-divider{ width:auto; height:1px; margin:0 }
   .prediction-item{ padding:0 }
-  .ens-info-tooltip{ left:0; transform:none; width:240px }
-  .ens-info-tooltip::after{ left:12px; transform:none }
+  .ens-info-floating-tip{ width:240px }
 }
 
 /* Location bar */
