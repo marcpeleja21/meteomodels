@@ -84,8 +84,10 @@ function compute48hStats(
   type ModelVal = { k: string; v: number }
   const tempMap:   Map<string, ModelVal[]> = new Map()
   const precipMap: Map<string, ModelVal[]> = new Map()
-  const windMap:   Map<string, ModelVal[]> = new Map()
+  const windMap:   Map<string, ModelVal[]> = new Map()  // sustained — for wind chill only
   const codeMap:   Map<string, ModelVal[]> = new Map()
+  // Daily gusts: collect per-model max gust across the 48 h window (day 0 + day 1)
+  const gustVals: ModelVal[] = []
 
   for (const [modelKey, data] of Object.entries(wxData)) {
     if (!data?.hourly) continue
@@ -102,6 +104,15 @@ function compute48hStats(
       if (precipitation?.[i]  != null) precipMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
       if (windspeed_10m?.[i]  != null) windMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
       if (weathercode?.[i]    != null) codeMap.get(k)!.push({ k: modelKey, v: weathercode[i]! })
+    }
+    // Gusts from daily data — take max of day 0 and day 1
+    const dailyGusts = data.daily?.windgusts_10m_max
+    if (dailyGusts) {
+      const g0 = dailyGusts[0] ?? null
+      const g1 = dailyGusts[1] ?? null
+      const maxG = g0 !== null && g1 !== null ? Math.max(g0, g1)
+                 : g0 !== null ? g0 : g1
+      if (maxG !== null) gustVals.push({ k: modelKey, v: maxG })
     }
   }
 
@@ -137,12 +148,17 @@ function compute48hStats(
   const avgFL   = wFeelsLike.reduce((a, b) => a + b, 0) / wFeelsLike.length
   const avgWind = wWinds.length ? wWinds.reduce((a, b) => a + b, 0) / wWinds.length : 0
 
+  // maxWind: use weighted-average of daily gusts if available, else fall back to sustained max
+  const maxWind = gustVals.length
+    ? weightedAvg(gustVals)
+    : (wWinds.length ? Math.max(...wWinds) : 0)
+
   return {
     avgTemp,
     minTemp:      Math.min(...wTemps),
     maxTemp:      Math.max(...wTemps),
     totalPrecip:  wPrecip.reduce((a, b) => a + b, 0),
-    maxWind:      wWinds.length ? Math.max(...wWinds) : 0,
+    maxWind,
     avgWind:      Math.round(avgWind),
     avgFeelsLike: avgFL,
     minFeelsLike: Math.min(...wFeelsLike),
@@ -422,16 +438,8 @@ export function renderPredictionCard(
     en: 'What to wear',
     fr: 'Quoi porter',
   }
-  const INFO_TOOLTIP: Record<string, string> = {
-    ca: 'Mitjana ponderada dels models disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nResta repartida a parts iguals entre ICON, ICON EU, ARPEGE i altres.\nS\'aplica wind chill quan T ≤ 10 °C i vent > 5 km/h.',
-    es: 'Media ponderada de los modelos disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nEl resto se reparte a partes iguales entre ICON, ICON EU, ARPEGE y otros.\nSe aplica sensación térmica cuando T ≤ 10 °C y viento > 5 km/h.',
-    en: 'Weighted average of available models:\nAROME HD 25% · GFS 20% · ECMWF 20%\nRemaining 35% split equally among ICON, ICON EU, ARPEGE and others.\nWind chill applied when T ≤ 10 °C and wind > 5 km/h.',
-    fr: 'Moyenne pondérée des modèles disponibles :\nAROME HD 25% · GFS 20% · ECMWF 20%\nLes 35% restants répartis entre ICON, ICON EU, ARPEGE et autres.\nRefroidissement éolien appliqué quand T ≤ 10 °C et vent > 5 km/h.',
-  }
-
-  const tl      = TITLE_LABEL[lang]  ?? TITLE_LABEL.en
-  const cl      = CLOTHES_LABEL[lang] ?? CLOTHES_LABEL.en
-  const tipText = (INFO_TOOLTIP[lang] ?? INFO_TOOLTIP.en).replace(/'/g, '&#39;').replace(/"/g, '&quot;')
+  const tl = TITLE_LABEL[lang]  ?? TITLE_LABEL.en
+  const cl = CLOTHES_LABEL[lang] ?? CLOTHES_LABEL.en
 
   el.innerHTML =
     '<div class="prediction-card">' +
@@ -440,10 +448,6 @@ export function renderPredictionCard(
           '<div class="prediction-item-header">' +
             '<span class="prediction-icon" aria-hidden="true">' + condIcon + '</span>' +
             '<span class="prediction-label">' + tl + '</span>' +
-            '<span class="pred-info-btn" aria-label="Model info" tabindex="0">' +
-              'ⓘ' +
-              '<span class="pred-info-tooltip">' + tipText + '</span>' +
-            '</span>' +
           '</div>' +
           '<p class="prediction-text">' + prediction + '</p>' +
         '</div>' +

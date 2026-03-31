@@ -271,4 +271,5 @@ export interface LangData {
   geolocLoading:   string
   geolocError:     string
   geolocDenied:    string
+  ensInfoTip:      string
 }

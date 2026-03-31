@@ -64,6 +64,7 @@ export const LANG_DATA: Record<string, LangData> = {
     geolocLoading:  'Obtenint la teva ubicació...',
     geolocError:    'No s\'ha pogut obtenir la ubicació. Cerca manualment.',
     geolocDenied:   'Permís denegat. Cerca la teva localitat manualment.',
+    ensInfoTip:     'Mitjana ponderada dels models disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nResta repartida a parts iguals entre la resta de models.\nLes ràfegues s\'utilitzen com a referència del vent màxim.',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -128,6 +129,7 @@ export const LANG_DATA: Record<string, LangData> = {
     geolocLoading:  'Obteniendo tu ubicación...',
     geolocError:    'No se pudo obtener la ubicación. Busca manualmente.',
     geolocDenied:   'Permiso denegado. Busca tu localidad manualmente.',
+    ensInfoTip:     'Media ponderada de los modelos disponibles:\nAROME HD 25% · GFS 20% · ECMWF 20%\nEl resto se reparte a partes iguales entre los demás modelos.\nLas ráfagas se usan como referencia del viento máximo.',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -192,6 +194,7 @@ export const LANG_DATA: Record<string, LangData> = {
     geolocLoading:  'Getting your location...',
     geolocError:    'Could not get your location. Search manually.',
     geolocDenied:   'Location access denied. Search for your city manually.',
+    ensInfoTip:     'Weighted average of available models:\nAROME HD 25% · GFS 20% · ECMWF 20%\nRemaining 35% split equally among all other models.\nWind gusts are used as the peak wind reference.',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -256,5 +259,6 @@ export const LANG_DATA: Record<string, LangData> = {
     geolocLoading:  'Obtention de votre position...',
     geolocError:    'Impossible d\'obtenir la position. Cherchez manuellement.',
     geolocDenied:   'Accès refusé. Recherchez votre ville manuellement.',
+    ensInfoTip:     'Moyenne pondérée des modèles disponibles :\nAROME HD 25% · GFS 20% · ECMWF 20%\nLes 35% restants répartis entre les autres modèles.\nLes rafales sont utilisées comme référence du vent maximum.',
   },
 }

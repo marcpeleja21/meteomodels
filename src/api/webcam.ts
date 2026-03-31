@@ -13,7 +13,16 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
     if (!res.ok) return null
 
     const json = await res.json()
-    const webcams: any[] = json.webcams ?? []
+    const allWebcams: any[] = json.webcams ?? []
+    if (!allWebcams.length) return null
+
+    // Exclude cruise-ship webcams — they may be hundreds of km away from the selected location
+    const CRUISE_RE = /cruise|ship|vessel|ferry|cruiser|viking|msc |costa |carnival|celebrity|royal caribbean/i
+    const webcams = allWebcams.filter((w: any) => {
+      const text = [w.title, w.location?.city, w.location?.country, w.category?.name].filter(Boolean).join(' ')
+      return !CRUISE_RE.test(text)
+    })
+
     if (!webcams.length) return null
 
     // Pick the best webcam: prefer active + has preview image, then any with preview

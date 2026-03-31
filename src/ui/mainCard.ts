@@ -107,7 +107,10 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
     <div class="cmp-row${hasObs ? '' : ' cmp-row-single'}">
       ${hasObs ? nowPanelHtml(t) : ''}
       <div class="cmp-panel fcast-panel">
-        <div class="cmp-label">${t.ensLabel(n)}</div>
+        <div class="cmp-label">
+          ${t.ensLabel(n)}
+          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info">ⓘ<span class="ens-info-tooltip">${t.ensInfoTip}</span></span>
+        </div>
         <div class="cmp-icon">${wx.icon}</div>
         <div class="cmp-temp">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
