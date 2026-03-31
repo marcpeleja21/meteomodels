@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — MeteoModels</title>
+<meta name="description" content="Privacy Policy for MeteoModels — how we handle your data.">
+<meta name="robots" content="noindex, follow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1220; --bg2: #0f1a2e; --card: rgba(17,30,55,0.90);
+    --card-border: rgba(255,255,255,0.08); --text: #e4f0fb;
+    --text-muted: #6e8caa; --text-dim: #3d5470;
+    --accent: #00d2e6; --accent2: #4fc3f7;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; line-height: 1.7;
+  }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .page-wrap {
+    max-width: 760px; margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* top nav */
+  .top-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 40px;
+  }
+  .top-bar .logo {
+    font-size: 1.1rem; font-weight: 700; color: var(--text);
+    text-decoration: none; display: flex; align-items: center; gap: 8px;
+  }
+  .top-bar .logo:hover { color: var(--accent2); }
+  .top-bar .back {
+    margin-left: auto; font-size: .8rem; color: var(--text-muted);
+    border: 1px solid var(--text-dim); border-radius: 20px;
+    padding: 4px 14px; text-decoration: none; transition: .2s;
+  }
+  .top-bar .back:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  /* hero */
+  h1 { font-size: 2rem; font-weight: 800; margin-bottom: 6px; }
+  .updated { font-size: .82rem; color: var(--text-dim); margin-bottom: 40px; }
+
+  /* sections */
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 14px; padding: 28px 32px; margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 1.05rem; font-weight: 700; color: var(--accent2);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  p { color: var(--text-muted); font-size: .9rem; margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+  ul { color: var(--text-muted); font-size: .9rem; padding-left: 20px; }
+  ul li { margin-bottom: 6px; }
+
+  /* cookie table */
+  .cookie-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px 16px; font-size: .82rem; color: var(--text-muted);
+    padding: 8px 0; border-bottom: 1px solid var(--card-border);
+  }
+  .cookie-row.header { color: var(--text); font-weight: 600; font-size: .8rem; }
+  .cookie-row:last-child { border-bottom: none; }
+
+  footer {
+    margin-top: 60px; text-align: center;
+    font-size: .72rem; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <nav class="top-bar">
+    <a class="logo" href="/">🌍 MeteoModels</a>
+    <a class="back" href="/">← Back to app</a>
+  </nav>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: <strong style="color:var(--text-muted)">March 2025</strong></p>
+
+  <div class="card">
+    <h2>📋 Overview</h2>
+    <p>MeteoModels (<em>meteomodels.vercel.app</em>) is a free weather forecast comparison tool. We take your privacy seriously and collect as little data as possible. This policy explains what data is used and why.</p>
+  </div>
+
+  <div class="card">
+    <h2>📍 Location Data</h2>
+    <p>If you use the "My location" feature, your browser requests your GPS coordinates. These coordinates are used <strong style="color:var(--text)">only</strong> to fetch weather data for your current position from third-party APIs (Open-Meteo, Nominatim). Your coordinates are never stored on our servers, never logged, and never shared with third parties beyond the weather API calls necessary to provide the service.</p>
+    <p>Location permission is always optional — you can search for any location manually instead.</p>
+  </div>
+
+  <div class="card">
+    <h2>🌐 Third-party APIs</h2>
+    <p>The app makes requests to the following external services to retrieve weather and map data:</p>
+    <ul>
+      <li><a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener">Open-Meteo</a> — weather forecast data (free, open licence)</li>
+      <li><a href="https://nominatim.org/release-docs/latest/api/Overview/" target="_blank" rel="noopener">Nominatim / OpenStreetMap</a> — geocoding (place search & reverse geocoding)</li>
+      <li><a href="https://www.meteoalarm.org" target="_blank" rel="noopener">MeteoAlarm</a> — official European weather alerts</li>
+      <li><a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a> — typography (Inter & DM Mono)</li>
+    </ul>
+    <p>Each service has its own privacy policy. Requests to these services include your search query or coordinates as required to return relevant results.</p>
+  </div>
+
+  <div class="card">
+    <h2>📊 Advertising — Google AdSense</h2>
+    <p>This site uses <strong style="color:var(--text)">Google AdSense</strong> to display advertisements. Google AdSense uses cookies and similar tracking technologies to show personalised ads based on your browsing behaviour.</p>
+    <p>Google may use the DoubleClick cookie to serve ads based on your prior visits to this and other websites. You can opt out of personalised advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google Ad Settings</a> or <a href="https://www.aboutads.info" target="_blank" rel="noopener">aboutads.info</a>.</p>
+
+    <div style="margin-top:16px">
+      <div class="cookie-row header">
+        <span>Cookie</span><span>Provider</span><span>Purpose</span>
+      </div>
+      <div class="cookie-row">
+        <span>IDE</span><span>Google DoubleClick</span><span>Ad personalisation</span>
+      </div>
+      <div class="cookie-row">
+        <span>DSID</span><span>Google</span><span>Ad targeting</span>
+      </div>
+      <div class="cookie-row">
+        <span>test_cookie</span><span>DoubleClick.net</span><span>Cookie support check</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🍪 Cookies &amp; Local Storage</h2>
+    <p>MeteoModels stores a small amount of data in your browser's <strong style="color:var(--text)">localStorage</strong> to remember your language preference and last searched location. This data never leaves your device.</p>
+    <p>No session cookies or tracking cookies are set by MeteoModels itself. Any cookies present are from Google AdSense (see above) or Google Fonts.</p>
+  </div>
+
+  <div class="card">
+    <h2>📈 Analytics</h2>
+    <p>MeteoModels does not use Google Analytics or any other analytics platform. We do not track page views, session duration, or user behaviour.</p>
+  </div>
+
+  <div class="card">
+    <h2>👤 Personal Data</h2>
+    <p>We do not collect, store, or process any personally identifiable information (PII). There is no user registration, login, or account system.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔒 Data Security</h2>
+    <p>The site is served over HTTPS. Server-side API proxy functions run on Vercel Edge infrastructure and do not log or store request parameters.</p>
+  </div>
+
+  <div class="card">
+    <h2>🧒 Children's Privacy</h2>
+    <p>MeteoModels is not directed at children under the age of 13 and does not knowingly collect personal information from children.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔄 Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Changes will be reflected by an updated date at the top of this page. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+  </div>
+
+  <div class="card">
+    <h2>✉️ Contact</h2>
+    <p>If you have any questions about this Privacy Policy, please open an issue on the <a href="https://github.com/marcpeleja21/meteomodels" target="_blank" rel="noopener">GitHub repository</a>.</p>
+  </div>
+
+  <footer>
+    &copy; 2025 MeteoModels · <a href="/">Home</a> · <a href="/about.html">About</a>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -92,6 +92,11 @@
 }
 </script>
 
+<!-- ── Google AdSense ────────────────────────────────────────────────────────── -->
+<!-- IMPORTANT: Replace ca-pub-XXXXXXXXXXXXXXXX with your actual AdSense publisher ID -->
+<!-- Uncomment the line below once you have been approved by Google AdSense          -->
+<!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+
 <!-- ── Service Worker ────────────────────────────────────────────────────────── -->
 <script>
   if ('serviceWorker' in navigator) {
@@ -229,6 +234,19 @@
     <div id="alertsBanner" style="display:none"></div>
     <!-- AI-style 48h prediction + clothes advice -->
     <div id="predictionCard"></div>
+
+    <!-- ── Ad slot 1: below prediction card (leaderboard / responsive) ── -->
+    <!-- Replace data-ad-client and data-ad-slot with your real AdSense values -->
+    <div class="ad-slot ad-slot--top" style="display:none">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="XXXXXXXXXX"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+
     <div id="locBar" class="loc-bar"></div>
 
     <!-- PAGE: FORECAST -->
@@ -263,6 +281,18 @@
         <div id="forecastHoursView" class="hidden"></div>
       </div>
       <div id="modelGrid" class="model-grid"></div>
+
+      <!-- ── Ad slot 2: between model grid and chart (in-content) ── -->
+      <div class="ad-slot ad-slot--mid" style="display:none">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="XXXXXXXXXX"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
+
       <div id="chartCard" class="chart-card"></div>
       <div id="tableCard" class="table-card"></div>
     </div>
@@ -276,6 +306,9 @@
 <footer style="text-align:center;padding:14px;padding-bottom:max(14px,env(safe-area-inset-bottom));font-size:.68rem;color:var(--text-dim)">
   Dades: <a href="https://open-meteo.com" target="_blank" style="color:var(--accent2)">Open-Meteo</a> (lliure) ·
   Creat per <span style="color:var(--text-muted);font-weight:600">marcpeleja</span>
+  <br>
+  <a href="/about.html" style="color:var(--text-dim);margin:0 6px">About</a> ·
+  <a href="/privacy.html" style="color:var(--text-dim);margin:0 6px">Privacy Policy</a>
   <br>
   <a href="https://ko-fi.com/marcpeleja" target="_blank" rel="noopener"
      style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 11px;background:transparent;color:var(--text-muted);border:1px solid var(--text-dim);border-radius:20px;font-size:.65rem;font-weight:500;text-decoration:none;letter-spacing:.03em;transition:border-color .2s,color .2s"

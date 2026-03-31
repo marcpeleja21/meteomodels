@@ -34,6 +34,6 @@
   ],
 
   "rewrites": [
-    { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js).*)", "destination": "/index.html" }
+    { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html).*)", "destination": "/index.html" }
   ]
 }

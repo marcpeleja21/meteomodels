@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — MeteoModels</title>
+<meta name="description" content="About MeteoModels — a free weather forecast model comparison tool for GFS, ECMWF, ICON, AROME and more.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1220; --bg2: #0f1a2e; --card: rgba(17,30,55,0.90);
+    --card-border: rgba(255,255,255,0.08); --text: #e4f0fb;
+    --text-muted: #6e8caa; --text-dim: #3d5470;
+    --accent: #00d2e6; --accent2: #4fc3f7;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; line-height: 1.7;
+  }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .page-wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  .top-bar {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 40px;
+  }
+  .top-bar .logo {
+    font-size: 1.1rem; font-weight: 700; color: var(--text);
+    text-decoration: none; display: flex; align-items: center; gap: 8px;
+  }
+  .top-bar .logo:hover { color: var(--accent2); }
+  .top-bar .back {
+    margin-left: auto; font-size: .8rem; color: var(--text-muted);
+    border: 1px solid var(--text-dim); border-radius: 20px;
+    padding: 4px 14px; text-decoration: none; transition: .2s;
+  }
+  .top-bar .back:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  .hero { text-align: center; padding: 32px 0 48px; }
+  .hero-icon { font-size: 3.5rem; display: block; margin-bottom: 16px; }
+  h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 10px; }
+  .hero p { color: var(--text-muted); font-size: 1rem; max-width: 540px; margin: 0 auto; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 14px; padding: 28px 32px; margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 1.05rem; font-weight: 700; color: var(--accent2);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  p { color: var(--text-muted); font-size: .9rem; margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* model grid */
+  .model-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px; margin-top: 4px;
+  }
+  .model-item {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .model-item .flag { font-size: 1.2rem; }
+  .model-item .name { font-size: .9rem; font-weight: 600; margin: 4px 0 2px; }
+  .model-item .desc { font-size: .76rem; color: var(--text-dim); }
+
+  /* feature list */
+  .feat-list {
+    display: flex; flex-direction: column; gap: 10px; margin-top: 4px;
+  }
+  .feat-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: .88rem; color: var(--text-muted);
+  }
+  .feat-item .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* data sources */
+  .src-list { list-style: none; padding: 0; margin-top: 4px; }
+  .src-list li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 0; border-bottom: 1px solid var(--card-border);
+    font-size: .88rem; color: var(--text-muted);
+  }
+  .src-list li:last-child { border-bottom: none; }
+  .badge {
+    font-size: .68rem; background: rgba(0,210,230,0.12);
+    color: var(--accent); border: 1px solid rgba(0,210,230,0.25);
+    border-radius: 20px; padding: 2px 9px;
+  }
+
+  /* cta */
+  .cta-row {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-top: 18px; justify-content: center;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 22px; border-radius: 25px; font-size: .88rem;
+    font-weight: 600; text-decoration: none; transition: .2s;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: var(--accent2); text-decoration: none; }
+  .btn-outline {
+    border: 1px solid var(--text-dim); color: var(--text-muted);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  footer {
+    margin-top: 60px; text-align: center;
+    font-size: .72rem; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <nav class="top-bar">
+    <a class="logo" href="/">🌍 MeteoModels</a>
+    <a class="back" href="/">← Back to app</a>
+  </nav>
+
+  <div class="hero">
+    <span class="hero-icon">🌦️</span>
+    <h1>About MeteoModels</h1>
+    <p>A free, open tool that lets you compare the world's leading numerical weather prediction models — side by side, in real time.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔭 What is MeteoModels?</h2>
+    <p>MeteoModels is a weather forecast comparison app built for curious users, weather enthusiasts, and professionals who want to go beyond a single forecast. Instead of showing you one model's prediction, it shows you all of them — so you can see where they agree and where they diverge.</p>
+    <p>It runs entirely in your browser, loads fast, works offline (PWA), and requires no sign-up or installation.</p>
+  </div>
+
+  <div class="card">
+    <h2>🗺️ Available Weather Models</h2>
+    <div class="model-grid">
+      <div class="model-item"><div class="flag">🇺🇸</div><div class="name">GFS</div><div class="desc">NOAA · Global · 0.25°</div></div>
+      <div class="model-item"><div class="flag">🇪🇺</div><div class="name">ECMWF IFS</div><div class="desc">ECMWF · Global · 0.1°</div></div>
+      <div class="model-item"><div class="flag">🇩🇪</div><div class="name">ICON Global</div><div class="desc">DWD · Global · 0.1°</div></div>
+      <div class="model-item"><div class="flag">🇩🇪</div><div class="name">ICON EU</div><div class="desc">DWD · Europe · 0.0625°</div></div>
+      <div class="model-item"><div class="flag">🇨🇭</div><div class="name">MeteoBlue</div><div class="desc">MeteoBlue · Global</div></div>
+      <div class="model-item"><div class="flag">🇫🇷</div><div class="name">AROME HD</div><div class="desc">Météo-France · 2 km</div></div>
+      <div class="model-item"><div class="flag">🇫🇷</div><div class="name">AROME 2.5 km</div><div class="desc">Météo-France · 2.5 km</div></div>
+      <div class="model-item"><div class="flag">🇫🇷</div><div class="name">ARPEGE EU</div><div class="desc">Météo-France · Europe</div></div>
+    </div>
+    <p style="margin-top:16px">Ensemble probability plumes are available for GFS ENS (30 members), ICON ENS (39), ECMWF ENS (51), GEM ENS (20) and AROME HD (deterministic reference line).</p>
+  </div>
+
+  <div class="card">
+    <h2>✨ Features</h2>
+    <div class="feat-list">
+      <div class="feat-item"><span class="icon">🌡️</span><span>Temperature, precipitation, wind, humidity &amp; more — compare every model hour by hour</span></div>
+      <div class="feat-item"><span class="icon">📊</span><span>Ensemble plume charts: visualise forecast uncertainty across 141 model members</span></div>
+      <div class="feat-item"><span class="icon">🚨</span><span>Official weather alerts from MeteoAlarm (Europe) and NWS (US), filtered to your exact location</span></div>
+      <div class="feat-item"><span class="icon">🗺️</span><span>Interactive OpenStreetMap with nearby webcam view</span></div>
+      <div class="feat-item"><span class="icon">📍</span><span>Geolocation: get an instant forecast for your current position</span></div>
+      <div class="feat-item"><span class="icon">🌐</span><span>Available in Catalan, Spanish, English and French</span></div>
+      <div class="feat-item"><span class="icon">📲</span><span>Installable as a PWA — works offline, no app store required</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔌 Data Sources</h2>
+    <ul class="src-list">
+      <li><span>Open-Meteo — weather forecast API</span><span class="badge">Free &amp; open</span></li>
+      <li><span>MeteoAlarm — EU weather alerts</span><span class="badge">Official</span></li>
+      <li><span>NWS — US weather alerts</span><span class="badge">Official</span></li>
+      <li><span>Nominatim / OpenStreetMap — geocoding</span><span class="badge">Open data</span></li>
+      <li><span>Open-Meteo elevation API</span><span class="badge">Free &amp; open</span></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>☕ Support the project</h2>
+    <p>MeteoModels is a free, independent side project. If you find it useful, consider buying me a coffee to help keep the servers running and new features coming.</p>
+    <div class="cta-row">
+      <a href="https://ko-fi.com/marcpeleja" target="_blank" rel="noopener" class="btn btn-primary">☕ Buy me a coffee</a>
+      <a href="/" class="btn btn-outline">🌍 Open the app</a>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2025 MeteoModels · <a href="/">Home</a> · <a href="/privacy.html">Privacy Policy</a>
+  </footer>
+
+</div>
+</body>
+</html>
