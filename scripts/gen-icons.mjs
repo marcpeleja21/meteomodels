@@ -52,8 +52,49 @@ for (const name of shortcuts) {
 }
 
 // Favicon SVG
-import { copyFileSync } from 'fs'
+import { copyFileSync, writeFileSync } from 'fs'
 copyFileSync(resolve(root, 'public/icon.svg'), resolve(root, 'public/favicon.svg'))
 console.log('✓ favicon.svg')
+
+// favicon.ico — multi-size ICO with PNG-compressed images (16, 32, 48 px)
+// Google Search requires a non-SVG favicon; it also crawls /favicon.ico as fallback.
+{
+  const icoSizes = [16, 32, 48]
+  const pngBuffers = await Promise.all(
+    icoSizes.map(s => sharp(svgBuf).resize(s, s).png().toBuffer())
+  )
+
+  const ICONDIR_SIZE  = 6
+  const DIRENTRY_SIZE = 16
+  const headerSize    = ICONDIR_SIZE + DIRENTRY_SIZE * icoSizes.length
+
+  // ICONDIR
+  const iconDir = Buffer.alloc(ICONDIR_SIZE)
+  iconDir.writeUInt16LE(0, 0)
+  iconDir.writeUInt16LE(1, 2)
+  iconDir.writeUInt16LE(icoSizes.length, 4)
+
+  const entries = []
+  let dataOffset = headerSize
+  for (let i = 0; i < icoSizes.length; i++) {
+    const s   = icoSizes[i]
+    const buf = pngBuffers[i]
+    const e   = Buffer.alloc(DIRENTRY_SIZE)
+    e.writeUInt8(s, 0)               // width
+    e.writeUInt8(s, 1)               // height
+    e.writeUInt8(0, 2)               // color count (0 = truecolor/PNG)
+    e.writeUInt8(0, 3)               // reserved
+    e.writeUInt16LE(1, 4)            // color planes
+    e.writeUInt16LE(32, 6)           // bits per pixel
+    e.writeUInt32LE(buf.length, 8)   // byte size of image data
+    e.writeUInt32LE(dataOffset, 12)  // offset of image data from start of file
+    dataOffset += buf.length
+    entries.push(e)
+  }
+
+  const ico = Buffer.concat([iconDir, ...entries, ...pngBuffers])
+  writeFileSync(resolve(root, 'public/favicon.ico'), ico)
+  console.log(`✓ favicon.ico  (${icoSizes.join(', ')}px — PNG-in-ICO)`)
+}
 
 console.log('\n🎉  All icons generated successfully.')
