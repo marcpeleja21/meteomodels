@@ -107,17 +107,17 @@ function generatePrediction(s: Stats48h, lang: string): string {
   const avg = Math.round(s.avgTemp)
 
   if (s.hasStorm && s.totalPrecip > 5) return pick({
-    ca: 'Tempestes previstes amb precipitació intensa (' + tot + 'mm en 48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Cal extremar la precaució.',
-    es: 'Tormentas previstas con precipitación intensa (' + tot + 'mm en 48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Extremar la precaución.',
-    en: 'Storms forecast with heavy rainfall (' + tot + 'mm over 48h). Temperatures between ' + mn + ' and ' + mx + '\u00b0C. Exercise caution outdoors.',
-    fr: 'Orages prévus avec fortes précipitations (' + tot + 'mm en 48h). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Soyez très prudents.',
+    ca: 'Tempestes previstes amb precipitació intensa (' + tot + 'mm en 48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Ràfegues de vent fins a ' + wnd + 'km/h.',
+    es: 'Tormentas previstas con precipitación intensa (' + tot + 'mm en 48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Rachas de viento de hasta ' + wnd + 'km/h.',
+    en: 'Storms forecast with heavy rainfall (' + tot + 'mm over 48h). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind gusts expected up to ' + wnd + 'km/h.',
+    fr: 'Orages prévus avec fortes précipitations (' + tot + 'mm en 48h). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Rafales de vent jusqu\'à ' + wnd + 'km/h.',
   }, lang)
 
   if (s.maxTemp < 3 && s.totalPrecip > 1) return pick({
-    ca: 'Possibles nevades les pròximes 48h (' + tot + 'mm acumulats). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Superfícies lliscants probables.',
-    es: 'Posibles nevadas en las próximas 48h (' + tot + 'mm acumulados). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Superficies resbaladizas probables.',
-    en: 'Possible snowfall over the next 48 hours (' + tot + 'mm). Temperatures between ' + mn + ' and ' + mx + '\u00b0C. Watch out for icy and slippery surfaces.',
-    fr: 'Chutes de neige possibles dans les 48h (' + tot + 'mm). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Surfaces glissantes et verglaçantes possibles.',
+    ca: 'Possibles nevades les pròximes 48h (' + tot + 'mm acumulats). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Superfícies lliscants probables.',
+    es: 'Posibles nevadas en las próximas 48h (' + tot + 'mm acumulados). Temperatures entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Superficies resbaladizas probables.',
+    en: 'Possible snowfall over the next 48 hours (' + tot + 'mm). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Watch out for icy and slippery surfaces.',
+    fr: 'Chutes de neige possibles dans les 48h (' + tot + 'mm). Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Surfaces glissantes possibles.',
   }, lang)
 
   if (s.totalPrecip > 20) return pick({
@@ -128,45 +128,45 @@ function generatePrediction(s: Stats48h, lang: string): string {
   }, lang)
 
   if (s.totalPrecip > 8) return pick({
-    ca: 'Pluja moderada a intensa: ' + tot + 'mm previstos en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Porta abric impermeable i paraigua.',
-    es: 'Lluvia moderada a intensa: ' + tot + 'mm previstos en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Lleva abrigo impermeable y paraguas.',
-    en: 'Moderate to heavy rain: ' + tot + 'mm expected over 48h. Temperatures between ' + mn + ' and ' + mx + '\u00b0C. Bring a waterproof jacket and umbrella.',
-    fr: 'Pluie modérée à forte\u00a0: ' + tot + 'mm prévus en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Prévoyez un imperméable et un parapluie.',
+    ca: 'Pluja moderada a intensa: ' + tot + 'mm previstos en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Episodis de pluja persistent esperats.',
+    es: 'Lluvia moderada a intensa: ' + tot + 'mm previstos en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Episodios de lluvia persistente esperados.',
+    en: 'Moderate to heavy rain: ' + tot + 'mm expected over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Persistent spells of rain likely.',
+    fr: 'Pluie modérée à forte\u00a0: ' + tot + 'mm prévus en 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Épisodes pluvieux persistants attendus.',
   }, lang)
 
   if (s.totalPrecip > 2) return pick({
-    ca: 'Intervals de pluja possibles al llarg de les 48h (' + tot + 'mm). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Es recomana portar paraigua.',
-    es: 'Posibles intervalos de lluvia a lo largo de 48h (' + tot + 'mm). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Se recomienda llevar paraguas.',
-    en: 'Scattered rainfall possible over the next 48h (' + tot + 'mm total). Temperatures ranging from ' + mn + ' to ' + mx + '\u00b0C. An umbrella is recommended.',
-    fr: 'Intervalles pluvieux possibles sur 48h (' + tot + 'mm). Températures de ' + mn + ' à ' + mx + '\u00b0C. Il est conseillé d\'avoir un parapluie à portée.',
+    ca: 'Intervals de pluja possibles al llarg de les 48h (' + tot + 'mm). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Cel variable amb algun ruixat.',
+    es: 'Posibles intervalos de lluvia a lo largo de 48h (' + tot + 'mm). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Cielo variable con algún chubasco.',
+    en: 'Scattered rainfall possible over the next 48h (' + tot + 'mm total). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Variable skies with occasional showers.',
+    fr: 'Intervalles pluvieux possibles sur 48h (' + tot + 'mm). Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Ciel variable avec quelques averses.',
   }, lang)
 
   if (avg > 28) return pick({
-    ca: 'Temps molt calorós i assolellat les pròximes 48h. Temperatures de ' + mn + ' a ' + mx + '\u00b0C. Índex UV elevat; manteniu-vos hidratats i a l\'ombra.',
-    es: 'Tiempo muy cálido y soleado en las próximas 48h. Temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Índice UV elevado; mantente hidratado y busca la sombra.',
-    en: 'Very hot and sunny for the next 48 hours. Temperatures from ' + mn + ' to ' + mx + '\u00b0C. High UV index; stay hydrated, use sunscreen and seek shade.',
-    fr: 'Temps très chaud et ensoleillé pour les 48h à venir. Températures de ' + mn + ' à ' + mx + '\u00b0C. Indice UV élevé\u00a0; restez hydraté et à l\'ombre.',
+    ca: 'Temps molt calorós i assolellat les pròximes 48h. Temperatures de ' + mn + ' a ' + mx + '\u00b0C. Vent feble fins a ' + wnd + 'km/h. Sense precipitació prevista.',
+    es: 'Tiempo muy cálido y soleado en las próximas 48h. Temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Viento suave hasta ' + wnd + 'km/h. Sin precipitación prevista.',
+    en: 'Very hot and sunny for the next 48 hours. Temperatures from ' + mn + ' to ' + mx + '\u00b0C. Light wind up to ' + wnd + 'km/h. No precipitation expected.',
+    fr: 'Temps très chaud et ensoleillé pour les 48h à venir. Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent faible jusqu\'à ' + wnd + 'km/h. Aucune précipitation prévue.',
   }, lang)
 
   if (avg > 20) return pick({
-    ca: 'Temps agradable i assolellat. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Les nits poden ser fresques; porta una capa extra per al vespre.',
-    es: 'Tiempo agradable y soleado. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Las noches pueden ser frescas; lleva una capa extra para la tarde.',
-    en: 'Pleasant and sunny conditions over the next 48h. Temperatures between ' + mn + ' and ' + mx + '\u00b0C. Evenings may be cool; bring an extra layer just in case.',
-    fr: 'Temps agréable et ensoleillé pour les 48h. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Soirées fraîches possibles\u00a0; prévoyez une couche supplémentaire.',
+    ca: 'Temps agradable i assolellat les pròximes 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Les nits poden ser fresques.',
+    es: 'Tiempo agradable y soleado en las próximas 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Las noches pueden ser frescas.',
+    en: 'Pleasant and sunny conditions over the next 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. Nights may turn noticeably cooler.',
+    fr: 'Temps agréable et ensoleillé pour les 48h à venir. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Nuits fraîches possibles.',
   }, lang)
 
   if (avg > 10) return pick({
-    ca: 'Temps fresc i principalment sec. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Cap precipitació significativa prevista per les properes 48h.',
-    es: 'Tiempo fresco y principalmente seco. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Sin precipitación significativa prevista en las próximas 48h.',
-    en: 'Cool and mostly dry conditions. Temperatures between ' + mn + ' and ' + mx + '\u00b0C. No significant precipitation is expected over the next 48 hours.',
-    fr: 'Temps frais et principalement sec. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Aucune précipitation significative prévue dans les 48h à venir.',
+    ca: 'Temps fresc i principalment sec les pròximes 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h. Cap precipitació significativa prevista.',
+    es: 'Tiempo fresco y principalmente seco en las próximas 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h. Sin precipitación significativa prevista.',
+    en: 'Cool and mostly dry conditions over the next 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h. No significant precipitation expected.',
+    fr: 'Temps frais et principalement sec pour les 48h à venir. Températures entre ' + mn + ' et ' + mx + '\u00b0C. Vent jusqu\'à ' + wnd + 'km/h. Aucune précipitation significative prévue.',
   }, lang)
 
   return pick({
-    ca: 'Temperatures fredes entre ' + mn + ' i ' + mx + '\u00b0C les pròximes 48h. Temps sec, sense precipitació prevista. Possible gelada nocturna.',
-    es: 'Temperaturas frías entre ' + mn + ' y ' + mx + '\u00b0C en las próximas 48h. Tiempo seco, sin precipitación prevista. Posible helada nocturna.',
-    en: 'Cold temperatures between ' + mn + ' and ' + mx + '\u00b0C over the next 48 hours. Dry conditions, no precipitation forecast. Possible overnight frost.',
-    fr: 'Températures froides entre ' + mn + ' et ' + mx + '\u00b0C dans les 48h. Temps sec, sans précipitation prévue. Gel nocturne possible.',
+    ca: 'Temperatures fredes entre ' + mn + ' i ' + mx + '\u00b0C les pròximes 48h. Vent fins a ' + wnd + 'km/h. Temps sec, sense precipitació prevista. Possible gelada nocturna.',
+    es: 'Temperaturas frías entre ' + mn + ' y ' + mx + '\u00b0C en las próximas 48h. Viento hasta ' + wnd + 'km/h. Tiempo seco, sin precipitación prevista. Posible helada nocturna.',
+    en: 'Cold temperatures between ' + mn + ' and ' + mx + '\u00b0C over the next 48 hours. Wind up to ' + wnd + 'km/h. Dry conditions, no precipitation forecast. Possible overnight frost.',
+    fr: 'Températures froides entre ' + mn + ' et ' + mx + '\u00b0C dans les 48h. Vent jusqu\'à ' + wnd + 'km/h. Temps sec, sans précipitation prévue. Gel nocturne possible.',
   }, lang)
 }
 
