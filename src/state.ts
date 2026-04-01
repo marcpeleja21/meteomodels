@@ -1,11 +1,26 @@
 import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs } from './types'
 
+/** Maps browser navigator.language to one of the 4 supported app languages. */
+function detectLang(): string {
+  // navigator.languages is ordered by preference; fall back to navigator.language
+  const candidates = (navigator.languages?.length ? navigator.languages : [navigator.language])
+  for (const raw of candidates) {
+    const code = raw.toLowerCase()
+    if (code.startsWith('ca')) return 'ca'
+    if (code.startsWith('es')) return 'es'
+    if (code.startsWith('fr')) return 'fr'
+    if (code.startsWith('en')) return 'en'
+  }
+  // No match — default to English for international visitors
+  return 'en'
+}
+
 export const state = {
   wxData:      {} as Record<string, OpenMeteoResponse | null>,
   aqiData:     null as AqiResponse | null,
   currentLoc:  null as GeocodingResult | null,
   activeModel: 'ensemble' as string,
-  lang:        localStorage.getItem('mm_lang') ?? 'ca',
+  lang:        localStorage.getItem('mm_lang') ?? detectLang(),
   meteobluKey: localStorage.getItem('mb_key') ?? '',
   activeMetric: 'temp' as string,
   selectedDay:  0 as number,        // 0 = current, 1+ = day index
