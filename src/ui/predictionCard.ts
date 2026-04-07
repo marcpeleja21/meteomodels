@@ -7,8 +7,9 @@
  *
  * Features:
  *  • Time-aware: window = [now, now+48h], past hours ignored
- *  • Anomaly detection: 48 h stats vs 7-day rolling baseline → highlights
- *    unusual conditions for the area (dry area + rain, hot area + cold, etc.)
+ *  • Anomaly detection: compares 48 h stats against ERA5 historical normals
+ *    (last 10 years, ±21-day window around today's calendar date) — the same
+ *    "control" baseline that ensemble plumes draw against climatology
  *  • Text variants: seed = hour + location → fresh wording on every reload
  *
  * Wind chill (Canadian/NOAA formula, valid T ≤ 10 °C, V > 4.8 km/h):
@@ -16,6 +17,7 @@
  */
 import { state } from '../state'
 import type { OpenMeteoResponse } from '../types'
+import type { ClimaStats } from '../api/climatology'
 
 // ── Wind chill ────────────────────────────────────────────────────────────────
 function windChill(tempC: number, windKmh: number): number {
@@ -63,20 +65,23 @@ interface Stats48h {
   avgFeelsLike: number   // wind-chill-adjusted weighted average
   minFeelsLike: number   // wind-chill-adjusted minimum
   hasStorm:     boolean
-  // Anomaly vs 7-day rolling baseline
-  anomalyHot:   boolean  // 48 h avg notably warmer than 7-day baseline
-  anomalyCold:  boolean  // 48 h avg notably colder
-  anomalyWet:   boolean  // 48 h has significant rain in a typically dry period
-  anomalyDry:   boolean  // 48 h dry in a typically wet period
-  anomalyWindy: boolean  // wind notably stronger than 7-day average
+  // Anomaly vs ERA5 historical normals (null = no clima data available)
+  tempDelta:    number | null  // °C above (+) or below (−) historical mean
+  precipRatio:  number | null  // ratio of 48h precip to expected 48h (2× daily mean)
+  windDelta:    number | null  // km/h above historical mean wind
+  anomalyHot:   boolean
+  anomalyCold:  boolean
+  anomalyWet:   boolean  // rain in a typically dry window
+  anomalyDry:   boolean  // dry in a typically wet window
+  anomalyWindy: boolean
 }
 
 function compute48hStats(
   wxData: Record<string, OpenMeteoResponse | null>,
+  clima: ClimaStats | null,
 ): Stats48h | null {
   const now   = Date.now()
   const end   = now + 48 * 3600_000
-  const end7d = now +  7 * 24 * 3600_000
 
   // Determine how many daily slots overlap with the 48 h window
   // (a 10 pm check spans 3 calendar days)
@@ -93,10 +98,6 @@ function compute48hStats(
   const codeMap:   Map<string, MV[]> = new Map()
   const gustVals:  MV[] = []
 
-  // 7-day baseline (unweighted — just for anomaly detection)
-  const base7Temps:  number[] = []
-  const base7Precip: number[] = []
-  const base7Wind:   number[] = []
 
   for (const [modelKey, data] of Object.entries(wxData)) {
     if (!data?.hourly) continue
@@ -105,13 +106,6 @@ function compute48hStats(
     for (let i = 0; i < time.length; i++) {
       const ts = new Date(time[i]).getTime()
       if (ts < now) continue   // skip past hours
-
-      // 7-day baseline accumulator
-      if (ts <= end7d) {
-        if (temperature_2m?.[i] != null) base7Temps.push(temperature_2m[i]!)
-        if (precipitation?.[i]  != null) base7Precip.push(precipitation[i]!)
-        if (windspeed_10m?.[i]  != null) base7Wind.push(windspeed_10m[i]!)
-      }
 
       if (ts > end) continue  // outside 48 h window
 
@@ -170,12 +164,15 @@ function compute48hStats(
     : (wWinds.length ? Math.max(...wWinds) : 0)
   const totalPrecip = wPrecip.reduce((a, b) => a + b, 0)
 
-  // ── Anomaly detection ─────────────────────────────────────────────────────
-  const b7Temp    = base7Temps.length  ? base7Temps.reduce((a, b) => a + b, 0) / base7Temps.length : null
-  const b7Precip  = base7Precip.length ? base7Precip.reduce((a, b) => a + b, 0) : null  // 7-day total mm
-  const b7Wind    = base7Wind.length   ? base7Wind.reduce((a, b) => a + b, 0) / base7Wind.length : null
-  // Expected 48 h precip = (7-day total / 7) * 2
-  const expPrecip = b7Precip != null ? (b7Precip * 2) / 7 : null
+  // ── Anomaly detection vs ERA5 historical normals ──────────────────────────
+  // clima = last 10 years, ±21-day window around today's calendar date
+  // (same "control" baseline that ensemble plumes draw against climatology)
+  const expPrecip48h = clima ? clima.precipPerDay * 2 : null   // expected mm over 48 h
+  const tempDelta    = clima ? avgTemp - clima.tempMean : null
+  const precipRatio  = (expPrecip48h != null && expPrecip48h > 0)
+    ? totalPrecip / expPrecip48h
+    : null
+  const windDelta    = clima ? maxWind - clima.windMean : null
 
   return {
     avgTemp,
@@ -187,11 +184,16 @@ function compute48hStats(
     avgFeelsLike: avgFL,
     minFeelsLike: Math.min(...wFeelsLike),
     hasStorm,
-    anomalyHot:   b7Temp != null && avgTemp > b7Temp + 5,
-    anomalyCold:  b7Temp != null && avgTemp < b7Temp - 5,
-    anomalyWet:   expPrecip != null && expPrecip < 2  && totalPrecip > 8,
-    anomalyDry:   expPrecip != null && expPrecip > 6  && totalPrecip < 1,
-    anomalyWindy: b7Wind   != null && maxWind > b7Wind * 1.6 + 15,
+    tempDelta,
+    precipRatio,
+    windDelta,
+    // Anomaly thresholds: meaningful deviations from historical norm
+    anomalyHot:   tempDelta != null && tempDelta >= 4,
+    anomalyCold:  tempDelta != null && tempDelta <= -4,
+    anomalyWet:   precipRatio != null && precipRatio > 2.5 && totalPrecip > 5
+                  && (expPrecip48h ?? 0) < 4,     // normally dry → rain is unusual
+    anomalyDry:   precipRatio != null && precipRatio < 0.1 && (expPrecip48h ?? 0) > 4,
+    anomalyWindy: windDelta != null && windDelta >= 20,
   }
 }
 
@@ -220,32 +222,34 @@ function generatePrediction(s: Stats48h, lang: string): string {
   const wcDiff       = s.avgTemp - s.avgFeelsLike
   const significantWC = wcDiff >= 4 && s.avgTemp <= 15
 
-  // Anomaly suffix — appended when something unusual vs baseline is detected
+  // Anomaly suffix — quantified delta vs ERA5 historical normals for this date
+  const absDelta  = s.tempDelta  != null ? Math.abs(Math.round(s.tempDelta))  : 0
+  const absWDelta = s.windDelta  != null ? Math.abs(Math.round(s.windDelta))  : 0
   const anomalySuffix = s.anomalyHot ? pick({
-    ca: ' Temperatures inusualment altes per a la zona i l\'època de l\'any.',
-    es: ' Temperaturas inusualmente altas para la zona y la época del año.',
-    en: ' Unusually high temperatures for this area and time of year.',
-    fr: ' Températures inhabituellement élevées pour la région et la saison.',
+    ca: ' \u26a0\ufe0f ' + absDelta + '\u00b0C per sobre de la mitjana hist\u00f2rica per a aquestes dates.',
+    es: ' \u26a0\ufe0f ' + absDelta + '\u00b0C por encima de la media hist\u00f3rica para estas fechas.',
+    en: ' \u26a0\ufe0f ' + absDelta + '\u00b0C above the historical average for this time of year.',
+    fr: ' \u26a0\ufe0f ' + absDelta + '\u00b0C au-dessus de la moyenne historique pour cette p\u00e9riode.',
   }, lang) : s.anomalyCold ? pick({
-    ca: ' Temps insòlitament fred per a la zona.',
-    es: ' Tiempo insólitamente frío para la zona.',
-    en: ' Unusually cold conditions for this area.',
-    fr: ' Conditions inhabituellement froides pour la région.',
+    ca: ' \u26a0\ufe0f ' + absDelta + '\u00b0C per sota de la mitjana hist\u00f2rica per a aquestes dates.',
+    es: ' \u26a0\ufe0f ' + absDelta + '\u00b0C por debajo de la media hist\u00f3rica para estas fechas.',
+    en: ' \u26a0\ufe0f ' + absDelta + '\u00b0C below the historical average for this time of year.',
+    fr: ' \u26a0\ufe0f ' + absDelta + '\u00b0C en dessous de la moyenne historique pour cette p\u00e9riode.',
   }, lang) : s.anomalyWet ? pick({
-    ca: ' Episodi plujós inusual per a una zona normalment seca.',
-    es: ' Episodio lluvioso inusual para una zona normalmente seca.',
-    en: ' Unusually wet spell for an area that is typically dry.',
-    fr: ' Épisode pluvieux inhabituel pour une zone normalement sèche.',
+    ca: ' \u26a0\ufe0f Precipitaci\u00f3 molt superior a l\'habitual per a la zona en aquesta \u00e8poca.',
+    es: ' \u26a0\ufe0f Precipitaci\u00f3n muy superior a la habitual para la zona en esta \u00e9poca.',
+    en: ' \u26a0\ufe0f Rainfall well above what is historically typical for this area and date.',
+    fr: ' \u26a0\ufe0f Pr\u00e9cipitations nettement sup\u00e9rieures \u00e0 la normale historique pour cette zone.',
   }, lang) : s.anomalyDry ? pick({
-    ca: ' Finestra seca excepcional en una zona habitualment humida.',
-    es: ' Ventana seca excepcional en una zona habitualmente húmeda.',
-    en: ' Exceptional dry spell for an area that is usually wet.',
-    fr: ' Fenêtre sèche exceptionnelle dans une zone habituellement humide.',
+    ca: ' \u26a0\ufe0f Seq\u00fcera excepcional: molt menys pluja de l\'esperada per a la zona i \u00e8poca.',
+    es: ' \u26a0\ufe0f Sequ\u00eda excepcional: mucha menos lluvia de la esperada para la zona y \u00e9poca.',
+    en: ' \u26a0\ufe0f Exceptional dry spell: far less rain than historically expected for this area.',
+    fr: ' \u26a0\ufe0f S\u00e9cheresse exceptionnelle\u00a0: bien moins de pluie que la normale historique pour cette zone.',
   }, lang) : s.anomalyWindy ? pick({
-    ca: ' Vent notablement més fort del normal per a la zona.',
-    es: ' Viento notablemente más fuerte de lo habitual para la zona.',
-    en: ' Wind notably stronger than usual for this area.',
-    fr: ' Vent nettement plus fort que la normale pour la région.',
+    ca: ' \u26a0\ufe0f Vent ' + absWDelta + '\u00a0km/h per sobre de la mitjana hist\u00f2rica per a aquesta data.',
+    es: ' \u26a0\ufe0f Viento ' + absWDelta + '\u00a0km/h por encima de la media hist\u00f3rica para esta fecha.',
+    en: ' \u26a0\ufe0f Wind ' + absWDelta + '\u00a0km/h above the historical average for this date.',
+    fr: ' \u26a0\ufe0f Vent ' + absWDelta + '\u00a0km/h au-dessus de la moyenne historique pour cette date.',
   }, lang) : ''
 
   const wcNote = significantWC ? pick({
@@ -643,13 +647,14 @@ function generateClothesAdvice(s: Stats48h, lang: string): string {
 // ── Renderer ──────────────────────────────────────────────────────────────────
 export function renderPredictionCard(
   wxData: Record<string, OpenMeteoResponse | null>,
+  clima: ClimaStats | null = null,
 ) {
   const el = document.getElementById('predictionCard')
   if (!el) return
   if (!wxData || !Object.keys(wxData).length) { el.innerHTML = ''; return }
 
   const lang  = state.lang
-  const stats = compute48hStats(wxData)
+  const stats = compute48hStats(wxData, clima)
   if (!stats) { el.innerHTML = ''; return }
 
   const prediction    = generatePrediction(stats, lang)
