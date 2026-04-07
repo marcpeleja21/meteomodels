@@ -1,30 +1,31 @@
 import type { WebcamData } from '../api/webcam'
+import { state } from '../state'
+import { LANG_DATA } from '../config/i18n'
 
 export function renderWebcamCard(data: WebcamData | null) {
   const el = document.getElementById('webcamCard')
   if (!el) return
 
+  const lang = LANG_DATA[state.lang] ?? LANG_DATA.en
+
   if (!data || !data.imageUrl) {
-    // Show a neutral placeholder so the media-row grid stays balanced with the map
     el.innerHTML = `
       <div class="media-card webcam-placeholder">
-        <div class="webcam-no-signal">📷 <span>Cap webcam disponible a prop</span></div>
+        <div class="webcam-no-signal">📷 <span>${lang.noWebcam}</span></div>
       </div>`
     return
   }
 
   const linkAttr = data.linkUrl ? `href="${data.linkUrl}" target="_blank" rel="noopener"` : ''
 
-  // Always use the static image (iframe embeds are blocked without a Windy premium plan).
-  // The image auto-refreshes every 5 min via a timestamp query-param rotation.
   el.innerHTML = `
     <div class="media-card">
       <div class="media-label">
         <a ${linkAttr} style="color:inherit;text-decoration:none">📷 ${data.title}</a>
       </div>
       ${data.playerUrl ? `
-        <a class="webcam-live-badge" ${linkAttr} title="Veure en directe a Windy">
-          🔴 EN DIRECTE
+        <a class="webcam-live-badge" ${linkAttr} title="${lang.webcamViewLive}">
+          🔴 ${lang.webcamLive}
         </a>` : ''}
       <a ${linkAttr}>
         <img
@@ -38,7 +39,6 @@ export function renderWebcamCard(data: WebcamData | null) {
       </a>
     </div>`
 
-  // Auto-refresh the snapshot every 5 minutes
   const img = el.querySelector<HTMLImageElement>('#webcamImg')
   if (img && data.imageUrl) {
     const base = data.imageUrl.split('?')[0]

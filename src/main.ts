@@ -48,6 +48,7 @@ const LANG_OPTIONS: Record<string, { flagHtml: string; label: string }> = {
   es: { flagHtml: '🇪🇸',   label: 'Español'  },
   en: { flagHtml: '🇬🇧',   label: 'English'  },
   fr: { flagHtml: '🇫🇷',   label: 'Français' },
+  de: { flagHtml: '🇩🇪',   label: 'Deutsch'  },
 }
 
 // ── Elements ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ function detectLang(): string {
     if (code.startsWith('ca')) return 'ca'
     if (code.startsWith('es')) return 'es'
     if (code.startsWith('fr')) return 'fr'
+    if (code.startsWith('de')) return 'de'
     if (code.startsWith('en')) return 'en'
   }
   // No match — default to English for international visitors
