@@ -7,9 +7,9 @@
  *
  * Features:
  *  • Time-aware: window = [now, now+48h], past hours ignored
- *  • Anomaly detection: compares 48 h stats against ERA5 historical normals
- *    (last 10 years, ±21-day window around today's calendar date) — the same
- *    "control" baseline that ensemble plumes draw against climatology
+ *  • Day/Night split: separate stats for daytime (07:00-20:59) and night
+ *    (21:00-06:59) so text says "Day highs 22°C, tonight lows 8°C"
+ *  • Wind chill via Canadian/NOAA formula applied per-hour before averaging
  *  • Text variants: seed = hour + location → fresh wording on every reload
  *
  * Wind chill (Canadian/NOAA formula, valid T ≤ 10 °C, V > 4.8 km/h):
@@ -17,13 +17,19 @@
  */
 import { state } from '../state'
 import type { OpenMeteoResponse } from '../types'
-import type { ClimaStats } from '../api/climatology'
 
 // ── Wind chill ────────────────────────────────────────────────────────────────
 function windChill(tempC: number, windKmh: number): number {
   if (windKmh <= 4.8 || tempC > 10) return tempC
   const v16 = Math.pow(windKmh, 0.16)
   return 13.12 + 0.6215 * tempC - 11.37 * v16 + 0.3965 * tempC * v16
+}
+
+// ── Day/night helper ──────────────────────────────────────────────────────────
+/** Returns true if the ISO time string falls in daytime (07:00–20:59 local). */
+function isDay(isoTime: string): boolean {
+  const h = parseInt(isoTime.slice(11, 13), 10)
+  return h >= 7 && h < 21
 }
 
 // ── Variant seed ──────────────────────────────────────────────────────────────
@@ -56,35 +62,42 @@ function weightedAvg(vals: Array<{ k: string; v: number }>): number {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 interface Stats48h {
+  // Overall (used by clothes advice + condition icon)
   avgTemp:      number
   minTemp:      number
   maxTemp:      number
-  totalPrecip:  number   // mm over 48 h
-  maxWind:      number   // km/h gusts
+  totalPrecip:  number   // mm over full 48 h
+  maxWind:      number   // km/h gusts (daily max)
   avgWind:      number   // km/h sustained average
-  avgFeelsLike: number   // wind-chill-adjusted weighted average
-  minFeelsLike: number   // wind-chill-adjusted minimum
-  hasStorm:     boolean
-  // Anomaly vs ERA5 historical normals (null = no clima data available)
-  tempDelta:    number | null  // °C above (+) or below (−) historical mean
-  precipRatio:  number | null  // ratio of 48h precip to expected 48h (2× daily mean)
-  windDelta:    number | null  // km/h above historical mean wind
-  anomalyHot:   boolean
-  anomalyCold:  boolean
-  anomalyWet:   boolean  // rain in a typically dry window
-  anomalyDry:   boolean  // dry in a typically wet window
-  anomalyWindy: boolean
+  avgFeelsLike: number   // wind-chill-adjusted
+  minFeelsLike: number
+
+  hasStorm: boolean
+
+  // Daytime segment (07:00–20:59 local)
+  dayMaxTemp:    number | null
+  dayMinTemp:    number | null
+  dayAvgTemp:    number | null
+  dayPrecip:     number        // mm during day hours
+  dayAvgFL:      number | null // feels-like during day
+  hasDayData:    boolean
+
+  // Nighttime segment (21:00–06:59 local)
+  nightMinTemp:  number | null
+  nightMaxTemp:  number | null
+  nightAvgTemp:  number | null
+  nightPrecip:   number        // mm during night hours
+  nightAvgFL:    number | null // feels-like at night
+  hasNightData:  boolean
 }
 
 function compute48hStats(
   wxData: Record<string, OpenMeteoResponse | null>,
-  clima: ClimaStats | null,
 ): Stats48h | null {
-  const now   = Date.now()
-  const end   = now + 48 * 3600_000
+  const now = Date.now()
+  const end = now + 48 * 3600_000
 
   // Determine how many daily slots overlap with the 48 h window
-  // (a 10 pm check spans 3 calendar days)
   const todayStart = (() => {
     const d = new Date(now)
     return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
@@ -92,12 +105,19 @@ function compute48hStats(
   const gustDayCount = Math.min(3, Math.ceil((end - todayStart) / 86_400_000))
 
   type MV = { k: string; v: number }
-  const tempMap:   Map<string, MV[]> = new Map()
-  const precipMap: Map<string, MV[]> = new Map()
-  const windMap:   Map<string, MV[]> = new Map()
-  const codeMap:   Map<string, MV[]> = new Map()
-  const gustVals:  MV[] = []
+  const tempMap:      Map<string, MV[]> = new Map()
+  const precipMap:    Map<string, MV[]> = new Map()
+  const windMap:      Map<string, MV[]> = new Map()
+  const codeMap:      Map<string, MV[]> = new Map()
+  const gustVals:     MV[] = []
 
+  // Day/night per-timestep accumulation
+  const dayTempMap:  Map<string, MV[]> = new Map()
+  const dayWindMap:  Map<string, MV[]> = new Map()
+  const dayPrecipTs: Map<string, MV[]> = new Map()
+  const ntTempMap:   Map<string, MV[]> = new Map()
+  const ntWindMap:   Map<string, MV[]> = new Map()
+  const ntPrecipTs:  Map<string, MV[]> = new Map()
 
   for (const [modelKey, data] of Object.entries(wxData)) {
     if (!data?.hourly) continue
@@ -105,11 +125,13 @@ function compute48hStats(
 
     for (let i = 0; i < time.length; i++) {
       const ts = new Date(time[i]).getTime()
-      if (ts < now) continue   // skip past hours
+      if (ts < now)  continue
+      if (ts > end)  continue
 
-      if (ts > end) continue  // outside 48 h window
+      const k   = time[i]
+      const day = isDay(k)
 
-      const k = time[i]
+      // Overall maps
       if (!tempMap.has(k)) {
         tempMap.set(k, []); precipMap.set(k, [])
         windMap.set(k, []); codeMap.set(k, [])
@@ -118,10 +140,18 @@ function compute48hStats(
       if (precipitation?.[i]  != null) precipMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
       if (windspeed_10m?.[i]  != null) windMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
       if (weathercode?.[i]    != null) codeMap.get(k)!.push({ k: modelKey, v: weathercode[i]! })
+
+      // Day/night split maps
+      const tMap = day ? dayTempMap  : ntTempMap
+      const wMap = day ? dayWindMap  : ntWindMap
+      const pMap = day ? dayPrecipTs : ntPrecipTs
+      if (!tMap.has(k)) { tMap.set(k, []); wMap.set(k, []); pMap.set(k, []) }
+      if (temperature_2m?.[i] != null) tMap.get(k)!.push({ k: modelKey, v: temperature_2m[i]! })
+      if (windspeed_10m?.[i]  != null) wMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
+      if (precipitation?.[i]  != null) pMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
     }
 
-    // Gusts from daily data — cover up to 3 calendar days so late-night
-    // checks (e.g. 10 pm) include tomorrow AND the day after
+    // Gusts from daily data
     const dg = data.daily?.windgusts_10m_max
     if (dg) {
       for (let d = 0; d < Math.min(gustDayCount, dg.length); d++) {
@@ -132,6 +162,7 @@ function compute48hStats(
 
   if (!tempMap.size) return null
 
+  // ── Overall aggregation ───────────────────────────────────────────────────
   const wTemps:     number[] = []
   const wPrecip:    number[] = []
   const wWinds:     number[] = []
@@ -156,23 +187,46 @@ function compute48hStats(
 
   if (!wTemps.length) return null
 
-  const avgTemp  = wTemps.reduce((a, b) => a + b, 0) / wTemps.length
-  const avgFL    = wFeelsLike.reduce((a, b) => a + b, 0) / wFeelsLike.length
-  const avgWind  = wWinds.length ? wWinds.reduce((a, b) => a + b, 0) / wWinds.length : 0
-  const maxWind  = gustVals.length
+  const avgTemp = wTemps.reduce((a, b) => a + b, 0) / wTemps.length
+  const avgFL   = wFeelsLike.reduce((a, b) => a + b, 0) / wFeelsLike.length
+  const avgWind = wWinds.length ? wWinds.reduce((a, b) => a + b, 0) / wWinds.length : 0
+  const maxWind = gustVals.length
     ? weightedAvg(gustVals)
     : (wWinds.length ? Math.max(...wWinds) : 0)
   const totalPrecip = wPrecip.reduce((a, b) => a + b, 0)
 
-  // ── Anomaly detection vs ERA5 historical normals ──────────────────────────
-  // clima = last 10 years, ±21-day window around today's calendar date
-  // (same "control" baseline that ensemble plumes draw against climatology)
-  const expPrecip48h = clima ? clima.precipPerDay * 2 : null   // expected mm over 48 h
-  const tempDelta    = clima ? avgTemp - clima.tempMean : null
-  const precipRatio  = (expPrecip48h != null && expPrecip48h > 0)
-    ? totalPrecip / expPrecip48h
-    : null
-  const windDelta    = clima ? maxWind - clima.windMean : null
+  // ── Day segment ───────────────────────────────────────────────────────────
+  function segStats(
+    tMap: Map<string, MV[]>,
+    wMap: Map<string, MV[]>,
+    pMap: Map<string, MV[]>,
+  ): { avg: number; min: number; max: number; precip: number; avgFL: number } | null {
+    if (!tMap.size) return null
+    const ts: number[] = [], ws: number[] = [], ps: number[] = [], fls: number[] = []
+    for (const k of tMap.keys()) {
+      const tv = tMap.get(k)!
+      const wv = wMap.get(k) ?? []
+      const pv = pMap.get(k) ?? []
+      if (tv.length) {
+        const t = weightedAvg(tv)
+        const w = wv.length ? weightedAvg(wv) : 0
+        ts.push(t); fls.push(windChill(t, w))
+      }
+      if (pv.length) ps.push(weightedAvg(pv))
+      if (wv.length) ws.push(weightedAvg(wv))
+    }
+    if (!ts.length) return null
+    return {
+      avg:    ts.reduce((a, b) => a + b, 0) / ts.length,
+      min:    Math.min(...ts),
+      max:    Math.max(...ts),
+      precip: ps.reduce((a, b) => a + b, 0),
+      avgFL:  fls.reduce((a, b) => a + b, 0) / fls.length,
+    }
+  }
+
+  const daySeg = segStats(dayTempMap, dayWindMap, dayPrecipTs)
+  const ntSeg  = segStats(ntTempMap,  ntWindMap,  ntPrecipTs)
 
   return {
     avgTemp,
@@ -184,16 +238,20 @@ function compute48hStats(
     avgFeelsLike: avgFL,
     minFeelsLike: Math.min(...wFeelsLike),
     hasStorm,
-    tempDelta,
-    precipRatio,
-    windDelta,
-    // Anomaly thresholds: meaningful deviations from historical norm
-    anomalyHot:   tempDelta != null && tempDelta >= 4,
-    anomalyCold:  tempDelta != null && tempDelta <= -4,
-    anomalyWet:   precipRatio != null && precipRatio > 2.5 && totalPrecip > 5
-                  && (expPrecip48h ?? 0) < 4,     // normally dry → rain is unusual
-    anomalyDry:   precipRatio != null && precipRatio < 0.1 && (expPrecip48h ?? 0) > 4,
-    anomalyWindy: windDelta != null && windDelta >= 20,
+
+    dayMaxTemp:  daySeg ? daySeg.max   : null,
+    dayMinTemp:  daySeg ? daySeg.min   : null,
+    dayAvgTemp:  daySeg ? daySeg.avg   : null,
+    dayPrecip:   daySeg ? daySeg.precip : 0,
+    dayAvgFL:    daySeg ? daySeg.avgFL  : null,
+    hasDayData:  daySeg !== null,
+
+    nightMinTemp: ntSeg ? ntSeg.min    : null,
+    nightMaxTemp: ntSeg ? ntSeg.max    : null,
+    nightAvgTemp: ntSeg ? ntSeg.avg    : null,
+    nightPrecip:  ntSeg ? ntSeg.precip : 0,
+    nightAvgFL:   ntSeg ? ntSeg.avgFL  : null,
+    hasNightData: ntSeg !== null,
   }
 }
 
@@ -207,201 +265,194 @@ function pickV<T>(arr: T[], seed: number): T {
   return arr[seed % arr.length]
 }
 
-// ── Prediction text ───────────────────────────────────────────────────────────
+// ── Prediction text (day/night-aware) ─────────────────────────────────────────
 /* eslint-disable prefer-template */
 function generatePrediction(s: Stats48h, lang: string): string {
-  const mn   = Math.round(s.minTemp)
-  const mx   = Math.round(s.maxTemp)
-  const tot  = Math.round(s.totalPrecip)
-  const wnd  = Math.round(s.maxWind)
-  const avg  = Math.round(s.avgTemp)
-  const fl   = Math.round(s.avgFeelsLike)
-  const mfl  = Math.round(s.minFeelsLike)
   const seed = variantSeed()
+  const wnd  = Math.round(s.maxWind)
 
-  const wcDiff       = s.avgTemp - s.avgFeelsLike
-  const significantWC = wcDiff >= 4 && s.avgTemp <= 15
+  // Resolved day/night temps with overall fallbacks
+  const dMax  = s.dayMaxTemp   != null ? Math.round(s.dayMaxTemp)   : Math.round(s.maxTemp)
+  const dMin  = s.dayMinTemp   != null ? Math.round(s.dayMinTemp)   : Math.round(s.minTemp)
+  const nMin  = s.nightMinTemp != null ? Math.round(s.nightMinTemp) : Math.round(s.minTemp)
+  const nMax  = s.nightMaxTemp != null ? Math.round(s.nightMaxTemp) : Math.round(s.maxTemp)
+  const dFL   = s.dayAvgFL     != null ? Math.round(s.dayAvgFL)     : null
+  const nFL   = s.nightAvgFL   != null ? Math.round(s.nightAvgFL)   : null
+  const tot   = Math.round(s.totalPrecip)
+  const dTot  = Math.round(s.dayPrecip)
+  const nTot  = Math.round(s.nightPrecip)
 
-  // Anomaly suffix — quantified delta vs ERA5 historical normals for this date
-  const absDelta  = s.tempDelta  != null ? Math.abs(Math.round(s.tempDelta))  : 0
-  const absWDelta = s.windDelta  != null ? Math.abs(Math.round(s.windDelta))  : 0
-  const anomalySuffix = s.anomalyHot ? pick({
-    ca: ' \u26a0\ufe0f ' + absDelta + '\u00b0C per sobre de la mitjana hist\u00f2rica per a aquestes dates.',
-    es: ' \u26a0\ufe0f ' + absDelta + '\u00b0C por encima de la media hist\u00f3rica para estas fechas.',
-    en: ' \u26a0\ufe0f ' + absDelta + '\u00b0C above the historical average for this time of year.',
-    fr: ' \u26a0\ufe0f ' + absDelta + '\u00b0C au-dessus de la moyenne historique pour cette p\u00e9riode.',
-  }, lang) : s.anomalyCold ? pick({
-    ca: ' \u26a0\ufe0f ' + absDelta + '\u00b0C per sota de la mitjana hist\u00f2rica per a aquestes dates.',
-    es: ' \u26a0\ufe0f ' + absDelta + '\u00b0C por debajo de la media hist\u00f3rica para estas fechas.',
-    en: ' \u26a0\ufe0f ' + absDelta + '\u00b0C below the historical average for this time of year.',
-    fr: ' \u26a0\ufe0f ' + absDelta + '\u00b0C en dessous de la moyenne historique pour cette p\u00e9riode.',
-  }, lang) : s.anomalyWet ? pick({
-    ca: ' \u26a0\ufe0f Precipitaci\u00f3 molt superior a l\'habitual per a la zona en aquesta \u00e8poca.',
-    es: ' \u26a0\ufe0f Precipitaci\u00f3n muy superior a la habitual para la zona en esta \u00e9poca.',
-    en: ' \u26a0\ufe0f Rainfall well above what is historically typical for this area and date.',
-    fr: ' \u26a0\ufe0f Pr\u00e9cipitations nettement sup\u00e9rieures \u00e0 la normale historique pour cette zone.',
-  }, lang) : s.anomalyDry ? pick({
-    ca: ' \u26a0\ufe0f Seq\u00fcera excepcional: molt menys pluja de l\'esperada per a la zona i \u00e8poca.',
-    es: ' \u26a0\ufe0f Sequ\u00eda excepcional: mucha menos lluvia de la esperada para la zona y \u00e9poca.',
-    en: ' \u26a0\ufe0f Exceptional dry spell: far less rain than historically expected for this area.',
-    fr: ' \u26a0\ufe0f S\u00e9cheresse exceptionnelle\u00a0: bien moins de pluie que la normale historique pour cette zone.',
-  }, lang) : s.anomalyWindy ? pick({
-    ca: ' \u26a0\ufe0f Vent ' + absWDelta + '\u00a0km/h per sobre de la mitjana hist\u00f2rica per a aquesta data.',
-    es: ' \u26a0\ufe0f Viento ' + absWDelta + '\u00a0km/h por encima de la media hist\u00f3rica para esta fecha.',
-    en: ' \u26a0\ufe0f Wind ' + absWDelta + '\u00a0km/h above the historical average for this date.',
-    fr: ' \u26a0\ufe0f Vent ' + absWDelta + '\u00a0km/h au-dessus de la moyenne historique pour cette date.',
+  // Wind chill note for night (most impactful when cold + windy)
+  const nWCDiff = (nFL != null && s.nightAvgTemp != null) ? s.nightAvgTemp - nFL : 0
+  const nHasWC  = nWCDiff >= 4 && (s.nightAvgTemp ?? 99) <= 12
+  const nWCNote = nHasWC && nFL != null ? pick({
+    ca: ' (sensació ' + nFL + '\u00b0C)',
+    es: ' (sensación ' + nFL + '\u00b0C)',
+    en: ' (feels like ' + nFL + '\u00b0C)',
+    fr: ' (ressenti ' + nFL + '\u00b0C)',
   }, lang) : ''
 
-  const wcNote = significantWC ? pick({
-    ca: ' Sensació tèrmica real de ' + fl + '\u00b0C pel vent (' + wnd + 'km/h).',
-    es: ' Sensación térmica real de ' + fl + '\u00b0C por el viento (' + wnd + 'km/h).',
-    en: ' Wind chill brings the real feel to ' + fl + '\u00b0C (' + wnd + 'km/h).',
-    fr: ' Le vent (' + wnd + 'km/h) ramène le ressenti à ' + fl + '\u00b0C.',
+  // Day wind chill note
+  const dWCDiff = (dFL != null && s.dayAvgTemp != null) ? s.dayAvgTemp - dFL : 0
+  const dHasWC  = dWCDiff >= 4 && (s.dayAvgTemp ?? 99) <= 12
+  const dWCNote = dHasWC && dFL != null ? pick({
+    ca: ' (sensació ' + dFL + '\u00b0C)',
+    es: ' (sensación ' + dFL + '\u00b0C)',
+    en: ' (feels like ' + dFL + '\u00b0C)',
+    fr: ' (ressenti ' + dFL + '\u00b0C)',
   }, lang) : ''
+
+  // Wind descriptor
+  const windDesc = pick({
+    ca: 'Ratxes fins a ' + wnd + '\u00a0km/h.',
+    es: 'Rachas hasta ' + wnd + '\u00a0km/h.',
+    en: 'Gusts up to ' + wnd + '\u00a0km/h.',
+    fr: 'Rafales jusqu\'\u00e0 ' + wnd + '\u00a0km/h.',
+  }, lang)
 
   // ── Storm ──
   if (s.hasStorm && s.totalPrecip > 5) return pickV([
     pick({
-      ca: 'Tempestes previstes amb precipitació intensa (' + tot + 'mm en 48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Ràfegues fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació de ' + fl + '\u00b0C.' : ''),
-      es: 'Tormentas previstas con precipitación intensa (' + tot + 'mm en 48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Rachas hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación de ' + fl + '\u00b0C.' : ''),
-      en: 'Storms forecast with heavy rainfall (' + tot + 'mm over 48h). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Gusts up to ' + wnd + 'km/h.' + (significantWC ? ' Feels like ' + fl + '\u00b0C.' : ''),
-      fr: 'Orages avec fortes précipitations (' + tot + 'mm/48h). Températures ' + mn + '\u2013' + mx + '\u00b0C. Rafales à ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + fl + '\u00b0C.' : ''),
+      ca: 'Tempestes amb ' + tot + 'mm. Dia: fins a ' + dMax + '\u00b0C' + dWCNote + '. Nit: ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      es: 'Tormentas con ' + tot + 'mm. Día: hasta ' + dMax + '\u00b0C' + dWCNote + '. Noche: ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      en: 'Storms with ' + tot + 'mm of rain. Day highs ' + dMax + '\u00b0C' + dWCNote + '. Night lows ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      fr: 'Orages avec ' + tot + 'mm. Jour\u00a0: jusqu\'\u00e0 ' + dMax + '\u00b0C' + dWCNote + '. Nuit\u00a0: ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Activitat tempestuosa significant: ' + tot + 'mm en 48h. Màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Vent ratxat fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació de ' + fl + '\u00b0C.' : ''),
-      es: 'Actividad tormentosa significativa: ' + tot + 'mm en 48h. Máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Viento en racha a ' + wnd + 'km/h.' + (significantWC ? ' Sensación de ' + fl + '\u00b0C.' : ''),
-      en: 'Significant storm activity: ' + tot + 'mm over 48h. High ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Winds gusting to ' + wnd + 'km/h.' + (significantWC ? ' Real-feel ' + fl + '\u00b0C.' : ''),
-      fr: 'Activité orageuse notable\u00a0: ' + tot + 'mm/48h. Max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales à ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + fl + '\u00b0C.' : ''),
+      ca: 'Activitat tempestuosa: ' + tot + 'mm, ratxes ' + wnd + '\u00a0km/h. M\u00e0x diürna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '.',
+      es: 'Actividad tormentosa: ' + tot + 'mm, rachas ' + wnd + '\u00a0km/h. M\u00e1x diurna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '.',
+      en: 'Storm activity: ' + tot + 'mm, gusts ' + wnd + '\u00a0km/h. Day peak ' + dMax + '\u00b0C' + dWCNote + ', overnight low ' + nMin + '\u00b0C' + nWCNote + '.',
+      fr: 'Activit\u00e9 orageuse\u00a0: ' + tot + 'mm, rafales ' + wnd + '\u00a0km/h. Pic diurne ' + dMax + '\u00b0C' + dWCNote + ', min nocturne ' + nMin + '\u00b0C' + nWCNote + '.',
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Snow ──
   if (s.maxTemp < 3 && s.totalPrecip > 1) return pickV([
     pick({
-      ca: 'Possibles nevades les pròximes 48h (' + tot + 'mm). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació de ' + mfl + '\u00b0C.' : ' Superfícies lliscants probables.'),
-      es: 'Posibles nevadas en las próximas 48h (' + tot + 'mm). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación de ' + mfl + '\u00b0C.' : ' Superficies resbaladizas probables.'),
-      en: 'Possible snowfall over the next 48h (' + tot + 'mm). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind up to ' + wnd + 'km/h.' + (significantWC ? ' Feels like ' + mfl + '\u00b0C.' : ' Watch for icy, slippery surfaces.'),
-      fr: 'Chutes de neige possibles dans les 48h (' + tot + 'mm). Températures ' + mn + '\u2013' + mx + '\u00b0C. Vent à ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + mfl + '\u00b0C.' : ' Surfaces glissantes possibles.'),
+      ca: 'Nevada probable: ' + tot + 'mm. Dia entre ' + dMin + ' i ' + dMax + '\u00b0C. Nit fins a ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      es: 'Nevada probable: ' + tot + 'mm. D\u00eda entre ' + dMin + ' y ' + dMax + '\u00b0C. Noche hasta ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      en: 'Snowfall likely: ' + tot + 'mm. Day ' + dMin + '\u2013' + dMax + '\u00b0C. Night down to ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      fr: 'Neige probable\u00a0: ' + tot + 'mm. Jour ' + dMin + '\u2013' + dMax + '\u00b0C. Nuit jusqu\'\u00e0 ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Nevada probable: ' + tot + 'mm de precipitació amb temperatures de ' + mn + ' a ' + mx + '\u00b0C. Ràfegues de ' + wnd + 'km/h.' + (significantWC ? ' Sensació de ' + mfl + '\u00b0C.' : ' Precaució amb el gel a les superfícies.'),
-      es: 'Nevada probable: ' + tot + 'mm con temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Rachas de ' + wnd + 'km/h.' + (significantWC ? ' Sensación de ' + mfl + '\u00b0C.' : ' Precaución con el hielo en superficies.'),
-      en: 'Snow likely: ' + tot + 'mm, temperatures ' + mn + '\u2013' + mx + '\u00b0C. Gusts ' + wnd + 'km/h.' + (significantWC ? ' Wind chill to ' + mfl + '\u00b0C.' : ' Caution on icy surfaces.'),
-      fr: 'Neige probable\u00a0: ' + tot + 'mm, températures ' + mn + '\u2013' + mx + '\u00b0C. Rafales ' + wnd + 'km/h.' + (significantWC ? ' Ressenti\u00a0: ' + mfl + '\u00b0C.' : ' Prudence sur surfaces verglacées.'),
+      ca: 'Nevades en les pr\u00f2ximes 48h (' + tot + 'mm). Temperatures de dia ' + dMax + '\u00b0C, de nit ' + nMin + '\u00b0C' + nWCNote + '. Superfícies lliscants probables. ' + windDesc,
+      es: 'Nevadas en las pr\u00f3ximas 48h (' + tot + 'mm). Temperatures de d\u00eda ' + dMax + '\u00b0C, de noche ' + nMin + '\u00b0C' + nWCNote + '. Superficies resbaladizas probables. ' + windDesc,
+      en: 'Snow over the next 48h (' + tot + 'mm). Daytime ' + dMax + '\u00b0C, overnight ' + nMin + '\u00b0C' + nWCNote + '. Watch for icy surfaces. ' + windDesc,
+      fr: 'Neige sur 48h (' + tot + 'mm). Jour ' + dMax + '\u00b0C, nuit ' + nMin + '\u00b0C' + nWCNote + '. Surfaces glissantes probables. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Very heavy rain ──
   if (s.totalPrecip > 20) return pickV([
     pick({
-      ca: 'Pluges molt intenses: ' + tot + 'mm en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Risc d\'inundacions puntuals; ràfegues fins a ' + wnd + 'km/h.' + wcNote,
-      es: 'Lluvias muy intensas: ' + tot + 'mm en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Riesgo de inundaciones; rachas hasta ' + wnd + 'km/h.' + wcNote,
-      en: 'Very heavy rainfall: ' + tot + 'mm over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Risk of localised flooding; gusts to ' + wnd + 'km/h.' + wcNote,
-      fr: 'Pluies très fortes\u00a0: ' + tot + 'mm/48h. Températures ' + mn + '\u2013' + mx + '\u00b0C. Risque d\'inondations locales\u00a0; rafales à ' + wnd + 'km/h.' + wcNote,
+      ca: 'Pluges molt intenses: ' + tot + 'mm en 48h. ' + (dTot > 2 ? 'Dia pluj\u00f3s fins a ' + dMax + '\u00b0C' + dWCNote + '. ' : 'Dia: ' + dMax + '\u00b0C. ') + 'Nit: ' + nMin + '\u00b0C' + nWCNote + '. Risc d\'inundacions. ' + windDesc,
+      es: 'Lluvias muy intensas: ' + tot + 'mm en 48h. ' + (dTot > 2 ? 'D\u00eda lluvioso hasta ' + dMax + '\u00b0C' + dWCNote + '. ' : 'D\u00eda: ' + dMax + '\u00b0C. ') + 'Noche: ' + nMin + '\u00b0C' + nWCNote + '. Riesgo de inundaciones. ' + windDesc,
+      en: 'Very heavy rain: ' + tot + 'mm over 48h. ' + (dTot > 2 ? 'Wet day up to ' + dMax + '\u00b0C' + dWCNote + '. ' : 'Day: ' + dMax + '\u00b0C. ') + 'Night: ' + nMin + '\u00b0C' + nWCNote + '. Localised flood risk. ' + windDesc,
+      fr: 'Pluies tr\u00e8s fortes\u00a0: ' + tot + 'mm/48h. ' + (dTot > 2 ? 'Jour pluvieux jusqu\'\u00e0 ' + dMax + '\u00b0C' + dWCNote + '. ' : 'Jour\u00a0: ' + dMax + '\u00b0C. ') + 'Nuit\u00a0: ' + nMin + '\u00b0C' + nWCNote + '. Risque d\'inondations locales. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Precipitació molt acumulada (' + tot + 'mm/48h). Màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Vent ratxat a ' + wnd + 'km/h. Possibles afectacions per acumulació d\'aigua.' + wcNote,
-      es: 'Precipitación muy acumulada (' + tot + 'mm/48h). Máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Viento en racha a ' + wnd + 'km/h. Posibles afectaciones por acumulación de agua.' + wcNote,
-      en: 'Very high rainfall totals (' + tot + 'mm/48h). High ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h. Possible disruption from surface water.' + wcNote,
-      fr: 'Cumuls très élevés (' + tot + 'mm/48h). Max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales à ' + wnd + 'km/h. Risque de perturbations liées aux eaux de surface.' + wcNote,
+      ca: 'Precipitaci\u00f3 molt acumulada (' + tot + 'mm/48h). M\u00e0x dia ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nit ' + nMin + '\u00b0C' + nWCNote + '. Possible afectaci\u00f3 per aigues superficials. ' + windDesc,
+      es: 'Precipitaci\u00f3n muy acumulada (' + tot + 'mm/48h). M\u00e1x d\u00eda ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn noche ' + nMin + '\u00b0C' + nWCNote + '. Posible afectaci\u00f3n por agua acumulada. ' + windDesc,
+      en: 'High rainfall totals (' + tot + 'mm/48h). Day high ' + dMax + '\u00b0C' + dWCNote + ', overnight low ' + nMin + '\u00b0C' + nWCNote + '. Surface water disruption possible. ' + windDesc,
+      fr: 'Cumuls \u00e9lev\u00e9s (' + tot + 'mm/48h). Max jour ' + dMax + '\u00b0C' + dWCNote + ', min nuit ' + nMin + '\u00b0C' + nWCNote + '. Perturbations dues aux eaux de surface possibles. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Moderate-heavy rain ──
   if (s.totalPrecip > 8) return pickV([
     pick({
-      ca: 'Pluja moderada a intensa: ' + tot + 'mm en 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (wcNote || ' Episodis de pluja persistent esperats.'),
-      es: 'Lluvia moderada a intensa: ' + tot + 'mm en 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (wcNote || ' Episodios de lluvia persistente esperados.'),
-      en: 'Moderate to heavy rain: ' + tot + 'mm over 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind ' + wnd + 'km/h.' + (wcNote || ' Persistent rain spells likely.'),
-      fr: 'Pluie modérée à forte\u00a0: ' + tot + 'mm/48h. Températures ' + mn + '\u2013' + mx + '\u00b0C. Vent ' + wnd + 'km/h.' + (wcNote || ' Épisodes pluvieux persistants attendus.'),
+      ca: 'Temps pluj\u00f3s: ' + tot + 'mm en 48h. Dia fins a ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ' (' + dTot + 'mm de dia)' : '') + '. Nit ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ' (' + nTot + 'mm de nit)' : '') + '. ' + windDesc,
+      es: 'Tiempo lluvioso: ' + tot + 'mm en 48h. D\u00eda hasta ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ' (' + dTot + 'mm de d\u00eda)' : '') + '. Noche ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ' (' + nTot + 'mm de noche)' : '') + '. ' + windDesc,
+      en: 'Rainy 48h: ' + tot + 'mm total. Day up to ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ' (' + dTot + 'mm daytime)' : '') + '. Night ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ' (' + nTot + 'mm overnight)' : '') + '. ' + windDesc,
+      fr: 'Temps pluvieux\u00a0: ' + tot + 'mm/48h. Jour jusqu\'\u00e0 ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ' (' + dTot + 'mm le jour)' : '') + '. Nuit ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ' (' + nTot + 'mm la nuit)' : '') + '. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Temps plujós durant les pròximes 48h (' + tot + 'mm). Màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Ràfegues de ' + wnd + 'km/h.' + (wcNote || ' Períodes de pluja continuada possibles.'),
-      es: 'Tiempo lluvioso en las próximas 48h (' + tot + 'mm). Máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Rachas de ' + wnd + 'km/h.' + (wcNote || ' Posibles periodos de lluvia continuada.'),
-      en: 'Rainy conditions for the next 48h (' + tot + 'mm). High ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h.' + (wcNote || ' Spells of sustained rainfall possible.'),
-      fr: 'Temps pluvieux pour les 48h à venir (' + tot + 'mm). Max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales ' + wnd + 'km/h.' + (wcNote || ' Périodes de pluie prolongée possibles.'),
+      ca: 'Pluja moderada a intensa: m\u00e0x ' + dMax + '\u00b0C' + dWCNote + ' de dia, m\u00edn ' + nMin + '\u00b0C' + nWCNote + ' de nit. Total ' + tot + 'mm. ' + windDesc,
+      es: 'Lluvia moderada a intensa: m\u00e1x ' + dMax + '\u00b0C' + dWCNote + ' de d\u00eda, m\u00edn ' + nMin + '\u00b0C' + nWCNote + ' de noche. Total ' + tot + 'mm. ' + windDesc,
+      en: 'Moderate to heavy rain: day high ' + dMax + '\u00b0C' + dWCNote + ', night low ' + nMin + '\u00b0C' + nWCNote + '. Total ' + tot + 'mm. ' + windDesc,
+      fr: 'Pluie mod\u00e9r\u00e9e \u00e0 forte\u00a0: max ' + dMax + '\u00b0C' + dWCNote + ' le jour, min ' + nMin + '\u00b0C' + nWCNote + ' la nuit. Total ' + tot + 'mm. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Light rain / showers ──
   if (s.totalPrecip > 2) return pickV([
     pick({
-      ca: 'Intervals de pluja possibles (' + tot + 'mm/48h). Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (wcNote || ' Cel variable amb algun ruixat.'),
-      es: 'Posibles intervalos de lluvia (' + tot + 'mm/48h). Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (wcNote || ' Cielo variable con algún chubasco.'),
-      en: 'Scattered showers possible (' + tot + 'mm/48h). Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind ' + wnd + 'km/h.' + (wcNote || ' Variable skies with occasional rain.'),
-      fr: 'Averses éparses possibles (' + tot + 'mm/48h). Températures ' + mn + '\u2013' + mx + '\u00b0C. Vent ' + wnd + 'km/h.' + (wcNote || ' Ciel variable avec quelques pluies.'),
+      ca: 'Ruixats dispersos (' + tot + 'mm). Dia fins a ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ', pluja principalment de dia' : '') + '. Nit ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ', ruixats nocturns' : '') + '. ' + windDesc,
+      es: 'Chubascos dispersos (' + tot + 'mm). D\u00eda hasta ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ', lluvia principalmente de d\u00eda' : '') + '. Noche ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ', chubascos nocturnos' : '') + '. ' + windDesc,
+      en: 'Scattered showers (' + tot + 'mm). Day up to ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ', mainly daytime rain' : '') + '. Night ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ', overnight showers' : '') + '. ' + windDesc,
+      fr: 'Averses \u00e9parses (' + tot + 'mm). Jour jusqu\'\u00e0 ' + dMax + '\u00b0C' + dWCNote + (dTot > 1 ? ', pluie principalement le jour' : '') + '. Nuit ' + nMin + '\u00b0C' + nWCNote + (nTot > 1 ? ', averses nocturnes' : '') + '. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Ruixats dispersos probables (' + tot + 'mm/48h). Màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Ràfegues de ' + wnd + 'km/h. Intervals de sol entre els núvols.' + wcNote,
-      es: 'Chubascos dispersos probables (' + tot + 'mm/48h). Máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Rachas de ' + wnd + 'km/h. Intervalos de sol entre nubes.' + wcNote,
-      en: 'Patchy showers likely (' + tot + 'mm/48h). High ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h. Some sunny spells between the clouds.' + wcNote,
-      fr: 'Averses isolées probables (' + tot + 'mm/48h). Max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales ' + wnd + 'km/h. Éclaircies entre les nuages.' + wcNote,
+      ca: 'Cel variable amb algun ruixat (' + tot + 'mm/48h). M\u00e0x diürna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      es: 'Cielo variable con alg\u00fan chubasco (' + tot + 'mm/48h). M\u00e1x diurna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      en: 'Variable skies with some showers (' + tot + 'mm/48h). Day high ' + dMax + '\u00b0C' + dWCNote + ', night low ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
+      fr: 'Ciel variable avec quelques averses (' + tot + 'mm/48h). Max jour ' + dMax + '\u00b0C' + dWCNote + ', min nuit ' + nMin + '\u00b0C' + nWCNote + '. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Very hot & dry ──
-  if (avg > 28) return pickV([
+  if ((s.dayAvgTemp ?? s.avgTemp) > 28) return pickV([
     pick({
-      ca: 'Temps molt calorós les pròximes 48h. Temperatures de ' + mn + ' a ' + mx + '\u00b0C. Vent ' + wnd + 'km/h. Sense precipitació prevista.',
-      es: 'Tiempo muy cálido en las próximas 48h. Temperaturas de ' + mn + ' a ' + mx + '\u00b0C. Viento ' + wnd + 'km/h. Sin precipitación prevista.',
-      en: 'Very hot conditions for the next 48h. Temperatures from ' + mn + ' to ' + mx + '\u00b0C. Wind ' + wnd + 'km/h. No rainfall expected.',
-      fr: 'Temps très chaud pour les 48h. Températures de ' + mn + ' à ' + mx + '\u00b0C. Vent ' + wnd + 'km/h. Aucune précipitation prévue.',
+      ca: 'Calor intensa de dia: m\u00e0x ' + dMax + '\u00b0C. Nits c\u00e0lides entorn dels ' + nMin + '\u2013' + nMax + '\u00b0C. Sense precipitaci\u00f3. ' + windDesc,
+      es: 'Calor intensa de d\u00eda: m\u00e1x ' + dMax + '\u00b0C. Noches c\u00e1lidas en torno a ' + nMin + '\u2013' + nMax + '\u00b0C. Sin precipitaci\u00f3n. ' + windDesc,
+      en: 'Intense daytime heat: highs of ' + dMax + '\u00b0C. Warm nights around ' + nMin + '\u2013' + nMax + '\u00b0C. No rain. ' + windDesc,
+      fr: 'Forte chaleur diurne\u00a0: max ' + dMax + '\u00b0C. Nuits chaudes autour de ' + nMin + '\u2013' + nMax + '\u00b0C. Aucune pr\u00e9cipitation. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Calor intensa: màxima de ' + mx + '\u00b0C, mínima de ' + mn + '\u00b0C. Vent ' + wnd + 'km/h. Cel serè, sense precipitació. Hores centrals especialment caloroses.',
-      es: 'Calor intenso: máxima ' + mx + '\u00b0C, mínima ' + mn + '\u00b0C. Viento ' + wnd + 'km/h. Cielo despejado, sin precipitación. Horas centrales especialmente calurosas.',
-      en: 'Intense heat: high ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Wind ' + wnd + 'km/h. Clear skies, no rain. Midday hours will be particularly scorching.',
-      fr: 'Chaleur intense\u00a0: max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Vent ' + wnd + 'km/h. Ciel dégagé, aucune pluie. Mi-journée particulièrement torride.',
+      ca: 'Dia molt calorós amb pic de ' + dMax + '\u00b0C. Hores centrals especialment tòrrides. Nit: ' + nMin + '\u00b0C. Cel serè. ' + windDesc,
+      es: 'D\u00eda muy caluroso con pico de ' + dMax + '\u00b0C. Horas centrales especialmente tórridas. Noche: ' + nMin + '\u00b0C. Cielo despejado. ' + windDesc,
+      en: 'Very hot day peaking at ' + dMax + '\u00b0C. Midday hours scorching. Night: ' + nMin + '\u00b0C. Clear skies. ' + windDesc,
+      fr: 'Journ\u00e9e tr\u00e8s chaude avec pic \u00e0 ' + dMax + '\u00b0C. Mi-journ\u00e9e torride. Nuit\u00a0: ' + nMin + '\u00b0C. Ciel d\u00e9gag\u00e9. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Warm & dry ──
-  if (avg > 20) return pickV([
+  if ((s.dayAvgTemp ?? s.avgTemp) > 20) return pickV([
     pick({
-      ca: 'Temps agradable les pròximes 48h. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent ' + wnd + 'km/h. Les nits poden ser fresques.',
-      es: 'Tiempo agradable en las próximas 48h. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento ' + wnd + 'km/h. Las noches pueden ser frescas.',
-      en: 'Pleasant conditions for the next 48h. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind ' + wnd + 'km/h. Nights may turn noticeably cooler.',
-      fr: 'Temps agréable pour les 48h. Températures ' + mn + '\u2013' + mx + '\u00b0C. Vent ' + wnd + 'km/h. Nuits fraîches possibles.',
+      ca: 'Dies agradables amb m\u00e0ximes de ' + dMax + '\u00b0C. Nits fresques: ' + nMin + '\u00b0C' + nWCNote + '. Sec i assolellat. ' + windDesc,
+      es: 'D\u00edas agradables con m\u00e1ximas de ' + dMax + '\u00b0C. Noches frescas: ' + nMin + '\u00b0C' + nWCNote + '. Seco y soleado. ' + windDesc,
+      en: 'Pleasant days with highs of ' + dMax + '\u00b0C. Cool nights: ' + nMin + '\u00b0C' + nWCNote + '. Dry and sunny. ' + windDesc,
+      fr: 'Journ\u00e9es agr\u00e9ables avec max ' + dMax + '\u00b0C. Nuits fra\u00eeches\u00a0: ' + nMin + '\u00b0C' + nWCNote + '. Sec et ensoleill\u00e9. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Condicions suaus: màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Ràfegues de ' + wnd + 'km/h. Predominantment sec i assolellat. Bona visibilitat.',
-      es: 'Condiciones suaves: máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Rachas de ' + wnd + 'km/h. Predominantemente seco y soleado. Buena visibilidad.',
-      en: 'Mild conditions: high ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h. Mostly dry and sunny. Good visibility throughout.',
-      fr: 'Conditions douces\u00a0: max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales ' + wnd + 'km/h. Largement sec et ensoleillé. Bonne visibilité.',
+      ca: 'Bon temps: m\u00e0x ' + dMax + '\u00b0C de dia' + dWCNote + ', ' + nMin + '\u00b0C de nit' + nWCNote + '. Predominantment sec. ' + windDesc,
+      es: 'Buen tiempo: m\u00e1x ' + dMax + '\u00b0C de d\u00eda' + dWCNote + ', ' + nMin + '\u00b0C de noche' + nWCNote + '. Predominantemente seco. ' + windDesc,
+      en: 'Good weather: day high ' + dMax + '\u00b0C' + dWCNote + ', night low ' + nMin + '\u00b0C' + nWCNote + '. Mostly dry. ' + windDesc,
+      fr: 'Beau temps\u00a0: max ' + dMax + '\u00b0C le jour' + dWCNote + ', ' + nMin + '\u00b0C la nuit' + nWCNote + '. Principalement sec. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Cool & dry ──
-  if (avg > 10) return pickV([
+  if ((s.dayAvgTemp ?? s.avgTemp) > 10) return pickV([
     pick({
-      ca: 'Temps fresc i principalment sec. Temperatures entre ' + mn + ' i ' + mx + '\u00b0C. Vent ' + wnd + 'km/h.' + wcNote,
-      es: 'Tiempo fresco y principalmente seco. Temperaturas entre ' + mn + ' y ' + mx + '\u00b0C. Viento ' + wnd + 'km/h.' + wcNote,
-      en: 'Cool and mostly dry. Temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind ' + wnd + 'km/h.' + wcNote,
-      fr: 'Frais et principalement sec. Températures ' + mn + '\u2013' + mx + '\u00b0C. Vent ' + wnd + 'km/h.' + wcNote,
+      ca: 'Temps fresc: m\u00e0x ' + dMax + '\u00b0C de dia' + dWCNote + ', m\u00edn ' + nMin + '\u00b0C de nit' + nWCNote + '. Sense precipitaci\u00f3 significativa. ' + windDesc,
+      es: 'Tiempo fresco: m\u00e1x ' + dMax + '\u00b0C de d\u00eda' + dWCNote + ', m\u00edn ' + nMin + '\u00b0C de noche' + nWCNote + '. Sin precipitaci\u00f3n significativa. ' + windDesc,
+      en: 'Cool conditions: day high ' + dMax + '\u00b0C' + dWCNote + ', night low ' + nMin + '\u00b0C' + nWCNote + '. No significant rain. ' + windDesc,
+      fr: 'Temps frais\u00a0: max ' + dMax + '\u00b0C le jour' + dWCNote + ', min ' + nMin + '\u00b0C la nuit' + nWCNote + '. Aucune pr\u00e9cipitation significative. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Ràfegues de ' + wnd + 'km/h. Sense precipitació significativa.' + (wcNote || ' Ambient fresc però confortable.'),
-      es: 'Máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Rachas de ' + wnd + 'km/h. Sin precipitación significativa.' + (wcNote || ' Ambiente fresco pero confortable.'),
-      en: 'High ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h. No significant rain.' + (wcNote || ' Cool but comfortable.'),
-      fr: 'Max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales ' + wnd + 'km/h. Aucune précipitation significative.' + (wcNote || ' Frais mais confortable.'),
+      ca: 'M\u00e0x diürna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '. Ambient fresc i principalment sec. ' + windDesc,
+      es: 'M\u00e1x diurna ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn nocturna ' + nMin + '\u00b0C' + nWCNote + '. Ambiente fresco y principalmente seco. ' + windDesc,
+      en: 'Daytime high ' + dMax + '\u00b0C' + dWCNote + ', overnight low ' + nMin + '\u00b0C' + nWCNote + '. Cool and mainly dry. ' + windDesc,
+      fr: 'Max diurne ' + dMax + '\u00b0C' + dWCNote + ', min nocturne ' + nMin + '\u00b0C' + nWCNote + '. Frais et principalement sec. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 
   // ── Cold & dry (fallback) ──
   return pickV([
     pick({
-      ca: 'Temperatures fredes entre ' + mn + ' i ' + mx + '\u00b0C. Vent fins a ' + wnd + 'km/h.' + (significantWC ? ' Sensació tèrmica real de ' + fl + '\u00b0C. Fred accentuat pel vent.' : ' Temps sec. Possible gelada nocturna.'),
-      es: 'Temperaturas frías entre ' + mn + ' y ' + mx + '\u00b0C. Viento hasta ' + wnd + 'km/h.' + (significantWC ? ' Sensación térmica de ' + fl + '\u00b0C. Frío acentuado por el viento.' : ' Tiempo seco. Posible helada nocturna.'),
-      en: 'Cold temperatures ' + mn + '\u2013' + mx + '\u00b0C. Wind ' + wnd + 'km/h.' + (significantWC ? ' Wind chill to ' + fl + '\u00b0C. Biting cold in exposed areas.' : ' Dry. Possible overnight frost.'),
-      fr: 'Températures froides ' + mn + '\u2013' + mx + '\u00b0C. Vent ' + wnd + 'km/h.' + (significantWC ? ' Ressenti ' + fl + '\u00b0C. Froid mordant au vent.' : ' Sec. Gel nocturne possible.'),
+      ca: 'Fred: m\u00e0x de dia ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn de nit ' + nMin + '\u00b0C' + nWCNote + '. Possible gelada nocturna. ' + windDesc,
+      es: 'Fr\u00edo: m\u00e1x de d\u00eda ' + dMax + '\u00b0C' + dWCNote + ', m\u00edn de noche ' + nMin + '\u00b0C' + nWCNote + '. Posible helada nocturna. ' + windDesc,
+      en: 'Cold: day high ' + dMax + '\u00b0C' + dWCNote + ', night low ' + nMin + '\u00b0C' + nWCNote + '. Possible overnight frost. ' + windDesc,
+      fr: 'Froid\u00a0: max jour ' + dMax + '\u00b0C' + dWCNote + ', min nuit ' + nMin + '\u00b0C' + nWCNote + '. Gel nocturne possible. ' + windDesc,
     }, lang),
     pick({
-      ca: 'Fred intens: màx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Ràfegues de ' + wnd + 'km/h.' + (significantWC ? ' La sensació tèrmica baixa fins a ' + fl + '\u00b0C.' : ' Ambient sec i fred. Risc de gelades nocturnes.'),
-      es: 'Frío intenso: máx ' + mx + '\u00b0C, mín ' + mn + '\u00b0C. Rachas de ' + wnd + 'km/h.' + (significantWC ? ' La sensación térmica baja hasta ' + fl + '\u00b0C.' : ' Ambiente seco y frío. Riesgo de heladas nocturnas.'),
-      en: 'Intense cold: high ' + mx + '\u00b0C, low ' + mn + '\u00b0C. Gusts ' + wnd + 'km/h.' + (significantWC ? ' Real feel drops to ' + fl + '\u00b0C.' : ' Dry and frigid. Frost risk overnight.'),
-      fr: 'Froid intense\u00a0: max ' + mx + '\u00b0C, min ' + mn + '\u00b0C. Rafales ' + wnd + 'km/h.' + (significantWC ? ' Ressenti réel jusqu\'à ' + fl + '\u00b0C.' : ' Sec et froid. Risque de gel la nuit.'),
+      ca: 'Fred intens: dia fins a ' + dMax + '\u00b0C' + dWCNote + ', nit fins a ' + nMin + '\u00b0C' + nWCNote + '. Sec i ennuvolat. Risc de gelades. ' + windDesc,
+      es: 'Fr\u00edo intenso: d\u00eda hasta ' + dMax + '\u00b0C' + dWCNote + ', noche hasta ' + nMin + '\u00b0C' + nWCNote + '. Seco y nublado. Riesgo de heladas. ' + windDesc,
+      en: 'Intense cold: daytime up to ' + dMax + '\u00b0C' + dWCNote + ', nights down to ' + nMin + '\u00b0C' + nWCNote + '. Dry, overcast. Frost risk. ' + windDesc,
+      fr: 'Grand froid\u00a0: jour jusqu\'\u00e0 ' + dMax + '\u00b0C' + dWCNote + ', nuit jusqu\'\u00e0 ' + nMin + '\u00b0C' + nWCNote + '. Sec, nuageux. Risque de gel. ' + windDesc,
     }, lang),
-  ], seed) + anomalySuffix
+  ], seed)
 }
 
 // ── Clothes advice ────────────────────────────────────────────────────────────
@@ -647,14 +698,13 @@ function generateClothesAdvice(s: Stats48h, lang: string): string {
 // ── Renderer ──────────────────────────────────────────────────────────────────
 export function renderPredictionCard(
   wxData: Record<string, OpenMeteoResponse | null>,
-  clima: ClimaStats | null = null,
 ) {
   const el = document.getElementById('predictionCard')
   if (!el) return
   if (!wxData || !Object.keys(wxData).length) { el.innerHTML = ''; return }
 
   const lang  = state.lang
-  const stats = compute48hStats(wxData, clima)
+  const stats = compute48hStats(wxData)
   if (!stats) { el.innerHTML = ''; return }
 
   const prediction    = generatePrediction(stats, lang)

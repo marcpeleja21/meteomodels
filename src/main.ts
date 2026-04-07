@@ -12,8 +12,6 @@ import { fetchAqi } from './api/aqi'
 import { fetchCurrentObs } from './api/station'
 import { fetchNearbyWebcam } from './api/webcam'
 import { fetchAlerts } from './api/alerts'
-import { fetchClimatology } from './api/climatology'
-import type { ClimaStats } from './api/climatology'
 import { clearEnsembleCache } from './api/ensembleMembers'
 
 import { renderLocBar } from './ui/locBar'
@@ -35,9 +33,6 @@ import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent } from './utils/data'
 import { wxFromCode } from './utils/weather'
 import type { GeocodingResult } from './types'
-
-// ── Climatology cache for current location ─────────────────────────────────────
-let currentClima: ClimaStats | null = null
 
 // ── MeteoBlue hardcoded key ────────────────────────────────────────────────────
 const MB_KEY = 'eoWsSfipj9Z3D1E8'
@@ -453,17 +448,14 @@ async function selectLocation(loc: GeocodingResult) {
     if (tag) tag.className = `lm-tag ${ok ? 'ok' : 'err'}`
   }
 
-  // Fetch weather, AQI, current obs, alerts, elevation and ERA5 climatology in parallel
-  // climatology is best-effort — a null result simply hides anomaly notes
-  const [wxData, aqiData, obsData, alertsData, elevation, climaData] = await Promise.all([
+  // Fetch weather, AQI, current obs, alerts and elevation in parallel
+  const [wxData, aqiData, obsData, alertsData, elevation] = await Promise.all([
     fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
     fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc, state.lang),
     loc.elevation == null ? fetchElevation(loc.latitude, loc.longitude) : Promise.resolve(null),
-    fetchClimatology(loc.latitude, loc.longitude),
   ])
-  currentClima = climaData
 
   // Attach elevation to loc so locBar and localStorage both include it
   if (elevation != null) loc.elevation = elevation
@@ -487,7 +479,7 @@ async function selectLocation(loc: GeocodingResult) {
   wxDisplay.classList.add('fade-up')
 
   renderAlertsBanner(alertsData)
-  renderPredictionCard(state.wxData, currentClima)
+  renderPredictionCard(state.wxData)
   renderLocBar(loc, t())
   renderStationCard(obsData)
   renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
@@ -538,7 +530,7 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
     applyLang()
     updateNavLabels()
     if (state.currentLoc) {
-      renderPredictionCard(state.wxData, currentClima)
+      renderPredictionCard(state.wxData)
       renderLocBar(state.currentLoc, t())
       renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
       renderAll()
