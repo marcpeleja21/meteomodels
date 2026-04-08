@@ -117,7 +117,25 @@
 <header class="header">
 
   <div class="brand" id="brandHome" role="button" tabindex="0" style="cursor:pointer" title="Tornar a l'inici">
-    <span class="brand-icon">🌍</span>
+    <svg class="brand-icon" width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- Sun (partially behind cloud) -->
+      <circle cx="11" cy="12" r="5" fill="#ffd54f" opacity="0.95"/>
+      <!-- Sun rays -->
+      <line x1="11" y1="3.5" x2="11" y2="5.5"  stroke="#ffd54f" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+      <line x1="3.5" y1="12" x2="5.5" y2="12"  stroke="#ffd54f" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+      <line x1="5.4" y1="5.9" x2="6.9" y2="7.4" stroke="#ffd54f" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+      <line x1="16.6" y1="5.9" x2="15.1" y2="7.4" stroke="#ffd54f" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+      <line x1="5.4" y1="18.1" x2="6.9" y2="16.6" stroke="#ffd54f" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+      <!-- Cloud -->
+      <path d="M13 21.5 a3.8 3.8 0 0 1-.2-7.6 5.2 5.2 0 0 1 10 1.8 3.3 3.3 0 0 1-.2 5.8H13Z" fill="#ddeeff" opacity="0.96"/>
+      <!-- Ensemble forecast lines (spaghetti / model spread) -->
+      <!-- Left line — fans out left -->
+      <path d="M15 22 C14 25 11 27 9 31" stroke="#00d2e6" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.75"/>
+      <!-- Centre line — goes straight down -->
+      <path d="M19 22 C19 25 19 27 19 31" stroke="#00d2e6" stroke-width="1.9" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <!-- Right line — fans out right -->
+      <path d="M23 22 C24 25 27 27 29 31" stroke="#00d2e6" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </svg>
     <div>
       <div class="brand-title">MeteoModels</div>
       <div class="brand-sub">Comparativa de models meteorològics</div>
@@ -202,24 +220,36 @@
     <!-- Models showcase — fades out when search is active -->
     <div class="models-section">
       <p class="models-section-label">Models disponibles</p>
-      <div class="model-cards-scroll">
-        <div class="model-card-home"><span class="mcf">🇺🇸</span><span class="mcn">GFS</span><span class="mco">NOAA · Global</span></div>
-        <div class="model-card-home"><span class="mcf">🇪🇺</span><span class="mcn">ECMWF IFS</span><span class="mco">ECMWF · Global</span></div>
-        <div class="model-card-home"><span class="mcf">🇩🇪</span><span class="mcn">ICON</span><span class="mco">DWD · Global</span></div>
-        <div class="model-card-home"><span class="mcf">🇩🇪</span><span class="mcn">ICON EU</span><span class="mco">DWD · Europa</span></div>
-        <div class="model-card-home"><span class="mcf">🇨🇭</span><span class="mcn">MeteoBlue</span><span class="mco">MeteoBlue · Global</span></div>
-        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">AROME HD</span><span class="mco">Météo-France · 2km</span></div>
-        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">AROME 2.5km</span><span class="mco">Météo-France · 2.5km</span></div>
-        <div class="model-card-home"><span class="mcf">🇫🇷</span><span class="mcn">ARPEGE EU</span><span class="mco">Météo-France · EU</span></div>
+      <div class="model-pills-grid">
+        <div class="mpill">🇺🇸 <strong>GFS</strong> <span>NOAA</span></div>
+        <div class="mpill">🇪🇺 <strong>ECMWF IFS</strong> <span>ECMWF</span></div>
+        <div class="mpill">🇩🇪 <strong>ICON</strong> <span>DWD · Global</span></div>
+        <div class="mpill">🇩🇪 <strong>ICON EU</strong> <span>DWD · Europa</span></div>
+        <div class="mpill">🇨🇭 <strong>MeteoBlue</strong> <span>MeteoBlue</span></div>
+        <div class="mpill">🇫🇷 <strong>AROME HD</strong> <span>Météo-France · 2km</span></div>
+        <div class="mpill">🇫🇷 <strong>AROME 2.5km</strong> <span>Météo-France</span></div>
+        <div class="mpill">🇫🇷 <strong>ARPEGE EU</strong> <span>Météo-France · EU</span></div>
       </div>
     </div>
 
-    <!-- Feature strip -->
+    <!-- Feature cards -->
     <div class="feature-strip">
-      <span class="feat">📊 Comparativa de models</span>
-      <span class="feat">🌡️ Temperatura &amp; vent</span>
-      <span class="feat">🌧️ Precipitació &amp; neu</span>
-      <span class="feat">📍 Alertes oficials</span>
+      <div class="feat-card">
+        <span class="feat-icon">📊</span>
+        <div><strong>Model comparison</strong><br><span>Side-by-side daily &amp; hourly forecasts</span></div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🌡️</span>
+        <div><strong>Temperature &amp; wind</strong><br><span>Ensemble plumes &amp; charts</span></div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🌧️</span>
+        <div><strong>Precipitation &amp; snow</strong><br><span>Probability &amp; accumulation</span></div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">📍</span>
+        <div><strong>Official alerts</strong><br><span>NWS, MeteoAlarm &amp; more</span></div>
+      </div>
     </div>
 
   </div>

@@ -58,7 +58,7 @@ input{touch-action:manipulation}
 }
 
 .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.brand-icon{font-size:1.7rem}
+.brand-icon{display:block;flex-shrink:0}
 .brand-title{font-size:1.3rem;font-weight:800;letter-spacing:-.5px;color:var(--accent)}
 .brand-sub{font-size:.65rem;color:var(--text-muted);margin-top:1px}
 
@@ -211,15 +211,9 @@ input{touch-action:manipulation}
 .main{flex:1;padding:20px 22px;max-width:1380px;margin:0 auto;width:100%;min-width:0;overflow-x:clip}
 
 /* ── WELCOME ────────────────────────────────────────────────── */
-.welcome{text-align:center;padding:80px 20px;color:var(--text)}
-.welcome h2{font-size:2.2rem;font-weight:800;margin-bottom:12px;color:var(--accent)}
-.welcome p{font-size:1rem;color:var(--text-muted);margin-bottom:36px}
-.badge-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;margin:0 auto}
-.badge{
-  padding:6px 14px; background:rgba(0,210,230,0.1);
-  border:1px solid rgba(0,210,230,0.2); border-radius:20px;
-  font-size:.82rem; color:var(--accent2); font-weight:500;
-}
+.welcome{text-align:center;padding:64px 20px 48px;color:var(--text)}
+.welcome h1{font-size:2.5rem;font-weight:900;margin-bottom:14px;line-height:1.15;letter-spacing:-.5px}
+.welcome p{font-size:1.05rem;color:var(--text-muted);margin-bottom:36px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6}
 
 /* ── WELCOME ICONS (animated floating row) ───────────────────── */
 .welcome-icons{
@@ -238,50 +232,57 @@ input{touch-action:manipulation}
   50%{ transform:translateY(-8px) }
 }
 
-/* ── MODEL CARDS (showcase on welcome) ───────────────────────── */
+
+/* ── MODEL PILLS (showcase on welcome) ──────────────────────── */
 .models-section{
-  margin:32px auto 0; max-width:680px;
-  text-align:center;
+  margin:36px auto 0; max-width:640px; text-align:center;
 }
 .models-section-label{
   font-size:.65rem; font-weight:700; text-transform:uppercase;
   letter-spacing:1.4px; color:var(--text-dim); margin-bottom:14px;
 }
-.model-cards-scroll{
-  display:flex; gap:10px; overflow-x:auto; padding:4px 4px 12px;
-  scrollbar-width:none; justify-content:center; flex-wrap:wrap;
+.model-pills-grid{
+  display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
 }
-.model-cards-scroll::-webkit-scrollbar{display:none}
-.model-card-home{
-  display:flex; flex-direction:column; align-items:center; gap:3px;
-  padding:12px 16px; min-width:100px;
+.mpill{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:7px 14px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:999px;
+  font-size:.8rem; color:var(--text);
+  transition:background var(--trans), border-color var(--trans), transform var(--trans);
+  cursor:default;
+}
+.mpill strong{font-weight:700;color:var(--text)}
+.mpill span{color:var(--text-dim);font-size:.72rem}
+.mpill:hover{
+  background:rgba(0,210,230,0.08);
+  border-color:rgba(0,210,230,0.3);
+  transform:translateY(-1px);
+}
+
+/* ── FEATURE CARDS (bottom of welcome) ──────────────────────── */
+.feature-strip{
+  display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+  margin:28px auto 0; max-width:560px;
+}
+.feat-card{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:14px 16px;
   background:rgba(255,255,255,0.03);
   border:1px solid rgba(255,255,255,0.07);
-  border-radius:12px;
-  cursor:default;
-  transition:background var(--trans), border-color var(--trans), transform var(--trans);
+  border-radius:14px;
+  text-align:left;
+  transition:background var(--trans), border-color var(--trans);
 }
-.model-card-home:hover{
-  background:rgba(0,210,230,0.07);
+.feat-card:hover{
+  background:rgba(0,210,230,0.06);
   border-color:rgba(0,210,230,0.2);
-  transform:translateY(-2px);
 }
-.mcf{ font-size:1.2rem; }
-.mcn{ font-size:.82rem; font-weight:700; color:var(--text); letter-spacing:-.2px; }
-.mco{ font-size:.62rem; color:var(--text-dim); margin-top:1px; }
-
-/* ── FEATURE STRIP (bottom of welcome) ───────────────────────── */
-.feature-strip{
-  display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
-  margin-top:28px; max-width:600px; margin-left:auto; margin-right:auto;
-}
-.feat{
-  font-size:.75rem; color:var(--text-muted);
-  background:rgba(255,255,255,0.04);
-  border:1px solid rgba(255,255,255,0.07);
-  border-radius:20px; padding:5px 13px;
-  white-space:nowrap;
-}
+.feat-icon{font-size:1.3rem;flex-shrink:0;margin-top:1px}
+.feat-card strong{display:block;font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.feat-card span{font-size:.72rem;color:var(--text-dim);line-height:1.4}
 
 /* ── ALERTS BANNER ──────────────────────────────────────────── */
 /* Sticky disclaimer bar — always visible when alerts are active */
@@ -691,11 +692,6 @@ input{touch-action:manipulation}
 .sep-row td{height:2px;background:rgba(255,255,255,0.04);padding:0}
 .model-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 
-/* ── GLOBE ANIMATION ────────────────────────────────────────── */
-.brand-icon{
-  display:inline-block;
-  transition:opacity 0.3s ease;
-}
 
 /* ── NAV DROPDOWN ───────────────────────────────────────────── */
 /* z-index ensures dropdown paints above #headerLoc (which has css order:4 on mobile) */
