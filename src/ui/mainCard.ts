@@ -4,6 +4,7 @@ import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast } from '../utils/data'
 import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
+import { tempColor, tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
 
 export function renderMainCard() {
   const t  = LANG_DATA[state.lang]
@@ -72,13 +73,13 @@ function nowPanelHtml(t: LangData): string {
     <div class="cmp-panel now-panel">
       <div class="cmp-label live">📡 ${t.now}${timeLabel}</div>
       <div class="cmp-icon">${wx.icon}</div>
-      <div class="cmp-temp">${obs.temp !== null ? obs.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
+      <div class="cmp-temp" style="color:${tempColor(obs.temp)}">${obs.temp !== null ? obs.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
       <div class="cmp-cond">${wx.lbl}</div>
-      <div class="cmp-feels">${t.statFeels}: ${obs.feelsLike !== null ? obs.feelsLike.toFixed(1) + '°C' : '—'}</div>
+      <div class="cmp-feels">${t.statFeels}: <span style="color:${tempColor(obs.feelsLike)}">${obs.feelsLike !== null ? obs.feelsLike.toFixed(1) + '°C' : '—'}</span></div>
       <div class="cmp-stats">
-        <span>💧 ${fmt(obs.humidity, 0)}%</span>
-        <span>💨 ${arrow} ${fmt(obs.windspeed, 0)}${gustStr} km/h</span>
-        <span>🌧️ ${fmt(obs.precip, 1)} mm</span>
+        <span style="color:${humidityColor(obs.humidity)}">💧 ${fmt(obs.humidity, 0)}%</span>
+        <span style="color:${windColor(obs.windspeed)}">💨 ${arrow} ${fmt(obs.windspeed, 0)}${gustStr} km/h</span>
+        <span style="color:${precipColor(obs.precip)}">🌧️ ${fmt(obs.precip, 1)} mm</span>
         ${presStr}
         ${uvStr}
       </div>
@@ -95,7 +96,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
   const aqiI  = aqiInfo(aqi, t.aqi)
 
   const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
-  const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[0] ?? null).filter((v): v is number => v !== null)
+  const precipVals = models.map(m => m.daily.precipitation_sum?.[0] ?? null).filter((v): v is number => v !== null)
   const avgPrecip = precipVals.length ? avg(precipVals) : null
 
   const obsTemp = state.currentObs?.temp ?? null
@@ -112,15 +113,15 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
           <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
         <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-temp" style="color:${tempColor(cur.temp)}">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</div>
+        <div class="cmp-feels">${t.statFeels}: <span style="color:${tempColor(cur.feels)}">${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</span></div>
         ${deltaHtml(delta, t)}
         <div class="cmp-stats">
-          <span>💦 ${fmt(cur.rain, 0)}%</span>
-          ${avgPrecip !== null ? `<span>🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
-          <span>💨 ${fmt(cur.wind, 0)} km/h</span>
-          <span>💧 ${fmt(cur.hum, 0)}%</span>
+          <span style="color:${rainPctColor(cur.rain)}">💦 ${fmt(cur.rain, 0)}%</span>
+          ${avgPrecip !== null ? `<span style="color:${precipColor(avgPrecip)}">🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
+          <span style="color:${windColor(cur.wind)}">💨 ${fmt(cur.wind, 0)} km/h</span>
+          <span style="color:${humidityColor(cur.hum)}">💧 ${fmt(cur.hum, 0)}%</span>
         </div>
         ${aqiI ? `<div class="cmp-aqi aqi-${aqiI.cls}">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</div>` : ''}
       </div>
@@ -152,14 +153,14 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label" style="color:${model.color}">${model.flag} ${model.fullName}</div>
         <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp" style="color:${model.color}">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-temp" style="color:${tempColor(cur.temp)}">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">${t.statFeels}: ${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</div>
+        <div class="cmp-feels">${t.statFeels}: <span style="color:${tempColor(cur.feels)}">${cur.feels !== null ? cur.feels.toFixed(1) + '°C' : '—'}</span></div>
         ${deltaHtml(delta, t)}
         <div class="cmp-stats">
-          <span>💦 ${fmt(cur.rain, 0)}%</span>
-          <span>💨 ${fmt(cur.wind, 0)} km/h</span>
-          <span>💧 ${fmt(cur.hum, 0)}%</span>
+          <span style="color:${rainPctColor(cur.rain)}">💦 ${fmt(cur.rain, 0)}%</span>
+          <span style="color:${windColor(cur.wind)}">💨 ${fmt(cur.wind, 0)} km/h</span>
+          <span style="color:${humidityColor(cur.hum)}">💧 ${fmt(cur.hum, 0)}%</span>
         </div>
         ${aqiI ? `<div class="cmp-aqi aqi-${aqiI.cls}">${aqiI.lbl}${aqi !== null ? ` (${Math.round(aqi)})` : ''}</div>` : ''}
       </div>
@@ -178,9 +179,9 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
 
   const models     = MODELS.filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
-  const winds      = models.map(m => m.daily.windspeed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const gusts      = models.map(m => m.daily.windgusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const precipVals = models.map(m => (m.daily as any).precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const winds      = models.map(m => m.daily.wind_speed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const gusts      = models.map(m => m.daily.wind_gusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const precipVals = models.map(m => m.daily.precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
   const avgWind    = winds.length ? avg(winds) : null
   const avgGust    = gusts.length ? avg(gusts) : null
   const avgPrecip  = precipVals.length ? avg(precipVals) : null
@@ -193,13 +194,13 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
           <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
         <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="cmp-temp" style="color:${tempMaxColor(day.maxT)}">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">↓ Mín: ${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</div>
+        <div class="cmp-feels">↓ Mín: <span style="color:${tempMinColor(day.minT)}">${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</span></div>
         <div class="cmp-stats">
-          <span>💦 ${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span>
-          ${avgPrecip !== null ? `<span>🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
-          <span>💨 ${fmt(avgWind, 0)} km/h${avgGust !== null ? ` ↑${Math.round(avgGust)}` : ''}</span>
+          <span style="color:${rainPctColor(day.rain)}">💦 ${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span>
+          ${avgPrecip !== null ? `<span style="color:${precipColor(avgPrecip)}">🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
+          <span style="color:${windColor(avgWind)}">💨 ${fmt(avgWind, 0)} km/h${avgGust !== null ? ` ↑${Math.round(avgGust)}` : ''}</span>
         </div>
       </div>
     </div>

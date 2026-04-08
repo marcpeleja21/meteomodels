@@ -32,12 +32,12 @@ export interface HourlyData {
   apparent_temperature: (number | null)[]
   precipitation_probability: (number | null)[]
   precipitation: (number | null)[]
-  weathercode: (number | null)[]
-  windspeed_10m: (number | null)[]
-  winddirection_10m: (number | null)[]
+  weather_code: (number | null)[]
+  wind_speed_10m: (number | null)[]
+  wind_direction_10m: (number | null)[]
   relative_humidity_2m: (number | null)[]
   pressure_msl: (number | null)[]
-  cloudcover: (number | null)[]
+  cloud_cover: (number | null)[]
 }
 
 export interface DailyData {
@@ -46,9 +46,9 @@ export interface DailyData {
   temperature_2m_min: (number | null)[]
   precipitation_sum: (number | null)[]
   precipitation_probability_max: (number | null)[]
-  weathercode: (number | null)[]
-  windspeed_10m_max: (number | null)[]
-  windgusts_10m_max: (number | null)[]
+  weather_code: (number | null)[]
+  wind_speed_10m_max: (number | null)[]
+  wind_gusts_10m_max: (number | null)[]
 }
 
 export interface OpenMeteoResponse {

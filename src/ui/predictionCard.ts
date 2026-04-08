@@ -121,7 +121,7 @@ function compute48hStats(
 
   for (const [modelKey, data] of Object.entries(wxData)) {
     if (!data?.hourly) continue
-    const { time, temperature_2m, precipitation, windspeed_10m, weathercode } = data.hourly
+    const { time, temperature_2m, precipitation, wind_speed_10m, weather_code } = data.hourly
 
     for (let i = 0; i < time.length; i++) {
       const ts = new Date(time[i]).getTime()
@@ -138,8 +138,8 @@ function compute48hStats(
       }
       if (temperature_2m?.[i] != null) tempMap.get(k)!.push({ k: modelKey, v: temperature_2m[i]! })
       if (precipitation?.[i]  != null) precipMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
-      if (windspeed_10m?.[i]  != null) windMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
-      if (weathercode?.[i]    != null) codeMap.get(k)!.push({ k: modelKey, v: weathercode[i]! })
+      if (wind_speed_10m?.[i] != null) windMap.get(k)!.push({ k: modelKey, v: wind_speed_10m[i]! })
+      if (weather_code?.[i]   != null) codeMap.get(k)!.push({ k: modelKey, v: weather_code[i]! })
 
       // Day/night split maps
       const tMap = day ? dayTempMap  : ntTempMap
@@ -147,12 +147,12 @@ function compute48hStats(
       const pMap = day ? dayPrecipTs : ntPrecipTs
       if (!tMap.has(k)) { tMap.set(k, []); wMap.set(k, []); pMap.set(k, []) }
       if (temperature_2m?.[i] != null) tMap.get(k)!.push({ k: modelKey, v: temperature_2m[i]! })
-      if (windspeed_10m?.[i]  != null) wMap.get(k)!.push({ k: modelKey, v: windspeed_10m[i]! })
+      if (wind_speed_10m?.[i] != null) wMap.get(k)!.push({ k: modelKey, v: wind_speed_10m[i]! })
       if (precipitation?.[i]  != null) pMap.get(k)!.push({ k: modelKey, v: precipitation[i]! })
     }
 
     // Gusts from daily data
-    const dg = data.daily?.windgusts_10m_max
+    const dg = data.daily?.wind_gusts_10m_max
     if (dg) {
       for (let d = 0; d < Math.min(gustDayCount, dg.length); d++) {
         if (dg[d] != null) gustVals.push({ k: modelKey, v: dg[d]! })

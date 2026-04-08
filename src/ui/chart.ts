@@ -13,9 +13,9 @@ type MetricKey = 'temp' | 'precip' | 'rain' | 'wind' | 'hum' | 'pres'
 function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
   return {
     temp:   { key: 'temp',   unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
-    precip: { key: 'precip', unit: 'mm',  color: '#29b6f6', src: (k, i) => (state.wxData[k]?.daily as any).precipitation_sum?.[i] ?? null },
+    precip: { key: 'precip', unit: 'mm',  color: '#29b6f6', src: (k, i) => state.wxData[k]?.daily.precipitation_sum?.[i] ?? null },
     rain:   { key: 'rain',   unit: '%',   color: '#4dd0e1', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
-    wind:   { key: 'wind',   unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.windspeed_10m_max[i] ?? null },
+    wind:   { key: 'wind',   unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.wind_speed_10m_max[i] ?? null },
     hum:    { key: 'hum',    unit: '%',   color: '#90caf9', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
     pres:   { key: 'pres',   unit: 'hPa', color: '#ce93d8', src: (k, i) => {
       const d = state.wxData[k]

@@ -2,7 +2,8 @@ import { state } from '../state'
 import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather } from '../utils/data'
-import { wxFromCode, fmt } from '../utils/weather'
+import { wxFromCode, inferCodeFromPrecip, fmt } from '../utils/weather'
+import { tempColor, tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
 
 export function renderModelCards() {
   const t    = LANG_DATA[state.lang]
@@ -33,19 +34,19 @@ export function renderModelCards() {
       code        = cur.code
       rainPct     = cur.rain ?? 0
       humPct      = cur.hum  ?? 0
-      precipMm    = (data.daily as any).precipitation_sum?.[0] ?? null
-      windKmh     = data.daily.windspeed_10m_max[0] ?? null
-      gustKmh     = data.daily.windgusts_10m_max[0] ?? null
+      precipMm    = data.daily.precipitation_sum?.[0] ?? null
+      windKmh     = data.daily.wind_speed_10m_max[0] ?? null
+      gustKmh     = data.daily.wind_gusts_10m_max[0] ?? null
     } else {
       displayTemp = data.daily.temperature_2m_max[dayI] ?? null
       maxT        = data.daily.temperature_2m_max[dayI] ?? null
       minT        = data.daily.temperature_2m_min[dayI] ?? null
-      code        = data.daily.weathercode[dayI] ?? null
+      code        = data.daily.weather_code[dayI] ?? inferCodeFromPrecip(data.daily.precipitation_sum?.[dayI] ?? null)
       rainPct     = data.daily.precipitation_probability_max[dayI] ?? 0
       humPct      = 0
-      precipMm    = (data.daily as any).precipitation_sum?.[dayI] ?? null
-      windKmh     = data.daily.windspeed_10m_max[dayI] ?? null
-      gustKmh     = data.daily.windgusts_10m_max[dayI] ?? null
+      precipMm    = data.daily.precipitation_sum?.[dayI] ?? null
+      windKmh     = data.daily.wind_speed_10m_max[dayI] ?? null
+      gustKmh     = data.daily.wind_gusts_10m_max[dayI] ?? null
     }
 
     const wx = wxFromCode(code, t.wx)
@@ -59,23 +60,25 @@ export function renderModelCards() {
             <div class="mc2-org">${m.org}</div>
           </div>
         </div>
-        <div class="mc2-temp">${displayTemp !== null ? Math.round(displayTemp) : '—'}<span class="mc2-tunit">°C</span></div>
+        <div class="mc2-temp" style="color:${tempColor(displayTemp)}">${displayTemp !== null ? Math.round(displayTemp) : '—'}<span class="mc2-tunit">°C</span></div>
         <div class="mc2-range">
-          ↑${fmt(maxT, 0)}° / ↓${fmt(minT, 0)}°
-          ${precipMm !== null ? `<span style="color:var(--accent2)"> · 💦 ${fmt(precipMm, 1)} mm</span>` : ''}
+          <span style="color:${tempMaxColor(maxT)}">↑${fmt(maxT, 0)}°</span>
+          <span style="color:#555"> / </span>
+          <span style="color:${tempMinColor(minT)}">↓${fmt(minT, 0)}°</span>
+          ${precipMm !== null ? `<span style="color:${precipColor(precipMm)}"> · 💦 ${fmt(precipMm, 1)} mm</span>` : ''}
         </div>
         <div class="mc2-cond">${wx.icon} <span>${wx.lbl}</span></div>
         <div class="mc2-bar-wrap">
-          <div class="mc2-bar-fill" style="width:${rainPct}%;background:var(--accent2)"></div>
+          <div class="mc2-bar-fill" style="width:${rainPct}%;background:${rainPctColor(rainPct)}"></div>
         </div>
         <div class="mc2-bar-lbl">
-          <span>💦 ${fmt(rainPct, 0)}%</span>
-          ${humPct > 0 ? `<span>💧 ${fmt(humPct, 0)}%</span>` : ''}
+          <span style="color:${rainPctColor(rainPct)}">💦 ${fmt(rainPct, 0)}%</span>
+          ${humPct > 0 ? `<span style="color:${humidityColor(humPct)}">💧 ${fmt(humPct, 0)}%</span>` : ''}
         </div>
         ${windKmh !== null ? `
         <div class="mc2-wind">
-          <span>💨 ${fmt(windKmh, 0)} km/h</span>
-          ${gustKmh !== null ? `<span class="mc2-gust">↑ ${fmt(gustKmh, 0)}</span>` : ''}
+          <span style="color:${windColor(windKmh)}">💨 ${fmt(windKmh, 0)} km/h</span>
+          ${gustKmh !== null ? `<span class="mc2-gust" style="color:${windColor(gustKmh)}">↑ ${fmt(gustKmh, 0)}</span>` : ''}
         </div>` : ''}
         ${m.coverage ? `<div class="mc2-note">⚠ ${m.coverage}</div>` : ''}
       </div>
