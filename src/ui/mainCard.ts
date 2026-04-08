@@ -1,6 +1,6 @@
 import type { LangData, OpenMeteoResponse } from '../types'
 import { state } from '../state'
-import { MODELS, modelValidForDay } from '../config/models'
+import { getActiveModels, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast } from '../utils/data'
 import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
@@ -133,7 +133,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
 function renderSingleModel(el: HTMLElement, t: LangData) {
   const key   = state.activeModel
   const data  = state.wxData[key]
-  const model = MODELS.find(m => m.key === key)
+  const model = getActiveModels().find(m => m.key === key)
   if (!data || !model) {
     el.innerHTML = `<p style="padding:20px;color:var(--text-muted)">${t.noData}</p>`
     return
@@ -178,7 +178,7 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const date = new Date(day.date + 'T12:00:00')
   const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
 
-  const models     = MODELS.filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
+  const models     = getActiveModels().filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
   const winds      = models.map(m => m.daily.wind_speed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
   const gusts      = models.map(m => m.daily.wind_gusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
   const precipVals = models.map(m => m.daily.precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)

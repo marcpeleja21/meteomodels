@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS, modelValidForDay } from '../config/models'
+import { getActiveModels, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getEnsembleForecast7 } from '../utils/data'
 import { wxFromCode, inferCodeFromPrecip, fmt } from '../utils/weather'
@@ -13,7 +13,7 @@ const TABLE_FULL    = 7
 export function renderTable() {
   const t       = LANG_DATA[state.lang]
   const el      = document.getElementById('tableCard')!
-  const loaded  = MODELS.filter(m => state.wxData[m.key] != null)
+  const loaded  = getActiveModels().filter(m => state.wxData[m.key] != null)
 
   if (!loaded.length) { el.innerHTML = ''; return }
 
@@ -82,7 +82,7 @@ export function renderTable() {
 
   // ── Ensemble row ─────────────────────────────────────────────────────────────
   const ensRow = ensDays.map((d, i) => {
-    const validModels = MODELS.filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
+    const validModels = getActiveModels().filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
     const winds = validModels
       .map(m => state.wxData[m.key]!.daily.wind_speed_10m_max[i] ?? null)
       .filter((v): v is number => v !== null)

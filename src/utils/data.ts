@@ -1,14 +1,14 @@
 import type { OpenMeteoResponse, AqiResponse, CurrentWeather, DailyForecast, WeatherCondition } from '../types'
 import { avg, wxFromCode, inferCodeFromPrecip } from './weather'
 import type { WxStrings } from '../types'
-import { MODELS, modelValidForDay, modelValidForHours } from '../config/models'
+import { getActiveModels, modelValidForDay, modelValidForHours } from '../config/models'
 
 /** Filter a wxData map to only models valid for the given day index */
 function modelsForDay(
   wxData: Record<string, OpenMeteoResponse | null>,
   dayIndex: number
 ): OpenMeteoResponse[] {
-  return MODELS
+  return getActiveModels()
     .filter(m => modelValidForDay(m, dayIndex) && wxData[m.key] != null)
     .map(m => wxData[m.key]!)
 }
@@ -18,7 +18,7 @@ export function modelsForHours(
   wxData: Record<string, OpenMeteoResponse | null>,
   hoursFromNow: number
 ): OpenMeteoResponse[] {
-  return MODELS
+  return getActiveModels()
     .filter(m => modelValidForHours(m, hoursFromNow) && wxData[m.key] != null)
     .map(m => wxData[m.key]!)
 }

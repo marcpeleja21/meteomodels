@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS, modelValidForDay } from '../config/models'
+import { getActiveModels, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getEnsembleForecast } from '../utils/data'
 import { fmt, avg } from '../utils/weather'
@@ -11,7 +11,7 @@ function buildDayExtras(count: number): { wind: (number|null)[]; precip: (number
   const wind:   (number|null)[] = []
   const precip: (number|null)[] = []
   for (let i = 0; i < count; i++) {
-    const mods = MODELS
+    const mods = getActiveModels()
       .filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
       .map(m => state.wxData[m.key] as OpenMeteoResponse)
     const winds   = mods.map(m => m.daily.wind_speed_10m_max[i] ?? null).filter((v): v is number => v !== null)

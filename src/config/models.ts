@@ -1,4 +1,5 @@
 import type { WeatherModel } from '../types'
+import { state } from '../state'
 
 /** Returns true if the model's forecast range covers the given day index (0 = today) */
 export function modelValidForDay(m: WeatherModel, dayIndex: number): boolean {
@@ -8,6 +9,31 @@ export function modelValidForDay(m: WeatherModel, dayIndex: number): boolean {
 /** Returns true if the model's forecast range covers hours from now */
 export function modelValidForHours(m: WeatherModel, hoursFromNow: number): boolean {
   return hoursFromNow < (m.maxDays ?? 999) * 24
+}
+
+/**
+ * Approximate European bounding box.
+ * Covers continental Europe + Iceland, Canary Islands, Cyprus, etc.
+ */
+export function isEurope(lat: number, lon: number): boolean {
+  return lat >= 27 && lat <= 72 && lon >= -25 && lon <= 45
+}
+
+/**
+ * Returns the active model list for the current location in state.
+ * - Inside Europe  → ICON EU shown,     ICON Global hidden
+ * - Outside Europe → ICON Global shown, ICON EU hidden
+ * Falls back to full list when no location is loaded yet.
+ */
+export function getActiveModels(): WeatherModel[] {
+  const loc = state.currentLoc
+  if (!loc) return MODELS
+  const europe = isEurope(loc.latitude, loc.longitude)
+  return MODELS.filter(m => {
+    if (m.key === 'icon')    return !europe  // global only outside Europe
+    if (m.key === 'icon_eu') return europe   // EU only inside Europe
+    return true
+  })
 }
 
 export const MODELS: WeatherModel[] = [
