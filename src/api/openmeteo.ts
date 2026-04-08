@@ -7,12 +7,12 @@ const HOURLY_VARS = [
   'apparent_temperature',
   'precipitation_probability',
   'precipitation',
-  'weathercode',
-  'windspeed_10m',
-  'winddirection_10m',
+  'weather_code',
+  'wind_speed_10m',
+  'wind_direction_10m',
   'relative_humidity_2m',
   'pressure_msl',
-  'cloudcover',
+  'cloud_cover',
 ].join(',')
 
 const DAILY_VARS = [
@@ -20,15 +20,16 @@ const DAILY_VARS = [
   'temperature_2m_min',
   'precipitation_sum',
   'precipitation_probability_max',
-  'weathercode',
-  'windspeed_10m_max',
-  'windgusts_10m_max',
+  'weather_code',
+  'wind_speed_10m_max',
+  'wind_gusts_10m_max',
 ].join(',')
 
 export async function fetchWeatherModel(
   lat: number,
   lon: number,
-  modelId: string
+  modelId: string,
+  maxDays = 7
 ): Promise<OpenMeteoResponse> {
   const params = new URLSearchParams({
     latitude:      String(lat),
@@ -36,7 +37,7 @@ export async function fetchWeatherModel(
     hourly:        HOURLY_VARS,
     daily:         DAILY_VARS,
     timezone:      'auto',
-    forecast_days: '7',
+    forecast_days: String(maxDays),
     models:        modelId,
   })
   const res = await fetch(`${BASE}?${params}`)
@@ -50,7 +51,7 @@ export async function fetchWeatherModel(
 export async function fetchAllModels(
   lat: number,
   lon: number,
-  models: Array<{ key: string; apiId: string | null; avail: boolean; mb?: boolean }>,
+  models: Array<{ key: string; apiId: string | null; avail: boolean; mb?: boolean; maxDays?: number }>,
   onProgress: (key: string, ok: boolean) => void
 ): Promise<Record<string, OpenMeteoResponse | null>> {
   const results: Record<string, OpenMeteoResponse | null> = {}
@@ -60,7 +61,7 @@ export async function fetchAllModels(
       .filter(m => m.avail && m.apiId && !m.mb)
       .map(async m => {
         try {
-          results[m.key] = await fetchWeatherModel(lat, lon, m.apiId!)
+          results[m.key] = await fetchWeatherModel(lat, lon, m.apiId!, m.maxDays ?? 7)
           onProgress(m.key, true)
         } catch {
           results[m.key] = null

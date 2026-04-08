@@ -4,6 +4,7 @@ import { LANG_DATA } from '../config/i18n'
 import { getEnsembleForecast } from '../utils/data'
 import { fmt, avg } from '../utils/weather'
 import type { OpenMeteoResponse } from '../types'
+import { tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor } from '../utils/colors'
 
 /** Pre-compute per-day avg wind (km/h) and avg precipitation (mm) from valid models */
 function buildDayExtras(count: number): { wind: (number|null)[]; precip: (number|null)[] } {
@@ -13,8 +14,8 @@ function buildDayExtras(count: number): { wind: (number|null)[]; precip: (number
     const mods = MODELS
       .filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
       .map(m => state.wxData[m.key] as OpenMeteoResponse)
-    const winds   = mods.map(m => m.daily.windspeed_10m_max[i] ?? null).filter((v): v is number => v !== null)
-    const precips = mods.map(m => (m.daily as any).precipitation_sum?.[i] ?? null).filter((v): v is number => v !== null)
+    const winds   = mods.map(m => m.daily.wind_speed_10m_max[i] ?? null).filter((v): v is number => v !== null)
+    const precips = mods.map(m => m.daily.precipitation_sum?.[i] ?? null).filter((v): v is number => v !== null)
     wind.push(winds.length   ? avg(winds)   : null)
     precip.push(precips.length ? avg(precips) : null)
   }
@@ -54,10 +55,14 @@ export function renderForecastStrip() {
           <div class="strip-dname">${dayName}</div>
           <div style="font-size:.68rem;color:var(--text-dim)">${dayNum} ${mon}</div>
           <div class="strip-icon">${d.cond.icon}</div>
-          <div class="strip-temps">${fmt(d.maxT, 0)}° <span>/ ${fmt(d.minT, 0)}°</span></div>
-          ${rainPct ? `<div class="strip-rain">💦 ${rainPct}</div>` : ''}
-          ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
-          ${windVal !== null ? `<div class="strip-wind">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
+          <div class="strip-temps">
+            <span style="color:${tempMaxColor(d.maxT)}">${fmt(d.maxT, 0)}°</span>
+            <span style="color:#444"> / </span>
+            <span style="color:${tempMinColor(d.minT)}">${fmt(d.minT, 0)}°</span>
+          </div>
+          ${rainPct ? `<div class="strip-rain" style="color:${rainPctColor(d.rain)}">💦 ${rainPct}</div>` : ''}
+          ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip" style="color:${precipColor(precipVal)}">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
+          ${windVal !== null ? `<div class="strip-wind" style="color:${windColor(windVal)}">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
         </div>
       `

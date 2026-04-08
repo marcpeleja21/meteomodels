@@ -3,7 +3,8 @@ import { MODELS, modelValidForHours } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import type { OpenMeteoResponse, LangData } from '../types'
 import { currentHourIdx } from '../utils/data'
-import { wxFromCode, fmt, avg } from '../utils/weather'
+import { wxFromCode, inferCodeFromPrecip, fmt, avg } from '../utils/weather'
+import { tempColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
 
 const WIND_DIRS = ['↑','↗','→','↘','↓','↙','←','↖']
 const STEP = 2   // show every 2 hours
@@ -37,11 +38,11 @@ function getEnsembleSlot(idx: number, hoursFromNow: number): HourSlot {
     time:    models[0]?.hourly.time[idx] ?? '',
     temp:    avg(models.map(m => h(m).temperature_2m[idx] ?? null)),
     rain:    avg(models.map(m => h(m).precipitation_probability[idx] ?? null)),
-    wind:    avg(models.map(m => h(m).windspeed_10m[idx] ?? null)),
-    windDir: avg(models.map(m => h(m).winddirection_10m[idx] ?? null)),
+    wind:    avg(models.map(m => h(m).wind_speed_10m[idx] ?? null)),
+    windDir: avg(models.map(m => h(m).wind_direction_10m[idx] ?? null)),
     hum:     avg(models.map(m => h(m).relative_humidity_2m[idx] ?? null)),
     precip:  avg(models.map(m => h(m).precipitation[idx] ?? null)),
-    code:    modalCode(models.map(m => h(m).weathercode[idx] ?? null)),
+    code:    modalCode(models.map(m => h(m).weather_code[idx] ?? inferCodeFromPrecip(h(m).precipitation[idx] ?? null))),
   }
 }
 
@@ -53,11 +54,11 @@ function getModelSlot(modelKey: string, idx: number): HourSlot {
     time:    h.time[idx] ?? '',
     temp:    h.temperature_2m[idx] ?? null,
     rain:    h.precipitation_probability[idx] ?? null,
-    wind:    h.windspeed_10m[idx] ?? null,
-    windDir: h.winddirection_10m[idx] ?? null,
+    wind:    h.wind_speed_10m[idx] ?? null,
+    windDir: h.wind_direction_10m[idx] ?? null,
     hum:     h.relative_humidity_2m[idx] ?? null,
     precip:  h.precipitation[idx] ?? null,
-    code:    h.weathercode[idx] ?? null,
+    code:    h.weather_code[idx] ?? inferCodeFromPrecip(h.precipitation[idx] ?? null),
   }
 }
 
@@ -68,16 +69,15 @@ function renderSlot(slot: HourSlot, t: LangData): string {
   const wx    = wxFromCode(slot.code, t.wx)
   const arrow = slot.windDir !== null ? WIND_DIRS[Math.round(slot.windDir / 45) % 8] : ''
   const rainHigh = (slot.rain ?? 0) >= 50
-  const rainStyle = rainHigh ? 'color:var(--accent2);font-weight:700' : ''
   return `
     <div class="h-slot${rainHigh ? ' h-slot-rain' : ''}">
       <div class="h-time">${hh}</div>
       <div class="h-icon">${wx.icon}</div>
-      <div class="h-temp">${slot.temp !== null ? Math.round(slot.temp) + '°' : '—'}</div>
-      <div class="h-rain" style="${rainStyle}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
-      <div class="h-precip">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
-      <div class="h-wind">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
-      <div class="h-hum">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
+      <div class="h-temp" style="color:${tempColor(slot.temp)}">${slot.temp !== null ? Math.round(slot.temp) + '°' : '—'}</div>
+      <div class="h-rain" style="color:${rainPctColor(slot.rain)}${rainHigh ? ';font-weight:700' : ''}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
+      <div class="h-precip" style="color:${precipColor(slot.precip)}">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
+      <div class="h-wind" style="color:${windColor(slot.wind)}">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
+      <div class="h-hum" style="color:${humidityColor(slot.hum)}">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
     </div>
   `
 }

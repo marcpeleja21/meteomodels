@@ -2,10 +2,13 @@ import { state } from '../state'
 import { MODELS, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getEnsembleForecast7 } from '../utils/data'
-import { wxFromCode, fmt } from '../utils/weather'
+import { wxFromCode, inferCodeFromPrecip, fmt } from '../utils/weather'
+import { tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor } from '../utils/colors'
 
 const TABLE_COMPACT = 4
 const TABLE_FULL    = 7
+
+// ── Table renderer ────────────────────────────────────────────────────────────
 
 export function renderTable() {
   const t       = LANG_DATA[state.lang]
@@ -15,7 +18,7 @@ export function renderTable() {
   if (!loaded.length) { el.innerHTML = ''; return }
 
   const allDays  = getEnsembleForecast7(state.wxData, t.wx)
-  const count    = state.tableDays              // 4 or 7
+  const count    = state.tableDays
   const ensDays  = allDays.slice(0, count)
   const today    = new Date().toISOString().slice(0, 10)
   const canExpand = state.tableDays < TABLE_FULL
@@ -23,7 +26,7 @@ export function renderTable() {
     ? `▸ +${TABLE_FULL - TABLE_COMPACT}d`
     : `◂ −${TABLE_FULL - TABLE_COMPACT}d`
 
-  // Build header columns
+  // ── Header ──────────────────────────────────────────────────────────────────
   const dayHeaders = ensDays.map(d => {
     const date    = new Date(d.date + 'T12:00:00')
     const isToday = d.date === today
@@ -32,7 +35,7 @@ export function renderTable() {
     return `<th><div class="day-hdr"><span class="day-n">${name}</span><span class="day-d">${num}</span></div></th>`
   }).join('')
 
-  // Cell builder helper
+  // ── Cell builder ────────────────────────────────────────────────────────────
   function buildCell(
     maxT: number | null,
     minT: number | null,
@@ -41,36 +44,57 @@ export function renderTable() {
     wind: number | null,
     precipMm: number | null = null,
     validModel = true,
+    isEns = false,
   ): string {
     if (!validModel) return `<td><div class="fc-cell fc-na">—</div></td>`
-    const wx        = wxFromCode(code, t.wx)
-    const rainStr   = rain !== null ? `<div class="fc-rain">💦 ${Math.round(rain)}%</div>` : ''
-    const precipStr = precipMm !== null ? `<div class="fc-precip">🌧 ${fmt(precipMm, 1)} mm</div>` : ''
-    const windStr   = wind !== null ? `<div class="fc-wind-lbl">💨 ${fmt(wind, 0)} km/h</div>` : ''
-    return `<td><div class="fc-cell">
+
+    const wx = wxFromCode(code, t.wx)
+
+    const maxStr  = maxT !== null
+      ? `<span class="fc-tmax" style="color:${tempMaxColor(maxT)}">${fmt(maxT, 0)}°</span>`
+      : '<span class="fc-tmax" style="color:#555">—</span>'
+    const minStr  = minT !== null
+      ? `<span class="fc-tmin" style="color:${tempMinColor(minT)}">${fmt(minT, 0)}°</span>`
+      : '<span class="fc-tmin" style="color:#555">—</span>'
+
+    const rainStr = rain !== null
+      ? `<div class="fc-rain" style="color:${rainPctColor(rain)}">💦 ${Math.round(rain)}%</div>`
+      : ''
+
+    const precipStr = precipMm !== null
+      ? `<div class="fc-precip" style="color:${precipColor(precipMm)}">🌧 ${fmt(precipMm, 1)} mm</div>`
+      : ''
+
+    const windStr = wind !== null
+      ? `<div class="fc-wind-lbl" style="color:${windColor(wind)}">💨 ${fmt(wind, 0)} km/h</div>`
+      : ''
+
+    const sizeClass = isEns ? ' fc-cell--ens' : ''
+
+    return `<td><div class="fc-cell${sizeClass}">
       <div class="fc-icon">${wx.icon}</div>
-      <div class="fc-temp">${fmt(maxT, 0)}° / ${fmt(minT, 0)}°</div>
+      <div class="fc-temp">${maxStr} <span class="fc-sep">/</span> ${minStr}</div>
       ${rainStr}
       ${precipStr}
       ${windStr}
     </div></td>`
   }
 
-  // Ensemble row (also needs avg wind and avg precipitation)
+  // ── Ensemble row ─────────────────────────────────────────────────────────────
   const ensRow = ensDays.map((d, i) => {
     const validModels = MODELS.filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
     const winds = validModels
-      .map(m => state.wxData[m.key]!.daily.windspeed_10m_max[i] ?? null)
+      .map(m => state.wxData[m.key]!.daily.wind_speed_10m_max[i] ?? null)
       .filter((v): v is number => v !== null)
     const precips = validModels
-      .map(m => (state.wxData[m.key]!.daily as any).precipitation_sum?.[i] ?? null)
+      .map(m => state.wxData[m.key]!.daily.precipitation_sum?.[i] ?? null)
       .filter((v): v is number => v !== null)
     const avgWind   = winds.length   ? winds.reduce((a, b) => a + b, 0)   / winds.length   : null
     const avgPrecip = precips.length ? precips.reduce((a, b) => a + b, 0) / precips.length : null
-    return buildCell(d.maxT, d.minT, d.code, d.rain, avgWind, avgPrecip)
+    return buildCell(d.maxT, d.minT, d.code, d.rain, avgWind, avgPrecip, true, true)
   }).join('')
 
-  // Individual model rows
+  // ── Individual model rows ────────────────────────────────────────────────────
   const modelRows = loaded.map(m => {
     const data = state.wxData[m.key]!
     const cells = ensDays.map((_, i) => {
@@ -78,10 +102,10 @@ export function renderTable() {
       return buildCell(
         data.daily.temperature_2m_max[i] ?? null,
         data.daily.temperature_2m_min[i] ?? null,
-        data.daily.weathercode[i] ?? null,
+        data.daily.weather_code[i] ?? inferCodeFromPrecip(data.daily.precipitation_sum?.[i] ?? null),
         data.daily.precipitation_probability_max[i] ?? null,
-        data.daily.windspeed_10m_max[i] ?? null,
-        (data.daily as any).precipitation_sum?.[i] ?? null,
+        data.daily.wind_speed_10m_max[i] ?? null,
+        data.daily.precipitation_sum?.[i] ?? null,
         valid,
       )
     }).join('')
@@ -111,7 +135,7 @@ export function renderTable() {
         </thead>
         <tbody>
           <tr class="ens-row">
-            <td><strong>⚖ ${t.ensemble}</strong></td>
+            <td class="ens-label"><strong>⚖ ${t.ensemble}</strong></td>
             ${ensRow}
           </tr>
           <tr class="sep-row"><td colspan="${ensDays.length + 1}"></td></tr>

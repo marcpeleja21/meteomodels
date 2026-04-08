@@ -42,7 +42,7 @@ export const ENS_MODELS: {
 const VAR_API: Record<EnsVarKey, { name: string; unit: string }> = {
   temp:   { name: 'temperature_2m', unit: '°C'   },
   precip: { name: 'precipitation',  unit: 'mm'   },
-  wind:   { name: 'windspeed_10m',  unit: 'km/h' },
+  wind:   { name: 'wind_speed_10m', unit: 'km/h' },
 }
 
 // Simple in-memory cache keyed by lat,lon,model,variable
@@ -67,7 +67,7 @@ export async function fetchEnsembleMembers(
     const raw: (number | null)[] =
       variable === 'temp'   ? wxData.hourly.temperature_2m  :
       variable === 'precip' ? wxData.hourly.precipitation    :
-                              wxData.hourly.windspeed_10m
+                              wxData.hourly.wind_speed_10m
 
     if (!raw?.length) return null
 

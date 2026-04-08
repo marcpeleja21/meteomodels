@@ -1,5 +1,5 @@
 import type { OpenMeteoResponse, AqiResponse, CurrentWeather, DailyForecast, WeatherCondition } from '../types'
-import { avg, wxFromCode } from './weather'
+import { avg, wxFromCode, inferCodeFromPrecip } from './weather'
 import type { WxStrings } from '../types'
 import { MODELS, modelValidForDay, modelValidForHours } from '../config/models'
 
@@ -43,12 +43,12 @@ export function getCurrentWeather(data: OpenMeteoResponse): CurrentWeather {
     temp:    h.temperature_2m[i]            ?? null,
     feels:   h.apparent_temperature[i]      ?? null,
     rain:    h.precipitation_probability[i] ?? null,
-    code:    h.weathercode[i]               ?? null,
-    wind:    h.windspeed_10m[i]             ?? null,
-    windDir: h.winddirection_10m[i]         ?? null,
+    code:    h.weather_code[i]              ?? inferCodeFromPrecip(h.precipitation[i] ?? null),
+    wind:    h.wind_speed_10m[i]            ?? null,
+    windDir: h.wind_direction_10m[i]        ?? null,
     hum:     h.relative_humidity_2m[i]      ?? null,
     pres:    h.pressure_msl[i]              ?? null,
-    cloud:   h.cloudcover[i]                ?? null,
+    cloud:   h.cloud_cover[i]               ?? null,
   }
 }
 
@@ -102,7 +102,7 @@ export function getEnsembleForecast(
     const maxTs = models.map(m => m.daily.temperature_2m_max[i] ?? null)
     const minTs = models.map(m => m.daily.temperature_2m_min[i] ?? null)
     const rains = models.map(m => m.daily.precipitation_probability_max[i] ?? null)
-    const codes = models.map(m => m.daily.weathercode[i] ?? null)
+    const codes = models.map(m => m.daily.weather_code[i] ?? inferCodeFromPrecip(m.daily.precipitation_sum?.[i] ?? null))
     const code  = mostCommonCode(codes)
     const cond: WeatherCondition = wxFromCode(code, wx)
     return {

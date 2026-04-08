@@ -57,7 +57,7 @@ export async function fetchClimatology(
     'https://archive-api.open-meteo.com/v1/archive' +
     `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}` +
     `&start_date=${firstYear}-01-01&end_date=${lastYear}-12-31` +
-    `&daily=temperature_2m_mean,precipitation_sum,windspeed_10m_mean` +
+    `&daily=temperature_2m_mean,precipitation_sum,wind_speed_10m_mean` +
     `&timezone=UTC`
 
   try {
@@ -68,7 +68,7 @@ export async function fetchClimatology(
     const times:  string[]           = json.daily?.time            ?? []
     const temps:  (number | null)[]  = json.daily?.temperature_2m_mean ?? []
     const precip: (number | null)[]  = json.daily?.precipitation_sum   ?? []
-    const wind:   (number | null)[]  = json.daily?.windspeed_10m_mean  ?? []
+    const wind:   (number | null)[]  = json.daily?.wind_speed_10m_mean ?? []
 
     if (!times.length) return null
 

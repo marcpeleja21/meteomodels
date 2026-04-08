@@ -1,8 +1,18 @@
 import type { WeatherCondition, WxStrings } from '../types'
 
+/**
+ * When a model doesn't provide weather_code, infer a rough WMO code from
+ * precipitation (hourly mm or daily sum). Returns null when precipitation is
+ * zero or absent — the caller should render '—' in that case.
+ */
+export function inferCodeFromPrecip(precipMm: number | null): number | null {
+  if (precipMm === null || precipMm === 0) return null
+  return precipMm >= 2.5 ? 61 : 51   // moderate rain : slight drizzle
+}
+
 /** WMO weather interpretation code → { lbl, icon, type } */
 export function wxFromCode(code: number | null, wx: WxStrings): WeatherCondition {
-  if (code === null) return { lbl: wx.unknown, icon: '❓', type: 'clear' }
+  if (code === null) return { lbl: '—', icon: '', type: 'clear' }
 
   if (code === 0)          return { lbl: wx.clear,    icon: '☀️',  type: 'clear'  }
   if (code === 1)          return { lbl: wx.mainly,   icon: '🌤️',  type: 'clear'  }
