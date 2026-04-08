@@ -2,7 +2,7 @@ import './style.css'
 import { inject } from '@vercel/analytics'
 import { injectSpeedInsights } from '@vercel/speed-insights'
 import { state } from './state'
-import { MODELS } from './config/models'
+import { MODELS, getActiveModels } from './config/models'
 import { LANG_DATA } from './config/i18n'
 
 import { searchLocations, reverseGeocode, fetchElevation } from './api/geocoding'
@@ -211,7 +211,7 @@ function renderAll() {
 
 function onModelSelect(key: string) {
   state.activeModel = key
-  renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
+  renderModelTabs(getActiveModels(), state.wxData, t(), onModelSelect)
   renderMainCard()
 }
 
@@ -451,7 +451,7 @@ async function selectLocation(loc: GeocodingResult) {
 
   // Fetch weather, AQI, current obs, alerts and elevation in parallel
   const [wxData, aqiData, obsData, alertsData, elevation] = await Promise.all([
-    fetchAllModels(loc.latitude, loc.longitude, MODELS, onProgress),
+    fetchAllModels(loc.latitude, loc.longitude, getActiveModels(), onProgress),
     fetchAqi(loc.latitude, loc.longitude),
     fetchCurrentObs(loc.latitude, loc.longitude),
     fetchAlerts(loc.latitude, loc.longitude, loc.country_code, loc, state.lang),
@@ -483,7 +483,7 @@ async function selectLocation(loc: GeocodingResult) {
   renderPredictionCard(state.wxData)
   renderLocBar(loc, t())
   renderStationCard(obsData)
-  renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
+  renderModelTabs(getActiveModels(), state.wxData, t(), onModelSelect)
   renderAll()
 
   // Map and webcam
@@ -533,7 +533,7 @@ langMenu.querySelectorAll<HTMLButtonElement>('.lang-option').forEach(btn => {
     if (state.currentLoc) {
       renderPredictionCard(state.wxData)
       renderLocBar(state.currentLoc, t())
-      renderModelTabs(MODELS, state.wxData, t(), onModelSelect)
+      renderModelTabs(getActiveModels(), state.wxData, t(), onModelSelect)
       renderAll()
     }
   })

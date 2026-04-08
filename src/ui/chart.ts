@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS } from '../config/models'
+import { getActiveModels } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import type { MetricConfig, LangData } from '../types'
 
@@ -39,7 +39,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     return `<button class="mtric${active}" data-metric="${k}">${metricLabels[k]}</button>`
   }).join('')
 
-  const loaded = MODELS.filter(m => state.wxData[m.key] != null)
+  const loaded = getActiveModels().filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = ''; return }
 
   // Normalise activeMetric — fall back to 'temp' for unknown/legacy keys

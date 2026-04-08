@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS, modelValidForDay } from '../config/models'
+import { getActiveModels, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather } from '../utils/data'
 import { wxFromCode, inferCodeFromPrecip, fmt } from '../utils/weather'
@@ -10,7 +10,7 @@ export function renderModelCards() {
   const el   = document.getElementById('modelGrid')!
   const dayI = state.selectedDay   // 0 = now, 1+ = day index
 
-  const loaded = MODELS.filter(m => state.wxData[m.key] != null && modelValidForDay(m, dayI))
+  const loaded = getActiveModels().filter(m => state.wxData[m.key] != null && modelValidForDay(m, dayI))
   if (!loaded.length) { el.innerHTML = ''; return }
 
   el.innerHTML = loaded.map(m => {

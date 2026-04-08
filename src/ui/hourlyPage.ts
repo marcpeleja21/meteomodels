@@ -1,5 +1,5 @@
 import { state } from '../state'
-import { MODELS, modelValidForHours } from '../config/models'
+import { getActiveModels, modelValidForHours } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import type { OpenMeteoResponse, LangData } from '../types'
 import { currentHourIdx } from '../utils/data'
@@ -26,7 +26,7 @@ interface HourSlot {
 
 function getEnsembleSlot(idx: number, hoursFromNow: number): HourSlot {
   // Exclude range-limited models (e.g. AROME) when beyond their max forecast horizon
-  const models = MODELS
+  const models = getActiveModels()
     .filter(m => modelValidForHours(m, hoursFromNow) && state.wxData[m.key] != null)
     .map(m => state.wxData[m.key]!)
   if (!models.length) {
@@ -87,7 +87,7 @@ export function renderHourlyPage() {
   if (!el) return
   const t = LANG_DATA[state.lang]
 
-  const loaded = MODELS.filter(m => state.wxData[m.key] != null)
+  const loaded = getActiveModels().filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = `<p style="padding:40px;color:var(--text-muted);text-align:center">${t.noData}</p>`; return }
 
   let modelKey = state.hourlyModel
