@@ -8,9 +8,9 @@ export async function fetchMeteoblue(
   lon: number,
   apiKey: string
 ): Promise<OpenMeteoResponse> {
-  const url =
-    `https://my.meteoblue.com/packages/basic-1h_basic-day` +
-    `?lat=${lat}&lon=${lon}&apikey=${encodeURIComponent(apiKey)}&format=json&temperature=C&windspeed=kmh`
+  // Route through /api/meteoblue (Vercel Edge proxy) to bypass CORS —
+  // MeteoBlue does not send Access-Control-Allow-Origin headers.
+  const url = `/api/meteoblue?lat=${lat}&lon=${lon}&apikey=${encodeURIComponent(apiKey)}`
 
   const res = await fetch(url)
   if (!res.ok) throw new Error(`MeteoBlue HTTP ${res.status}`)
@@ -51,7 +51,7 @@ export async function fetchMeteoblue(
       temperature_2m_max:          toNumArr(dd.temperature_max),
       temperature_2m_min:          toNumArr(dd.temperature_min),
       precipitation_sum:           toNumArr(dd.precipitation),
-      precipitation_probability_max: toNumArr(dd.precipitation_probability_max),
+      precipitation_probability_max: toNumArr(dd.precipitation_probability_max ?? dd.precipitation_probability),
       weather_code:                toNumArr(dd.pictocode).map(mbPictoToWmo),
       wind_speed_10m_max:          toNumArr(dd.windspeed_max),
       wind_gusts_10m_max:          toNumArr(dd.windgusts_max ?? dd.windgust_max ?? []),
