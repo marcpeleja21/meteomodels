@@ -10,8 +10,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
+      // Never serve sw.js from the browser's HTTP cache — always fetch fresh
+      useCredentials: false,
+
       // Self-destroying SW on unregister (prevents stale SW on redeploy)
       selfDestroying: false,
+
+      // Check for SW updates every 60 s while the tab is open
+      devOptions: { enabled: false },
 
       // Assets to include verbatim in the SW precache
       includeAssets: [
@@ -116,6 +122,10 @@ export default defineConfig({
       workbox: {
         // Precache everything built by Vite
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+
+        // Never serve the SW script itself from the browser HTTP cache
+        // (overrides even stale disk-cache entries after a deploy)
+        navigateFallbackDenylist: [],
 
         runtimeCaching: [
           // Open-Meteo weather API — network-first, 1 h cache fallback
