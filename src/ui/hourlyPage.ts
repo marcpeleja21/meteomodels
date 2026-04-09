@@ -74,10 +74,10 @@ function renderSlot(slot: HourSlot, t: LangData): string {
       <div class="h-time">${hh}</div>
       <div class="h-icon">${wx.icon}</div>
       <div class="h-temp" style="color:${tempColor(slot.temp)}">${slot.temp !== null ? Math.round(slot.temp) + '°' : '—'}</div>
-      <div class="h-rain" style="color:${rainPctColor(slot.rain)}${rainHigh ? ';font-weight:700' : ''}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
-      <div class="h-precip" style="color:${precipColor(slot.precip)}">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
-      <div class="h-wind" style="color:${windColor(slot.wind)}">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
-      <div class="h-hum" style="color:${humidityColor(slot.hum)}">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
+      <div class="h-rain" title="${t.tipRain}" style="color:${rainPctColor(slot.rain)}${rainHigh ? ';font-weight:700' : ''}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
+      <div class="h-precip" title="${t.tipPrecip}" style="color:${precipColor(slot.precip)}">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
+      <div class="h-wind" title="${t.tipWind}" style="color:${windColor(slot.wind)}">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
+      <div class="h-hum" title="${t.tipHum}" style="color:${humidityColor(slot.hum)}">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
     </div>
   `
 }

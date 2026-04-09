@@ -58,15 +58,15 @@ export function renderTable() {
       : '<span class="fc-tmin" style="color:#555">—</span>'
 
     const rainStr = rain !== null
-      ? `<div class="fc-rain" style="color:${rainPctColor(rain)}">💦 ${Math.round(rain)}%</div>`
+      ? `<div class="fc-rain" title="${t.tipRain}" style="color:${rainPctColor(rain)}">💦 ${Math.round(rain)}%</div>`
       : ''
 
     const precipStr = precipMm !== null
-      ? `<div class="fc-precip" style="color:${precipColor(precipMm)}">🌧 ${fmt(precipMm, 1)} mm</div>`
+      ? `<div class="fc-precip" title="${t.tipPrecip}" style="color:${precipColor(precipMm)}">🌧 ${fmt(precipMm, 1)} mm</div>`
       : ''
 
     const windStr = wind !== null
-      ? `<div class="fc-wind-lbl" style="color:${windColor(wind)}">💨 ${fmt(wind, 0)} km/h</div>`
+      ? `<div class="fc-wind-lbl" title="${t.tipWind}" style="color:${windColor(wind)}">💨 ${fmt(wind, 0)} km/h</div>`
       : ''
 
     const sizeClass = isEns ? ' fc-cell--ens' : ''
