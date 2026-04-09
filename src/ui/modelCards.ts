@@ -65,7 +65,7 @@ export function renderModelCards() {
           <span style="color:${tempMaxColor(maxT)}">↑${fmt(maxT, 0)}°</span>
           <span style="color:#555"> / </span>
           <span style="color:${tempMinColor(minT)}">↓${fmt(minT, 0)}°</span>
-          ${precipMm !== null ? `<span title="${t.tipPrecip}" style="color:${precipColor(precipMm)}"> · 💦 ${fmt(precipMm, 1)} mm</span>` : ''}
+          ${precipMm !== null ? `<span title="${t.tipPrecip}" style="color:${precipColor(precipMm)}"> · 🌧️ ${fmt(precipMm, 1)} mm</span>` : ''}
         </div>
         <div class="mc2-cond">${wx.icon} <span>${wx.lbl}</span></div>
         <div class="mc2-bar-wrap">
