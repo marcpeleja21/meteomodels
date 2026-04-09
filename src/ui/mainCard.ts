@@ -2,7 +2,7 @@ import type { LangData, OpenMeteoResponse } from '../types'
 import { state } from '../state'
 import { getActiveModels, modelValidForDay } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
-import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast } from '../utils/data'
+import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast, isLocationNight } from '../utils/data'
 import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
 import { tempColor, tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
 
@@ -46,10 +46,10 @@ function deltaHtml(delta: number | null, t: LangData): string {
 }
 
 /** ARA (real-time) mini-panel */
-function nowPanelHtml(t: LangData): string {
+function nowPanelHtml(t: LangData, night: boolean): string {
   const obs = state.currentObs
   if (!obs) return ''
-  const wx    = wxFromCode(obs.code, t.wx)
+  const wx    = wxFromCode(obs.code, t.wx, night)
   const arrow = windArrowFromDeg(obs.windDir)
 
   // Time label — show local HH:MM if available
@@ -90,8 +90,9 @@ function nowPanelHtml(t: LangData): string {
 
 // ── Current (ensemble) ────────────────────────────────────────────────────────
 function renderEnsemble(el: HTMLElement, t: LangData) {
+  const night = isLocationNight(state.wxData)
   const { data: cur, n } = getEnsembleCurrent(state.wxData)
-  const wx    = wxFromCode(cur.code, t.wx)
+  const wx    = wxFromCode(cur.code, t.wx, night)
   const aqi   = getCurrentAqi(state.aqiData)
   const aqiI  = aqiInfo(aqi, t.aqi)
 
@@ -106,7 +107,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
 
   el.innerHTML = `
     <div class="cmp-row${hasObs ? '' : ' cmp-row-single'}">
-      ${hasObs ? nowPanelHtml(t) : ''}
+      ${hasObs ? nowPanelHtml(t, night) : ''}
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label">
           ${t.ensLabel(n)}
@@ -131,6 +132,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
 
 // ── Current (single model) ────────────────────────────────────────────────────
 function renderSingleModel(el: HTMLElement, t: LangData) {
+  const night = isLocationNight(state.wxData)
   const key   = state.activeModel
   const data  = state.wxData[key]
   const model = getActiveModels().find(m => m.key === key)
@@ -139,7 +141,7 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
     return
   }
   const cur  = getCurrentWeather(data)
-  const wx   = wxFromCode(cur.code, t.wx)
+  const wx   = wxFromCode(cur.code, t.wx, night)
   const aqi  = getCurrentAqi(state.aqiData)
   const aqiI = aqiInfo(aqi, t.aqi)
 
@@ -149,7 +151,7 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
 
   el.innerHTML = `
     <div class="cmp-row${hasObs ? '' : ' cmp-row-single'}">
-      ${hasObs ? nowPanelHtml(t) : ''}
+      ${hasObs ? nowPanelHtml(t, night) : ''}
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label" style="color:${model.color}">${model.flag} ${model.fullName}</div>
         <div class="cmp-icon">${wx.icon}</div>

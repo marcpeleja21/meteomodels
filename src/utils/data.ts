@@ -3,6 +3,24 @@ import { avg, wxFromCode, inferCodeFromPrecip } from './weather'
 import type { WxStrings } from '../types'
 import { getActiveModels, modelValidForDay, modelValidForHours } from '../config/models'
 
+/**
+ * Returns true if it is currently night at the weather location.
+ * Reads the current-hour timestamp from the first available model response
+ * (which uses the location's own timezone via Open-Meteo timezone=auto).
+ * Falls back to browser local time when no data is loaded yet.
+ */
+export function isLocationNight(wxData: Record<string, OpenMeteoResponse | null>): boolean {
+  const model = Object.values(wxData).find((d): d is OpenMeteoResponse => d !== null)
+  let hour: number
+  if (model) {
+    const i = currentHourIdx(model.hourly.time)
+    hour = parseInt(model.hourly.time[i].slice(11, 13), 10)
+  } else {
+    hour = new Date().getHours()
+  }
+  return hour < 7 || hour >= 20
+}
+
 /** Filter a wxData map to only models valid for the given day index */
 function modelsForDay(
   wxData: Record<string, OpenMeteoResponse | null>,

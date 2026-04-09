@@ -10,22 +10,23 @@ export function inferCodeFromPrecip(precipMm: number | null): number | null {
   return precipMm >= 2.5 ? 61 : 51   // moderate rain : slight drizzle
 }
 
-/** WMO weather interpretation code → { lbl, icon, type } */
-export function wxFromCode(code: number | null, wx: WxStrings): WeatherCondition {
+/** WMO weather interpretation code → { lbl, icon, type }
+ *  Pass night=true to swap sun-based icons for night equivalents. */
+export function wxFromCode(code: number | null, wx: WxStrings, night = false): WeatherCondition {
   if (code === null) return { lbl: '—', icon: '', type: 'clear' }
 
-  if (code === 0)          return { lbl: wx.clear,    icon: '☀️',  type: 'clear'  }
-  if (code === 1)          return { lbl: wx.mainly,   icon: '🌤️',  type: 'clear'  }
-  if (code === 2)          return { lbl: wx.partly,   icon: '⛅',  type: 'cloud'  }
+  if (code === 0)          return { lbl: wx.clear,    icon: night ? '🌙'  : '☀️',  type: 'clear'  }
+  if (code === 1)          return { lbl: wx.mainly,   icon: night ? '🌙'  : '🌤️',  type: 'clear'  }
+  if (code === 2)          return { lbl: wx.partly,   icon: night ? '☁️'  : '⛅',  type: 'cloud'  }
   if (code === 3)          return { lbl: wx.overcast, icon: '☁️',  type: 'cloud'  }
-  if (code >= 45 && code <= 48) return { lbl: wx.fog,   icon: '🌫️', type: 'fog'   }
-  if (code >= 51 && code <= 55) return { lbl: wx.drizzle, icon: '🌦️', type: 'rain' }
+  if (code >= 45 && code <= 48) return { lbl: wx.fog,      icon: '🌫️', type: 'fog'   }
+  if (code >= 51 && code <= 55) return { lbl: wx.drizzle,  icon: night ? '🌧️' : '🌦️', type: 'rain' }
   if (code >= 56 && code <= 57) return { lbl: wx.fdrizzle, icon: '🌧️', type: 'rain' }
-  if (code >= 61 && code <= 65) return { lbl: wx.rain,  icon: '🌧️', type: 'rain'  }
-  if (code >= 66 && code <= 67) return { lbl: wx.frain, icon: '🌧️', type: 'rain'  }
-  if (code >= 71 && code <= 75) return { lbl: wx.snow,  icon: '❄️',  type: 'snow'  }
+  if (code >= 61 && code <= 65) return { lbl: wx.rain,     icon: '🌧️', type: 'rain'  }
+  if (code >= 66 && code <= 67) return { lbl: wx.frain,    icon: '🌧️', type: 'rain'  }
+  if (code >= 71 && code <= 75) return { lbl: wx.snow,     icon: '❄️',  type: 'snow'  }
   if (code === 77)          return { lbl: wx.grains,  icon: '🌨️', type: 'snow'  }
-  if (code >= 80 && code <= 82) return { lbl: wx.showers, icon: '🌦️', type: 'rain' }
+  if (code >= 80 && code <= 82) return { lbl: wx.showers,  icon: night ? '🌧️' : '🌦️', type: 'rain' }
   if (code >= 85 && code <= 86) return { lbl: wx.sshowers, icon: '🌨️', type: 'snow' }
   if (code === 95)          return { lbl: wx.storm,   icon: '⛈️',  type: 'storm' }
   if (code >= 96)           return { lbl: wx.storm,   icon: '⛈️',  type: 'storm' }
