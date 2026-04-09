@@ -272,4 +272,13 @@ export interface LangData {
   geolocError:     string
   geolocDenied:    string
   ensInfoTip:      string
+  // Stat icon tooltips
+  tipRain:    string   // 💦 rain probability
+  tipPrecip:  string   // 🌧️ precipitation mm
+  tipHum:     string   // 💧 humidity
+  tipWind:    string   // 💨 wind speed
+  tipGusts:   string   // ↑ wind gusts
+  tipPres:    string   // pressure hPa
+  tipUv:      string   // UV index
+  tipSnow:    string   // ❄️ snowfall cm
 }

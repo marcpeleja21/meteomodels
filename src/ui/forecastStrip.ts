@@ -60,9 +60,9 @@ export function renderForecastStrip() {
             <span style="color:#444"> / </span>
             <span style="color:${tempMinColor(d.minT)}">${fmt(d.minT, 0)}°</span>
           </div>
-          ${rainPct ? `<div class="strip-rain" style="color:${rainPctColor(d.rain)}">💦 ${rainPct}</div>` : ''}
-          ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip" style="color:${precipColor(precipVal)}">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
-          ${windVal !== null ? `<div class="strip-wind" style="color:${windColor(windVal)}">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
+          ${rainPct ? `<div class="strip-rain" title="${t.tipRain}" style="color:${rainPctColor(d.rain)}">💦 ${rainPct}</div>` : ''}
+          ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip" title="${t.tipPrecip}" style="color:${precipColor(precipVal)}">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
+          ${windVal !== null ? `<div class="strip-wind" title="${t.tipGusts}" style="color:${windColor(windVal)}">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
         </div>
       `
