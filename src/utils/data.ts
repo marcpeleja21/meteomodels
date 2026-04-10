@@ -103,6 +103,41 @@ function mostCommonCode(codes: (number | null)[]): number | null {
   return +Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
 }
 
+/**
+ * Returns true if precipitation is occurring or approaching at the location
+ * (checks current hour + next 5 hours across all loaded models).
+ * Used to decide whether to show the radar card.
+ * Threshold: avg precipitation probability > 20 % over the window,
+ * OR any model reports a rain/drizzle/shower/snow code right now.
+ */
+export function hasPrecipNearby(wxData: Record<string, OpenMeteoResponse | null>): boolean {
+  const models = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
+  if (!models.length) return false
+
+  for (const model of models) {
+    const h = model.hourly
+    const base = currentHourIdx(h.time)
+
+    // Check weather code at current hour — immediate rain/snow codes
+    const code = h.weather_code[base] ?? null
+    if (code !== null) {
+      // WMO codes: drizzle 51-67, rain 80-82, snow 71-77 / 85-86, thunderstorm 95-99, freezing 66-67
+      if ((code >= 51 && code <= 82) || (code >= 71 && code <= 77) ||
+          (code >= 85 && code <= 86) || (code >= 95 && code <= 99)) {
+        return true
+      }
+    }
+
+    // Check precipitation probability over next 5 hours — approaching storm
+    const window = h.precipitation_probability.slice(base, base + 6).filter(v => v != null) as number[]
+    if (window.length) {
+      const maxProb = Math.max(...window)
+      if (maxProb >= 25) return true
+    }
+  }
+  return false
+}
+
 /** Build 5-day ensemble forecast (index 0 = today), excluding range-limited models per day */
 export function getEnsembleForecast(
   wxData: Record<string, OpenMeteoResponse | null>,

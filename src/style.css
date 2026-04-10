@@ -389,16 +389,18 @@ input{touch-action:manipulation}
 .radar-card-wrap:empty{display:none}
 .radar-card{padding:0;height:100%}
 .radar-card .media-label{font-size:.78rem;font-weight:600}
-.radar-loading,.radar-error{
-  height:260px;display:flex;align-items:center;justify-content:center;
-  color:var(--text-dim);font-size:.85rem;gap:8px;
-  background:rgba(255,255,255,0.02);border-radius:10px;
+.radar-iframe{
+  width:100%;height:320px;border:none;display:block;
+  border-radius:0;
 }
 .radar-attribution{
   text-align:right;font-size:.65rem;color:var(--text-dim);padding:4px 8px;
   opacity:.6;
 }
 .radar-attribution a{color:var(--text-dim);text-decoration:underline dotted}
+@media(max-width:600px){
+  .radar-iframe{height:260px}
+}
 
 /* ── LOADING ────────────────────────────────────────────────── */
 .loading{text-align:center;padding:60px 20px}
