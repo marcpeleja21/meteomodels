@@ -94,7 +94,7 @@ function applyLang() {
   const opt  = LANG_OPTIONS[state.lang]
 
   searchInput.placeholder   = lang.searchPh
-  searchBtn.textContent     = `🔍 ${lang.searchBtn}`
+  searchBtn.innerHTML       = `🔍<span class="btn-label"> ${lang.searchBtn}</span>`
 
   langCurFlag.innerHTML   = opt.flagHtml
   langCurCode.textContent = state.lang.toUpperCase()

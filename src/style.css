@@ -1224,20 +1224,21 @@ footer {
   .welcome h1{font-size:2rem;margin-bottom:10px}
   .welcome p{font-size:.95rem;margin-bottom:24px}
   .welcome-icons{font-size:1.6rem;gap:10px;margin-bottom:18px}
-  .welcome-btn{padding:14px 18px;font-size:.95rem}
+  /* Button: emoji-only, fixed square — label text hidden on mobile */
+  .btn-label{display:none}
+  .welcome-btn{padding:0;width:52px;min-width:52px;font-size:1.25rem;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .models-section{margin-top:20px}
   .feature-strip{margin-top:16px;gap:8px}
   .feat-card{padding:11px 12px}
 }
 
-/* ── Search row stacks vertically on very small phones (≤400px) ── */
+/* ── Extra-compact spacing on very small phones (≤400px) ── */
 @media(max-width:400px){
   .welcome{padding:36px 14px 28px}
   .welcome h1{font-size:1.75rem}
   .welcome p{font-size:.9rem;margin-bottom:18px}
   .welcome-icons{font-size:1.4rem;gap:8px;margin-bottom:14px}
-  .welcome-search-row{flex-direction:column;gap:8px}
-  .welcome-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
   .feature-strip{grid-template-columns:1fr}
 }
 
