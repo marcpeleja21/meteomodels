@@ -89,6 +89,16 @@ interface Stats48h {
   nightPrecip:   number        // mm during night hours
   nightAvgFL:    number | null // feels-like at night
   hasNightData:  boolean
+
+  // Per-calendar-day breakdown (today vs tomorrow) for day-labelling
+  todayPrecip:        number
+  tomorrowPrecip:     number
+  todayAvgFL:         number | null
+  tomorrowAvgFL:      number | null
+  todayDayMaxTemp:    number | null   // max temp in daytime hours today
+  tomorrowDayMaxTemp: number | null   // max temp in daytime hours tomorrow
+  todayMaxWind:       number          // max hourly wind speed today
+  tomorrowMaxWind:    number          // max hourly wind speed tomorrow
 }
 
 function compute48hStats(
@@ -228,6 +238,38 @@ function compute48hStats(
   const daySeg = segStats(dayTempMap, dayWindMap, dayPrecipTs)
   const ntSeg  = segStats(ntTempMap,  ntWindMap,  ntPrecipTs)
 
+  // ── Per-calendar-day breakdown ────────────────────────────────────────────
+  const todayDateStr = new Date(now).toISOString().slice(0, 10)
+  const tomDateStr   = new Date(now + 86_400_000).toISOString().slice(0, 10)
+
+  let   todayPrecipAcc = 0, tomPrecipAcc = 0
+  const todayFLs: number[] = [], tomFLs: number[] = []
+  const todayWindSpds: number[] = [], tomWindSpds: number[] = []
+  const todayDayMaxTs: number[] = [], tomDayMaxTs: number[] = []
+
+  for (const k of tempMap.keys()) {
+    const dateStr = k.slice(0, 10)
+    const tVals   = tempMap.get(k)!
+    const wVals   = windMap.get(k) ?? []
+    const pVals   = precipMap.get(k) ?? []
+    if (!tVals.length) continue
+    const t  = weightedAvg(tVals)
+    const w  = wVals.length ? weightedAvg(wVals) : 0
+    const fl = windChill(t, w)
+    const p  = pVals.length ? weightedAvg(pVals) : 0
+    if (dateStr === todayDateStr) {
+      todayPrecipAcc += p
+      todayFLs.push(fl)
+      if (wVals.length) todayWindSpds.push(w)
+      if (isDay(k))     todayDayMaxTs.push(t)
+    } else if (dateStr === tomDateStr) {
+      tomPrecipAcc += p
+      tomFLs.push(fl)
+      if (wVals.length) tomWindSpds.push(w)
+      if (isDay(k))     tomDayMaxTs.push(t)
+    }
+  }
+
   return {
     avgTemp,
     minTemp:      Math.min(...wTemps),
@@ -252,6 +294,15 @@ function compute48hStats(
     nightPrecip:  ntSeg ? ntSeg.precip : 0,
     nightAvgFL:   ntSeg ? ntSeg.avgFL  : null,
     hasNightData: ntSeg !== null,
+
+    todayPrecip:        todayPrecipAcc,
+    tomorrowPrecip:     tomPrecipAcc,
+    todayAvgFL:         todayFLs.length   ? todayFLs.reduce((a,b)=>a+b,0)/todayFLs.length : null,
+    tomorrowAvgFL:      tomFLs.length     ? tomFLs.reduce((a,b)=>a+b,0)/tomFLs.length     : null,
+    todayDayMaxTemp:    todayDayMaxTs.length ? Math.max(...todayDayMaxTs) : null,
+    tomorrowDayMaxTemp: tomDayMaxTs.length   ? Math.max(...tomDayMaxTs)   : null,
+    todayMaxWind:       todayWindSpds.length ? Math.max(...todayWindSpds) : 0,
+    tomorrowMaxWind:    tomWindSpds.length   ? Math.max(...tomWindSpds)   : 0,
   }
 }
 
@@ -695,6 +746,72 @@ function generateClothesAdvice(s: Stats48h, lang: string): string {
 }
 /* eslint-enable prefer-template */
 
+// ── Day-label helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Returns a "Tomorrow: " / "Today: " prefix for the forecast text when the
+ * notable weather event (rain, wind, temperature change) falls mainly on one
+ * calendar day rather than spanning both.
+ */
+function computeDayLabel(s: Stats48h, lang: string): string {
+  const tomRainMain   = s.tomorrowPrecip > 2 && s.tomorrowPrecip > s.todayPrecip * 1.5
+  const todayRainMain = s.todayPrecip    > 2 && s.todayPrecip    > s.tomorrowPrecip * 1.5
+  const tomWindMain   = s.tomorrowMaxWind > 35 && s.tomorrowMaxWind > s.todayMaxWind * 1.3
+  const todayWindMain = s.todayMaxWind    > 35 && s.todayMaxWind    > s.tomorrowMaxWind * 1.3
+  const tempDiff      = (s.tomorrowDayMaxTemp != null && s.todayDayMaxTemp != null)
+    ? s.tomorrowDayMaxTemp - s.todayDayMaxTemp : 0
+  const tomTempShift  = Math.abs(tempDiff) >= 5
+
+  const mainTomorrow = (tomRainMain || tomWindMain || tomTempShift) && !todayRainMain && !todayWindMain
+  const mainToday    = (todayRainMain || todayWindMain) && !tomRainMain && !tomWindMain
+
+  if (mainTomorrow) return pick({ ca:'Demà: ', es:'Mañana: ', en:'Tomorrow: ', fr:'Demain\u00a0: ' }, lang)
+  if (mainToday)    return pick({ ca:'Avui: ',  es:'Hoy: ',    en:'Today: ',    fr:"Aujourd'hui\u00a0: " }, lang)
+  return ''
+}
+
+/**
+ * Returns a short per-day clothes label (e.g. "light jacket") for a given
+ * feels-like temperature and rain flag.
+ */
+function shortClothes(fl: number, rain: boolean, lang: string): string {
+  if (fl < 0)  return pick({ ca:'abric d\'hivern + guants', es:'abrigo de invierno + guantes', en:'heavy coat + gloves', fr:'grand manteau + gants' }, lang)
+  if (fl < 6)  return pick({ ca:'abric gruixut + capes tèrmiques', es:'abrigo grueso + capas térmicas', en:'heavy coat + thermal layers', fr:'manteau chaud + sous-couches' }, lang)
+  if (fl < 12) return rain
+    ? pick({ ca:'impermeable + botes + paraigua', es:'impermeable + botas + paraguas', en:'waterproof coat + boots + umbrella', fr:'imperméable + bottes + parapluie' }, lang)
+    : pick({ ca:'jaqueta d\'hivern + jersei', es:'chaqueta de invierno + jersey', en:'winter jacket + jumper', fr:'veste d\'hiver + pull' }, lang)
+  if (fl < 18) return rain
+    ? pick({ ca:'jaqueta lleugera + paraigua', es:'chaqueta ligera + paraguas', en:'light jacket + umbrella', fr:'veste légère + parapluie' }, lang)
+    : pick({ ca:'jaqueta lleugera', es:'chaqueta ligera', en:'light jacket', fr:'veste légère' }, lang)
+  if (fl < 25) return rain
+    ? pick({ ca:'roba còmoda + paraigua', es:'ropa cómoda + paraguas', en:'comfortable clothing + umbrella', fr:'tenue confortable + parapluie' }, lang)
+    : pick({ ca:'roba còmoda', es:'ropa cómoda', en:'comfortable clothing', fr:'tenue confortable' }, lang)
+  return rain
+    ? pick({ ca:'roba lleugera + paraigua', es:'ropa ligera + paraguas', en:'light clothes + umbrella', fr:'tenue légère + parapluie' }, lang)
+    : pick({ ca:'roba lleugera + crema solar', es:'ropa ligera + crema solar', en:'light clothes + sunscreen', fr:'tenue légère + crème solaire' }, lang)
+}
+
+/**
+ * Returns a "Today: X. Tomorrow: Y." dual-advice string when today and tomorrow
+ * call for meaningfully different clothing. Returns empty string when similar.
+ */
+function perDayClothesNote(s: Stats48h, lang: string): string {
+  const todayFL  = s.todayAvgFL    ?? s.avgFeelsLike
+  const tomFL    = s.tomorrowAvgFL ?? s.avgFeelsLike
+  const todayRain = s.todayPrecip    > 1
+  const tomRain   = s.tomorrowPrecip > 1
+
+  // Categorise: bucket feels-like into bands and combine with rain flag
+  const cat = (fl: number, rain: boolean) =>
+    (rain ? 10 : 0) + (fl < 0 ? 0 : fl < 6 ? 1 : fl < 12 ? 2 : fl < 18 ? 3 : fl < 25 ? 4 : 5)
+
+  if (cat(todayFL, todayRain) === cat(tomFL, tomRain)) return '' // same → no dual note
+
+  const todayLbl = pick({ ca:'Avui', es:'Hoy', en:'Today', fr:"Auj." }, lang)
+  const tomLbl   = pick({ ca:'Demà', es:'Mañana', en:'Tomorrow', fr:'Demain' }, lang)
+  return `${todayLbl}: ${shortClothes(todayFL, todayRain, lang)}. ${tomLbl}: ${shortClothes(tomFL, tomRain, lang)}.`
+}
+
 // ── Renderer ──────────────────────────────────────────────────────────────────
 export function renderPredictionCard(
   wxData: Record<string, OpenMeteoResponse | null>,
@@ -707,8 +824,12 @@ export function renderPredictionCard(
   const stats = compute48hStats(wxData)
   if (!stats) { el.innerHTML = ''; return }
 
-  const prediction    = generatePrediction(stats, lang)
-  const clothesAdvice = generateClothesAdvice(stats, lang)
+  const dayLabel      = computeDayLabel(stats, lang)
+  const prediction    = dayLabel + generatePrediction(stats, lang)
+  const perDayNote    = perDayClothesNote(stats, lang)
+  const clothesAdvice = perDayNote
+    ? perDayNote + ' ' + generateClothesAdvice(stats, lang)
+    : generateClothesAdvice(stats, lang)
 
   // Condition icon — driven by feels-like for cold/windy accuracy
   let condIcon = '⛅'
