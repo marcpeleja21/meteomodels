@@ -6,20 +6,23 @@ import { fmt, avg } from '../utils/weather'
 import type { OpenMeteoResponse } from '../types'
 import { tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor } from '../utils/colors'
 
-/** Pre-compute per-day avg wind (km/h) and avg precipitation (mm) from valid models */
-function buildDayExtras(count: number): { wind: (number|null)[]; precip: (number|null)[] } {
+/** Pre-compute per-day avg wind, avg gusts (km/h) and avg precipitation (mm) from valid models */
+function buildDayExtras(count: number): { wind: (number|null)[]; gust: (number|null)[]; precip: (number|null)[] } {
   const wind:   (number|null)[] = []
+  const gust:   (number|null)[] = []
   const precip: (number|null)[] = []
   for (let i = 0; i < count; i++) {
     const mods = getActiveModels()
       .filter(m => modelValidForDay(m, i) && state.wxData[m.key] != null)
       .map(m => state.wxData[m.key] as OpenMeteoResponse)
-    const winds   = mods.map(m => m.daily.wind_speed_10m_max[i] ?? null).filter((v): v is number => v !== null)
+    const winds  = mods.map(m => m.daily.wind_speed_10m_max[i]  ?? null).filter((v): v is number => v !== null)
+    const gusts  = mods.map(m => m.daily.wind_gusts_10m_max?.[i] ?? null).filter((v): v is number => v !== null)
     const precips = mods.map(m => m.daily.precipitation_sum?.[i] ?? null).filter((v): v is number => v !== null)
     wind.push(winds.length   ? avg(winds)   : null)
+    gust.push(gusts.length   ? avg(gusts)   : null)
     precip.push(precips.length ? avg(precips) : null)
   }
-  return { wind, precip }
+  return { wind, gust, precip }
 }
 
 export function renderForecastStrip() {
@@ -43,7 +46,7 @@ export function renderForecastStrip() {
       const dayNum     = date.getDate()
       const mon        = t.months[date.getMonth()]
       const rainPct    = d.rain !== null ? `${Math.round(d.rain)}%` : ''
-      const windVal    = extras.wind[i]
+      const gustVal    = extras.gust[i]
       const precipVal  = extras.precip[i]
 
       let cls = 'strip-day'
@@ -62,7 +65,7 @@ export function renderForecastStrip() {
           </div>
           ${rainPct ? `<div class="strip-rain" title="${t.tipRain}" style="color:${rainPctColor(d.rain)}">💦 ${rainPct}</div>` : ''}
           ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip" title="${t.tipPrecip}" style="color:${precipColor(precipVal)}">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
-          ${windVal !== null ? `<div class="strip-wind" title="${t.tipGusts}" style="color:${windColor(windVal)}">💨 ${fmt(windVal, 0)} km/h</div>` : ''}
+          ${gustVal !== null ? `<div class="strip-wind" title="${t.tipGusts}" style="color:${windColor(gustVal)}">💨 ↑${fmt(gustVal, 0)} km/h</div>` : ''}
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
         </div>
       `
