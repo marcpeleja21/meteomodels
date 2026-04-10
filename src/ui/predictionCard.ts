@@ -17,6 +17,7 @@
  */
 import { state } from '../state'
 import type { OpenMeteoResponse } from '../types'
+import { computeModelWeights } from '../utils/modelWeights'
 
 // ── Wind chill ────────────────────────────────────────────────────────────────
 function windChill(tempC: number, windKmh: number): number {
@@ -43,21 +44,47 @@ function variantSeed(): number {
 }
 
 // ── Model weights ─────────────────────────────────────────────────────────────
-const PRIORITY_W: Record<string, number> = { arome_hd: 25, gfs: 20, ecmwf: 20 }
-const OTHER_SLOT = 35
+/**
+ * weightedAvg uses location-aware dynamic weights computed by computeModelWeights().
+ * Falls back to a simple average when no location is available.
+ */
+let _cachedWeights: Record<string, number> = {}
+let _weightsLocKey = ''
+
+function getWeights(keys: string[]): Record<string, number> {
+  const loc = state.currentLoc
+  if (!loc) {
+    // Equal weights when no location loaded yet
+    const eq: Record<string, number> = {}
+    keys.forEach(k => { eq[k] = 1 / keys.length })
+    return eq
+  }
+  // Re-compute only when location or key-set changes
+  const locKey = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}:${keys.slice().sort().join(',')}`
+  if (locKey !== _weightsLocKey) {
+    _cachedWeights = computeModelWeights(keys, loc.latitude, loc.longitude)
+    _weightsLocKey = locKey
+  }
+  return _cachedWeights
+}
 
 function weightedAvg(vals: Array<{ k: string; v: number }>): number {
   if (!vals.length) return 0
   if (vals.length === 1) return vals[0].v
-  const priority = vals.filter(x => PRIORITY_W[x.k] !== undefined)
-  const others   = vals.filter(x => PRIORITY_W[x.k] === undefined)
-  const perOther = others.length ? OTHER_SLOT / others.length : 0
-  let totalW = others.length * perOther
-  for (const x of priority) totalW += PRIORITY_W[x.k]
+  const keys    = vals.map(x => x.k)
+  const weights = getWeights(keys)
+  // Re-normalise for this specific subset (some keys may have been absent)
+  let wSum = 0
+  for (const x of vals) wSum += weights[x.k] ?? 0
+  if (wSum === 0) return vals.reduce((s, x) => s + x.v, 0) / vals.length
   let result = 0
-  for (const x of priority) result += x.v * (PRIORITY_W[x.k] / totalW)
-  for (const x of others)   result += x.v * (perOther / totalW)
+  for (const x of vals) result += x.v * ((weights[x.k] ?? 0) / wSum)
   return result
+}
+
+/** Expose current weights for the tooltip in mainCard.ts */
+export function getCurrentModelWeights(): Record<string, number> {
+  return { ..._cachedWeights }
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────

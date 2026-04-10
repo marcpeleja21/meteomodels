@@ -5,6 +5,42 @@ import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather, getEnsembleCurrent, getCurrentAqi, getEnsembleForecast, isLocationNight } from '../utils/data'
 import { wxFromCode, aqiInfo, fmt, avg } from '../utils/weather'
 import { tempColor, tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
+import { getCurrentModelWeights } from './predictionCard'
+import { formatWeightsTip } from '../utils/modelWeights'
+import { MODELS } from '../config/models'
+
+// ── Dynamic ensemble tooltip ──────────────────────────────────────────────────
+/** Localised headers for the ⓘ tooltip */
+const ENS_TIP_HEADER: Record<string, string> = {
+  ca: 'Pesos dinàmics basats en la teva ubicació:',
+  es: 'Pesos dinámicos según tu ubicación:',
+  en: 'Dynamic weights for your location:',
+  fr: 'Pondérations dynamiques pour votre lieu :',
+  de: 'Dynamische Gewichtung für deinen Standort:',
+}
+
+/**
+ * Build the ⓘ tooltip string from the weights computed for the current
+ * location and the currently loaded models.
+ */
+function buildEnsTip(lang: string): string {
+  const weights = getCurrentModelWeights()
+  if (!Object.keys(weights).length) {
+    // Weights not computed yet — return a generic description
+    const fallback: Record<string, string> = {
+      ca: 'Mitjana ponderada dels models disponibles (pesos dinàmics per ubicació).',
+      es: 'Media ponderada de los modelos disponibles (pesos dinámicos por ubicación).',
+      en: 'Weighted average of available models (dynamic weights by location).',
+      fr: 'Moyenne pondérée des modèles disponibles (pondération dynamique par lieu).',
+      de: 'Gewichteter Mittelwert der verfügbaren Modelle (dynamisch nach Standort).',
+    }
+    return fallback[lang] ?? fallback['en']
+  }
+  const names: Record<string, string> = {}
+  for (const m of MODELS) names[m.key] = m.name
+  const header = ENS_TIP_HEADER[lang] ?? ENS_TIP_HEADER['en']
+  return formatWeightsTip(weights, names, header)
+}
 
 export function renderMainCard() {
   const t  = LANG_DATA[state.lang]
@@ -111,7 +147,7 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label">
           ${t.ensLabel(n)}
-          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
+          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${buildEnsTip(state.lang).replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
         <div class="cmp-icon">${wx.icon}</div>
         <div class="cmp-temp" style="color:${tempColor(cur.temp)}">${cur.temp !== null ? cur.temp.toFixed(1) : '—'}<span class="cmp-unit">°C</span></div>
@@ -193,7 +229,7 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
       <div class="cmp-panel fcast-panel">
         <div class="cmp-label">
           ${dateLabel} · ${t.nModels(day.n)}
-          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${t.ensInfoTip.replace(/"/g, '&quot;')}">ⓘ</span>
+          <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${buildEnsTip(state.lang).replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
         <div class="cmp-icon">${wx.icon}</div>
         <div class="cmp-temp" style="color:${tempMaxColor(day.maxT)}">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
