@@ -41,6 +41,7 @@ export async function fetchMeteoblue(
       precipitation:            toNumArr(h1.precipitation),
       weather_code:             toNumArr(h1.pictocode).map(mbPictoToWmo),
       wind_speed_10m:           toNumArr(h1.windspeed),
+      wind_gusts_10m:           toNumArr(h1.windgusts ?? h1.windgust ?? []),
       wind_direction_10m:       toNumArr(h1.winddirection),
       relative_humidity_2m:     toNumArr(h1.relativehumidity),
       pressure_msl:             toNumArr(h1.sealevelpressure),

@@ -202,7 +202,7 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
         <div class="cmp-stats">
           <span title="${t.tipRain}" style="color:${rainPctColor(day.rain)}">💦 ${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span>
           ${avgPrecip !== null ? `<span title="${t.tipPrecip}" style="color:${precipColor(avgPrecip)}">🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
-          <span title="${t.tipWind}" style="color:${windColor(avgWind)}">💨 ${fmt(avgWind, 0)} km/h${avgGust !== null ? ` ↑${Math.round(avgGust)}` : ''}</span>
+          <span title="${t.tipGusts}" style="color:${windColor(avgGust ?? avgWind)}">💨 ↑${fmt(avgGust ?? avgWind, 0)} km/h</span>
         </div>
       </div>
     </div>

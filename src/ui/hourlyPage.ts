@@ -20,7 +20,7 @@ function modalCode(codes: (number | null)[]): number | null {
 
 interface HourSlot {
   time: string; temp: number|null; rain: number|null
-  wind: number|null; windDir: number|null; hum: number|null
+  gust: number|null; windDir: number|null; hum: number|null
   precip: number|null; code: number|null
 }
 
@@ -38,7 +38,7 @@ function getEnsembleSlot(idx: number, hoursFromNow: number): HourSlot {
     time:    models[0]?.hourly.time[idx] ?? '',
     temp:    avg(models.map(m => h(m).temperature_2m[idx] ?? null)),
     rain:    avg(models.map(m => h(m).precipitation_probability[idx] ?? null)),
-    wind:    avg(models.map(m => h(m).wind_speed_10m[idx] ?? null)),
+    gust:    avg(models.map(m => h(m).wind_gusts_10m[idx] ?? null)),
     windDir: avg(models.map(m => h(m).wind_direction_10m[idx] ?? null)),
     hum:     avg(models.map(m => h(m).relative_humidity_2m[idx] ?? null)),
     precip:  avg(models.map(m => h(m).precipitation[idx] ?? null)),
@@ -48,13 +48,13 @@ function getEnsembleSlot(idx: number, hoursFromNow: number): HourSlot {
 
 function getModelSlot(modelKey: string, idx: number): HourSlot {
   const d = state.wxData[modelKey]
-  if (!d) return { time:'', temp:null, rain:null, wind:null, windDir:null, hum:null, precip:null, code:null }
+  if (!d) return { time:'', temp:null, rain:null, gust:null, windDir:null, hum:null, precip:null, code:null }
   const h = d.hourly
   return {
     time:    h.time[idx] ?? '',
     temp:    h.temperature_2m[idx] ?? null,
     rain:    h.precipitation_probability[idx] ?? null,
-    wind:    h.wind_speed_10m[idx] ?? null,
+    gust:    h.wind_gusts_10m[idx] ?? null,
     windDir: h.wind_direction_10m[idx] ?? null,
     hum:     h.relative_humidity_2m[idx] ?? null,
     precip:  h.precipitation[idx] ?? null,
@@ -76,7 +76,7 @@ function renderSlot(slot: HourSlot, t: LangData): string {
       <div class="h-temp" style="color:${tempColor(slot.temp)}">${slot.temp !== null ? Math.round(slot.temp) + '°' : '—'}</div>
       <div class="h-rain" title="${t.tipRain}" style="color:${rainPctColor(slot.rain)}${rainHigh ? ';font-weight:700' : ''}">💦 ${slot.rain !== null ? Math.round(slot.rain) + '%' : '—'}</div>
       <div class="h-precip" title="${t.tipPrecip}" style="color:${precipColor(slot.precip)}">🌧 ${slot.precip !== null && slot.precip > 0 ? fmt(slot.precip, 1) : '0'} mm</div>
-      <div class="h-wind" title="${t.tipWind}" style="color:${windColor(slot.wind)}">💨 ${slot.wind !== null ? Math.round(slot.wind) : '—'} ${arrow}</div>
+      <div class="h-wind" title="${t.tipGusts}" style="color:${windColor(slot.gust)}">💨 ↑${slot.gust !== null ? Math.round(slot.gust) : '—'} ${arrow}</div>
       <div class="h-hum" title="${t.tipHum}" style="color:${humidityColor(slot.hum)}">💧 ${slot.hum !== null ? Math.round(slot.hum) + '%' : '—'}</div>
     </div>
   `

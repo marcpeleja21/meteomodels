@@ -9,6 +9,7 @@ const HOURLY_VARS = [
   'precipitation',
   'weather_code',
   'wind_speed_10m',
+  'wind_gusts_10m',
   'wind_direction_10m',
   'relative_humidity_2m',
   'pressure_msl',

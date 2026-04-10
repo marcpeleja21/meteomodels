@@ -34,6 +34,7 @@ export interface HourlyData {
   precipitation: (number | null)[]
   weather_code: (number | null)[]
   wind_speed_10m: (number | null)[]
+  wind_gusts_10m: (number | null)[]
   wind_direction_10m: (number | null)[]
   relative_humidity_2m: (number | null)[]
   pressure_msl: (number | null)[]

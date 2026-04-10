@@ -42,10 +42,12 @@ export function getActiveModels(): WeatherModel[] {
   const europe  = isEurope(loc.latitude, loc.longitude)
   const central = isCentralEurope(loc.latitude, loc.longitude)
   return MODELS.filter(m => {
-    if (m.key === 'icon')      return !europe   // global only outside Europe
-    if (m.key === 'icon_eu')   return europe    // EU only inside Europe
-    if (m.key === 'icon_d2')   return central   // DWD LAM — Central Europe only
-    if (m.key === 'geosphere') return central   // GeoSphere AROME — Central Europe only
+    if (m.key === 'icon')          return !europe   // global only outside Europe
+    if (m.key === 'icon_eu')       return europe    // EU only inside Europe
+    if (m.key === 'icon_d2')       return central   // DWD LAM — Central Europe only
+    if (m.key === 'geosphere')     return central   // GeoSphere AROME — Central Europe only
+    if (m.key === 'knmi_harmonie') return europe    // KNMI HARMONIE — Europe only
+    if (m.key === 'dmi_harmonie')  return europe    // DMI HARMONIE — Europe only
     return true
   })
 }
@@ -59,6 +61,10 @@ export const MODELS: WeatherModel[] = [
   { key:'arome_hd',  name:'AROME HD',    fullName:'AROME France HD (1.5 km)',      apiId:'meteofrance_arome_france_hd', org:'Météo-France',    color:'#80deea', flag:'🇫🇷', avail:true,  global:false, coverage:'França', maxDays:2 },
   { key:'arome',     name:'AROME 2.5km', fullName:'AROME France (2.5 km)',         apiId:'meteofrance_arome_france',    org:'Météo-France',    color:'#80cbc4', flag:'🇫🇷', avail:true,  global:false, coverage:'França', maxDays:2 },
   { key:'arpege',    name:'ARPEGE EU',   fullName:'ARPEGE Europa · proxy ALADIN',  apiId:'meteofrance_arpege_europe',   org:'Météo-France',    color:'#ffcc80', flag:'🇫🇷', avail:true,  global:false, coverage:'Europa' },
-  { key:'icon_d2',   name:'ICON D2',     fullName:'ICON Deutschland 2 (2.2 km)',   apiId:'icon_d2',                     org:'DWD · Alemanya',  color:'#f48fb1', flag:'🇩🇪', avail:true,  global:false, coverage:'Europa Central', maxDays:2 },
-  { key:'geosphere', name:'ALADIN-AROME',fullName:'AROME Àustria / ALADIN (2.5 km)',apiId:'geosphere_arome_austria',    org:'GeoSphere · Àustria', color:'#9fa8da', flag:'🇦🇹', avail:true, global:false, coverage:'Alps / Europa Central', maxDays:2 },
+  { key:'icon_d2',       name:'ICON D2',         fullName:'ICON Deutschland 2 (2.2 km)',          apiId:'icon_d2',                     org:'DWD · Alemanya',     color:'#f48fb1', flag:'🇩🇪', avail:true, global:false, coverage:'Europa Central',  maxDays:2 },
+  { key:'geosphere',    name:'ALADIN-AROME',    fullName:'AROME Àustria / ALADIN (2.5 km)',      apiId:'geosphere_arome_austria',     org:'GeoSphere · Àustria', color:'#9fa8da', flag:'🇦🇹', avail:true, global:false, coverage:'Alps / Europa Central', maxDays:2 },
+  { key:'knmi_harmonie',name:'HARMONIE EU',     fullName:'HARMONIE-AROME Europa (2.5 km)',       apiId:'knmi_harmonie_arome_europe',  org:'KNMI · Països Baixos', color:'#b39ddb', flag:'🇳🇱', avail:true, global:false, coverage:'Europa', maxDays:2 },
+  { key:'dmi_harmonie', name:'HARMONIE DMI',    fullName:'HARMONIE-AROME Europa / DMI (2.5 km)',apiId:'dmi_harmonie_arome_europe',   org:'DMI · Dinamarca',    color:'#4dd0e1', flag:'🇩🇰', avail:true, global:false, coverage:'Europa', maxDays:2 },
+  { key:'ukmo',         name:'UKMO',            fullName:'UK Met Office Global (10 km)',         apiId:'ukmo_seamless',               org:'Met Office · UK',    color:'#ffb74d', flag:'🇬🇧', avail:true, global:true  },
+  { key:'gem',          name:'GEM',             fullName:'Global Environmental Multiscale (15 km)',apiId:'gem_seamless',              org:'ECCC · Canadà',      color:'#c5e1a5', flag:'🇨🇦', avail:true, global:true  },
 ]
