@@ -257,6 +257,7 @@ export interface LangData {
   radarTitle:      string
   radarLoading:    string
   radarError:      string
+  radarForecast:   string
   // Welcome screen
   modelsAvailable: string
   feat1:           string

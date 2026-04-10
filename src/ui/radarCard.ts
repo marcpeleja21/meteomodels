@@ -3,16 +3,26 @@ import { LANG_DATA } from '../config/i18n'
 
 /**
  * Renders a real-time precipitation/radar card using Windy's free embed.
- * Only called when hasPrecipNearby() returns true (rain/snow detected or approaching).
+ *
+ * @param lat        Location latitude
+ * @param lon        Location longitude
+ * @param hoursUntil null  → raining now (no forecast badge)
+ *                   0     → precipitation starting now
+ *                   1-6   → precipitation expected in N hours (shows badge)
  */
-export function renderRadarCard(lat: number, lon: number) {
+export function renderRadarCard(lat: number, lon: number, hoursUntil: number | null) {
   const el = document.getElementById('radarCard')
   if (!el) return
 
   const lang = LANG_DATA[state.lang] ?? LANG_DATA.en
 
-  // Windy embed — overlay=rain shows live precipitation composite (radar-backed)
-  // marker=true pins the selected location; no menu/ads in embed mode
+  // Forecast badge: shown only when rain is approaching but not here yet
+  const forecastBadge = (hoursUntil !== null && hoursUntil > 0)
+    ? `<div class="radar-forecast-badge">
+         ⏱ ${lang.radarForecast.replace('{n}', String(hoursUntil))}
+       </div>`
+    : ''
+
   const windyUrl =
     `https://embed.windy.com/embed2.html` +
     `?lat=${lat}&lon=${lon}` +
@@ -30,6 +40,7 @@ export function renderRadarCard(lat: number, lon: number) {
   el.innerHTML = `
     <div class="media-card radar-card">
       <div class="media-label">${lang.radarTitle}</div>
+      ${forecastBadge}
       <iframe
         src="${windyUrl}"
         class="radar-iframe"

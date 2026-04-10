@@ -31,7 +31,7 @@ import { renderModelsPage } from './ui/modelsPage'
 import { renderHourlyPage } from './ui/hourlyPage'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
-import { getEnsembleCurrent, hasPrecipNearby } from './utils/data'
+import { getEnsembleCurrent, hoursUntilPrecip } from './utils/data'
 import { wxFromCode } from './utils/weather'
 import type { GeocodingResult } from './types'
 
@@ -491,16 +491,25 @@ async function selectLocation(loc: GeocodingResult) {
   renderMapCard(loc.latitude, loc.longitude, loc.name)
   fetchNearbyWebcam(loc.latitude, loc.longitude).then(renderWebcamCard)
 
-  // Radar: only show when precipitation is detected or approaching (~20 km window)
-  if (hasPrecipNearby(state.wxData)) {
-    renderRadarCard(loc.latitude, loc.longitude)
+  // Ensemble current conditions
+  const { data: ensData } = getEnsembleCurrent(state.wxData)
+  const ensWx = wxFromCode(ensData.code, t().wx)
+
+  // Radar visibility:
+  //  - Raining/snowing now → show, no tooltip (hoursUntil = null)
+  //  - Storm approaching within 6 h → show with forecast badge
+  //  - Nothing → hide
+  const rainingNow = ensWx.type === 'rain' || ensWx.type === 'snow'
+  const approachingIn = hoursUntilPrecip(state.wxData) // 0-6 or null
+  if (rainingNow) {
+    renderRadarCard(loc.latitude, loc.longitude, null)
+  } else if (approachingIn !== null) {
+    renderRadarCard(loc.latitude, loc.longitude, approachingIn)
   } else {
     clearRadarCard()
   }
 
-  // Background rain/snow animation
-  const { data: ensData } = getEnsembleCurrent(state.wxData)
-  const ensWx = wxFromCode(ensData.code, t().wx)
+  // Background animation — tied to current conditions only
   if (ensWx.type === 'rain') startAnimation('rain')
   else if (ensWx.type === 'snow') startAnimation('snow')
   else startAnimation('none')

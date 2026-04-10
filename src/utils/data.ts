@@ -104,38 +104,42 @@ function mostCommonCode(codes: (number | null)[]): number | null {
 }
 
 /**
- * Returns true if precipitation is occurring or approaching at the location
- * (checks current hour + next 5 hours across all loaded models).
- * Used to decide whether to show the radar card.
- * Threshold: avg precipitation probability > 20 % over the window,
- * OR any model reports a rain/drizzle/shower/snow code right now.
+ * Scans the current hour + next 6 hours across all loaded models.
+ * Returns the earliest offset (in hours) at which precipitation is expected,
+ * or null if none detected in the window.
+ * Returns 0 if precipitation is already occurring now.
  */
-export function hasPrecipNearby(wxData: Record<string, OpenMeteoResponse | null>): boolean {
+export function hoursUntilPrecip(wxData: Record<string, OpenMeteoResponse | null>): number | null {
   const models = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
-  if (!models.length) return false
+  if (!models.length) return null
+
+  let earliest: number | null = null
 
   for (const model of models) {
     const h = model.hourly
     const base = currentHourIdx(h.time)
 
-    // Check weather code at current hour — immediate rain/snow codes
-    const code = h.weather_code[base] ?? null
-    if (code !== null) {
-      // WMO codes: drizzle 51-67, rain 80-82, snow 71-77 / 85-86, thunderstorm 95-99, freezing 66-67
-      if ((code >= 51 && code <= 82) || (code >= 71 && code <= 77) ||
-          (code >= 85 && code <= 86) || (code >= 95 && code <= 99)) {
-        return true
+    for (let offset = 0; offset <= 6; offset++) {
+      const idx = base + offset
+      if (idx >= h.time.length) break
+
+      const code = h.weather_code[idx] ?? null
+      const prob = h.precipitation_probability[idx] ?? 0
+
+      const hasRainCode = code !== null && (
+        (code >= 51 && code <= 82) ||
+        (code >= 85 && code <= 86) ||
+        (code >= 95 && code <= 99)
+      )
+
+      if (hasRainCode || prob >= 25) {
+        if (earliest === null || offset < earliest) earliest = offset
+        break
       }
     }
-
-    // Check precipitation probability over next 5 hours — approaching storm
-    const window = h.precipitation_probability.slice(base, base + 6).filter(v => v != null) as number[]
-    if (window.length) {
-      const maxProb = Math.max(...window)
-      if (maxProb >= 25) return true
-    }
   }
-  return false
+
+  return earliest
 }
 
 /** Build 5-day ensemble forecast (index 0 = today), excluding range-limited models per day */
