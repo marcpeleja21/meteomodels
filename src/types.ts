@@ -253,6 +253,10 @@ export interface LangData {
   noWebcam:        string
   webcamLive:      string
   webcamViewLive:  string
+  // Radar
+  radarTitle:      string
+  radarLoading:    string
+  radarError:      string
   // Welcome screen
   modelsAvailable: string
   feat1:           string

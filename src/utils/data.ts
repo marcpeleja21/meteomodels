@@ -112,8 +112,10 @@ export function getEnsembleForecast(
   const allModels = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
   if (!allModels.length) return []
 
-  // Use the first available model's time array as reference
-  const refTimes = allModels[0].daily.time.slice(0, count)
+  // Use the model with the longest forecast range as reference (avoids 2-day truncation
+  // when a short-range LAM like AROME HD / ICON D2 happens to be first in Promise.all)
+  const refModel = allModels.reduce((best, m) => m.daily.time.length > best.daily.time.length ? m : best)
+  const refTimes = refModel.daily.time.slice(0, count)
   return refTimes.map((date, i): DailyForecast => {
     // Only include models valid for this day index
     const models = modelsForDay(wxData, i)

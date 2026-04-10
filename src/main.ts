@@ -24,6 +24,7 @@ import { renderTable } from './ui/table'
 import { renderStationCard } from './ui/stationCard'
 import { renderMapCard } from './ui/mapCard'
 import { renderWebcamCard } from './ui/webcamCard'
+import { renderRadarCard } from './ui/radarCard'
 import { renderAlertsBanner } from './ui/alertsBanner'
 import { renderPredictionCard } from './ui/predictionCard'
 import { renderModelsPage } from './ui/modelsPage'
@@ -486,9 +487,10 @@ async function selectLocation(loc: GeocodingResult) {
   renderModelTabs(getActiveModels(), state.wxData, t(), onModelSelect)
   renderAll()
 
-  // Map and webcam
+  // Map, webcam, and radar
   renderMapCard(loc.latitude, loc.longitude, loc.name)
   fetchNearbyWebcam(loc.latitude, loc.longitude).then(renderWebcamCard)
+  renderRadarCard(loc.latitude, loc.longitude)
 
   const { data: ensData } = getEnsembleCurrent(state.wxData)
   const ensWx = wxFromCode(ensData.code, t().wx)

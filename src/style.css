@@ -384,6 +384,22 @@ input{touch-action:manipulation}
 .webcam-live-badge:hover{background:rgba(220,30,30,1)}
 #webcamCard:empty{display:none}
 
+/* ── RADAR CARD ─────────────────────────────────────────────── */
+.radar-card-wrap{margin-top:14px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--card-border)}
+.radar-card-wrap:empty{display:none}
+.radar-card{padding:0;height:100%}
+.radar-card .media-label{font-size:.78rem;font-weight:600}
+.radar-loading,.radar-error{
+  height:260px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-dim);font-size:.85rem;gap:8px;
+  background:rgba(255,255,255,0.02);border-radius:10px;
+}
+.radar-attribution{
+  text-align:right;font-size:.65rem;color:var(--text-dim);padding:4px 8px;
+  opacity:.6;
+}
+.radar-attribution a{color:var(--text-dim);text-decoration:underline dotted}
+
 /* ── LOADING ────────────────────────────────────────────────── */
 .loading{text-align:center;padding:60px 20px}
 .spinner{
