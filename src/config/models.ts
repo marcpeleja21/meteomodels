@@ -20,18 +20,32 @@ export function isEurope(lat: number, lon: number): boolean {
 }
 
 /**
+ * Central European bounding box — covers the domain of high-res LAMs
+ * such as ICON D2 (DWD, 2.2 km) and GeoSphere AROME Austria (2.5 km).
+ * Roughly: Germany, Austria, Switzerland, France, Benelux, Czech, Poland,
+ * northern Italy, Denmark. Excludes Iberian Peninsula and UK.
+ */
+export function isCentralEurope(lat: number, lon: number): boolean {
+  return lat >= 43.5 && lat <= 57.5 && lon >= -4 && lon <= 20
+}
+
+/**
  * Returns the active model list for the current location in state.
- * - Inside Europe  → ICON EU shown,     ICON Global hidden
- * - Outside Europe → ICON Global shown, ICON EU hidden
+ * - Inside Europe      → ICON EU shown,       ICON Global hidden
+ * - Outside Europe     → ICON Global shown,   ICON EU hidden
+ * - Central Europe     → ICON D2 + GeoSphere AROME shown
  * Falls back to full list when no location is loaded yet.
  */
 export function getActiveModels(): WeatherModel[] {
   const loc = state.currentLoc
   if (!loc) return MODELS
-  const europe = isEurope(loc.latitude, loc.longitude)
+  const europe  = isEurope(loc.latitude, loc.longitude)
+  const central = isCentralEurope(loc.latitude, loc.longitude)
   return MODELS.filter(m => {
-    if (m.key === 'icon')    return !europe  // global only outside Europe
-    if (m.key === 'icon_eu') return europe   // EU only inside Europe
+    if (m.key === 'icon')      return !europe   // global only outside Europe
+    if (m.key === 'icon_eu')   return europe    // EU only inside Europe
+    if (m.key === 'icon_d2')   return central   // DWD LAM — Central Europe only
+    if (m.key === 'geosphere') return central   // GeoSphere AROME — Central Europe only
     return true
   })
 }
@@ -45,4 +59,6 @@ export const MODELS: WeatherModel[] = [
   { key:'arome_hd',  name:'AROME HD',    fullName:'AROME France HD (1.5 km)',      apiId:'meteofrance_arome_france_hd', org:'Météo-France',    color:'#80deea', flag:'🇫🇷', avail:true,  global:false, coverage:'França', maxDays:2 },
   { key:'arome',     name:'AROME 2.5km', fullName:'AROME France (2.5 km)',         apiId:'meteofrance_arome_france',    org:'Météo-France',    color:'#80cbc4', flag:'🇫🇷', avail:true,  global:false, coverage:'França', maxDays:2 },
   { key:'arpege',    name:'ARPEGE EU',   fullName:'ARPEGE Europa · proxy ALADIN',  apiId:'meteofrance_arpege_europe',   org:'Météo-France',    color:'#ffcc80', flag:'🇫🇷', avail:true,  global:false, coverage:'Europa' },
+  { key:'icon_d2',   name:'ICON D2',     fullName:'ICON Deutschland 2 (2.2 km)',   apiId:'icon_d2',                     org:'DWD · Alemanya',  color:'#f48fb1', flag:'🇩🇪', avail:true,  global:false, coverage:'Europa Central', maxDays:2 },
+  { key:'geosphere', name:'ALADIN-AROME',fullName:'AROME Àustria / ALADIN (2.5 km)',apiId:'geosphere_arome_austria',    org:'GeoSphere · Àustria', color:'#9fa8da', flag:'🇦🇹', avail:true, global:false, coverage:'Alps / Europa Central', maxDays:2 },
 ]
