@@ -259,12 +259,17 @@ export interface LangData {
   radarLoading:    string
   radarError:      string
   radarForecast:   string
-  // Welcome screen
-  modelsAvailable: string
-  feat1:           string
-  feat2:           string
-  feat3:           string
-  feat4:           string
+  // Welcome screen feature cards
+  feat1Title:        string
+  feat1Desc:         string
+  feat2Title:        string
+  feat2Desc:         string
+  feat3Title:        string
+  feat3Desc:         string
+  svgToday:          string
+  svgTomorrow:       string
+  svgLightClothes:   string
+  svgJacketUmbrella: string
   // Alerts severity badges
   alertExtreme:    string
   alertSevere:     string

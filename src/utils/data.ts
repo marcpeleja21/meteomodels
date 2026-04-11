@@ -113,7 +113,8 @@ export function hoursUntilPrecip(wxData: Record<string, OpenMeteoResponse | null
   const models = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
   if (!models.length) return null
 
-  let earliest: number | null = null
+  // Count how many models signal precip at each hour offset
+  const hitsPerOffset: Map<number, number> = new Map()
 
   for (const model of models) {
     const h = model.hourly
@@ -132,10 +133,23 @@ export function hoursUntilPrecip(wxData: Record<string, OpenMeteoResponse | null
         (code >= 95 && code <= 99)
       )
 
-      if (hasRainCode || prob >= 25) {
-        if (earliest === null || offset < earliest) earliest = offset
-        break
+      // Require a meaningful probability AND/OR a rain WMO code
+      if (hasRainCode || prob >= 40) {
+        hitsPerOffset.set(offset, (hitsPerOffset.get(offset) ?? 0) + 1)
+        break // only count the earliest hit per model
       }
+    }
+  }
+
+  if (!hitsPerOffset.size) return null
+
+  // Require at least 2 models to agree (or all models when only 1 is loaded)
+  const minAgreement = Math.min(2, models.length)
+  let earliest: number | null = null
+
+  for (const [offset, count] of hitsPerOffset) {
+    if (count >= minAgreement) {
+      if (earliest === null || offset < earliest) earliest = offset
     }
   }
 

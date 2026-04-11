@@ -111,13 +111,20 @@ function applyLang() {
   if (wSub)   wSub.textContent   = lang.welcomeSub
   if (bSub)   bSub.textContent   = lang.appSub
 
-  // Welcome screen — static elements hardcoded in HTML
-  const modelsLblEl = document.querySelector<HTMLElement>('.models-section-label')
-  if (modelsLblEl) modelsLblEl.textContent = lang.modelsAvailable
-
-  const featEls = document.querySelectorAll<HTMLElement>('.feat')
-  const feats   = [lang.feat1, lang.feat2, lang.feat3, lang.feat4]
-  featEls.forEach((el, i) => { if (feats[i]) el.textContent = feats[i] })
+  // Welcome screen — feature cards (text + SVG labels)
+  const setText = (id: string, val: string) => { const el = document.getElementById(id); if (el) el.textContent = val }
+  setText('feat1-title', lang.feat1Title)
+  setText('feat1-desc',  lang.feat1Desc)
+  setText('feat2-title', lang.feat2Title)
+  setText('feat2-desc',  lang.feat2Desc)
+  setText('feat3-title', lang.feat3Title)
+  setText('feat3-desc',  lang.feat3Desc)
+  setText('svg3-today',           lang.svgToday)
+  setText('svg3-tomorrow',        lang.svgTomorrow)
+  setText('svg3-outfit-today',    lang.svgLightClothes)
+  setText('svg3-outfit-tomorrow', lang.svgJacketUmbrella)
+  // Card 1 SVG day names: Mon–Sat = days[1]–days[6]
+  for (let i = 0; i < 6; i++) setText(`svg1-d${i}`, lang.days[i + 1])
 
   // Loading screen text
   if (loadingText) loadingText.textContent = lang.loading
