@@ -472,6 +472,7 @@ async function selectLocation(loc: GeocodingResult) {
   state.wxData     = wxData
   state.aqiData    = aqiData
   state.currentObs = obsData
+  state.alerts     = alertsData
 
   // MeteoBlue
   try {

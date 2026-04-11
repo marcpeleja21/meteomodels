@@ -11,6 +11,27 @@ export interface WeatherAlert {
   expires:     string | null
   source:      string
   areas:       string
+  /** Language-independent category: wind|storm|rain|flood|snow|ice|fog|heat|cold|fire|coastal|avalanche|dust|other */
+  category:    string
+}
+
+/** Derive a stable, language-independent category from a raw English event string. */
+export function categorizeEvent(event: string): string {
+  const l = event.toLowerCase()
+  if (l.includes('thunderstorm') || l.includes('lightning'))                         return 'storm'
+  if (l.includes('flood'))                                                            return 'flood'
+  if (l.includes('wind') || l.includes('gale') || l.includes('squall'))             return 'wind'
+  if (l.includes('rain') || l.includes('shower') || l.includes('precipitation'))    return 'rain'
+  if (l.includes('blizzard') || l.includes('snow'))                                  return 'snow'
+  if (l.includes('ice') || l.includes('frost') || l.includes('freezing'))           return 'ice'
+  if (l.includes('fog')  || l.includes('mist'))                                      return 'fog'
+  if (l.includes('heat') || l.includes('high temperature'))                          return 'heat'
+  if (l.includes('cold') || l.includes('low temperature') || l.includes('freeze'))  return 'cold'
+  if (l.includes('fire') || l.includes('wildfire') || l.includes('forest'))         return 'fire'
+  if (l.includes('avalanche'))                                                        return 'avalanche'
+  if (l.includes('coast') || l.includes('marine'))                                   return 'coastal'
+  if (l.includes('dust') || l.includes('sand'))                                      return 'dust'
+  return 'other'
 }
 
 // ── MeteoAlarm cap:event translation ─────────────────────────────────────────
@@ -86,6 +107,7 @@ async function fetchUSAlerts(lat: number, lon: number): Promise<WeatherAlert[]> 
         expires:     p.expires ?? null,
         source:      'NWS',
         areas:       p.areaDesc ?? '',
+        category:    categorizeEvent(p.event ?? ''),
       }
     })
   } catch {
@@ -234,6 +256,7 @@ async function fetchEUAlerts(
         expires:     expiresStr,
         source:      'Meteoalarm',
         areas:       area,
+        category:    categorizeEvent(rawEvent),
       }]
     })
   } catch {

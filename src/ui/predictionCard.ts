@@ -18,6 +18,7 @@
 import { state } from '../state'
 import type { OpenMeteoResponse } from '../types'
 import { computeModelWeights } from '../utils/modelWeights'
+import type { WeatherAlert } from '../api/alerts'
 
 // ── Wind chill ────────────────────────────────────────────────────────────────
 function windChill(tempC: number, windKmh: number): number {
@@ -374,9 +375,72 @@ function pickV<T>(arr: T[], seed: number): T {
   return arr[seed % arr.length]
 }
 
+// ── Alert helpers ─────────────────────────────────────────────────────────────
+
+const SEVERITY_RANK: Record<string, number> = { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1, Unknown: 0 }
+
+/** Pick the most severe active alert (Moderate or above). */
+function worstAlert(alerts: WeatherAlert[]): WeatherAlert | null {
+  const active = alerts.filter(a => (SEVERITY_RANK[a.severity] ?? 0) >= 2)
+  if (!active.length) return null
+  return active.reduce((best, a) => (SEVERITY_RANK[a.severity] ?? 0) > (SEVERITY_RANK[best.severity] ?? 0) ? a : best)
+}
+
+/** One-sentence alert notice appended to the prediction narrative. */
+function alertNotice(alerts: WeatherAlert[], lang: string): string {
+  const a = worstAlert(alerts)
+  if (!a) return ''
+  const icon = a.severity === 'Extreme' ? '🔴' : a.severity === 'Severe' ? '🟠' : '🟡'
+  const label: Record<string, string> = {
+    ca: 'Alerta activa', es: 'Alerta activa', en: 'Active alert', fr: 'Alerte active', de: 'Aktive Warnung',
+  }
+  const caution: Record<string, Record<string, string>> = {
+    wind:      { ca: 'Possible vent fort superior al previst. Precaució a l\'exterior.', es: 'Viento posiblemente más fuerte de lo previsto. Precaución en el exterior.', en: 'Winds may exceed the forecast. Take care outdoors.', fr: 'Vent potentiellement plus fort que prévu. Prudence à l\'extérieur.', de: 'Wind kann stärker als vorhergesagt sein. Vorsicht im Freien.' },
+    storm:     { ca: 'Tempesta elèctrica possible. Evita espais oberts.', es: 'Tormenta eléctrica posible. Evita espacios abiertos.', en: 'Thunderstorm possible. Avoid open spaces.', fr: 'Orage possible. Évitez les espaces découverts.', de: 'Gewitter möglich. Offene Flächen meiden.' },
+    rain:      { ca: 'Pluges intenses possibles. Precaució a les carreteres.', es: 'Lluvias intensas posibles. Precaución en carretera.', en: 'Heavy rain possible. Drive with caution.', fr: 'Pluies intenses possibles. Prudence sur les routes.', de: 'Starkregen möglich. Vorsicht im Stra\u00dfenverkehr.' },
+    flood:     { ca: 'Risc d\'inundació. Evita zones baixes i rambles.', es: 'Riesgo de inundación. Evita zonas bajas y ramblas.', en: 'Flood risk. Avoid low-lying areas and riverbeds.', fr: 'Risque d\'inondation. Évitez les zones basses et les cours d\'eau.', de: '\u00dcberschwemmungsgefahr. Tieflagen und Flussläufe meiden.' },
+    snow:      { ca: 'Nevada prevista. Possibles talls de trànsit.', es: 'Nevada prevista. Posibles cortes de tráfico.', en: 'Snowfall expected. Road disruptions possible.', fr: 'Chutes de neige prévues. Perturbations routières possibles.', de: 'Schneefall erwartet. Verkehrsbeeinträchtigungen möglich.' },
+    ice:       { ca: 'Risc de gel a la calçada. Condueix amb precaució.', es: 'Riesgo de hielo en calzada. Conduce con precaución.', en: 'Ice on roads. Drive carefully.', fr: 'Verglas possible. Conduisez prudemment.', de: 'Glatteis auf Fahrbahnen. Vorsichtig fahren.' },
+    fog:       { ca: 'Boira densa possible. Redueix la velocitat.', es: 'Niebla densa posible. Reduce la velocidad.', en: 'Dense fog possible. Reduce speed.', fr: 'Brouillard dense possible. Réduisez votre vitesse.', de: 'Dichter Nebel möglich. Geschwindigkeit reduzieren.' },
+    heat:      { ca: 'Calor extrema. Evita l\'exposició solar entre les 12 i les 17h. Beu molta aigua.', es: 'Calor extremo. Evita la exposición solar entre las 12 y las 17h. Bebe mucha agua.', en: 'Extreme heat. Avoid sun exposure 12\u201317h and drink plenty of water.', fr: 'Chaleur extr\u00eame. Évitez l\'exposition solaire de 12 à 17h et hydratez-vous.', de: 'Extreme Hitze. Sonne 12\u201317 Uhr meiden und viel trinken.' },
+    cold:      { ca: 'Fred extrem. Limita el temps a l\'exterior i abriga\'t bé.', es: 'Frío extremo. Limita el tiempo en exterior y abrígate bien.', en: 'Extreme cold. Limit outdoor exposure and wrap up well.', fr: 'Grand froid. Limitez le temps à l\'extérieur et couvrez-vous bien.', de: 'Extreme Kälte. Aufenthalt im Freien begrenzen und warm anziehen.' },
+    fire:      { ca: 'Risc d\'incendi forestal. Evita encendre foc a l\'exterior.', es: 'Riesgo de incendio forestal. Evita encender fuego al exterior.', en: 'Forest fire risk. Avoid open flames outdoors.', fr: 'Risque de feu de forêt. Évitez les flammes à l\'extérieur.', de: 'Waldbrandgefahr. Kein offenes Feuer im Freien.' },
+    avalanche: { ca: 'Risc d\'allau. Informa\'t abans de sortir a muntanya.', es: 'Riesgo de alud. Infórmate antes de salir a la montaña.', en: 'Avalanche risk. Check conditions before heading to the mountains.', fr: 'Risque d\'avalanche. Renseignez-vous avant d\'aller en montagne.', de: 'Lawinengefahr. Lagebericht prüfen vor dem Aufstieg.' },
+    coastal:   { ca: 'Temporal costaner. Evita les platges i zones exposades.', es: 'Temporal costero. Evita playas y zonas expuestas.', en: 'Coastal storm warning. Avoid beaches and exposed areas.', fr: 'Tempête côtière. Évitez les plages et les zones exposées.', de: 'Küstensturm. Strände und exponierte Lagen meiden.' },
+    dust:      { ca: 'Intrusió de pols. Precaució si tens al·lèrgies o problemes respiratoris.', es: 'Intrusión de polvo. Precaución si tienes alergias o problemas respiratorios.', en: 'Dust event. Take care if you have allergies or respiratory conditions.', fr: 'Intrusion de poussière. Prudence en cas d\'allergies ou de problèmes respiratoires.', de: 'Staubereignis. Vorsicht bei Allergien oder Atemwegsproblemen.' },
+  }
+  const cautionText = (caution[a.category] ?? {})[lang] ?? (caution[a.category] ?? {}).en ?? ''
+  const lbl = (label[lang] ?? label.en) + ': ' + a.event + '.'
+  return icon + ' ' + lbl + (cautionText ? ' ' + cautionText : '')
+}
+
+/** Alert-specific clothing note prepended to the outfit guide. */
+function alertClothingNote(alerts: WeatherAlert[], lang: string): string {
+  const a = worstAlert(alerts)
+  if (!a) return ''
+  const icon = a.severity === 'Extreme' ? '🔴' : a.severity === 'Severe' ? '🟠' : '🟡'
+  const notes: Record<string, Record<string, string>> = {
+    wind:      { ca: icon + ' Alerta de vent: capa para-vent imprescindible. Evita portar complements que puguin sortir volant.', es: icon + ' Alerta de viento: cortavientos imprescindible. Evita llevar complementos que puedan salir volando.', en: icon + ' Wind alert: windproof outer layer essential. Avoid loose accessories that could blow away.', fr: icon + ' Alerte vent\u00a0: coupe-vent indispensable. Évitez les accessoires qui pourraient s\'envoler.', de: icon + ' Windwarnung: Windschutzjacke unbedingt erforderlich. Keine losen Accessoires tragen.' },
+    storm:     { ca: icon + ' Alerta de tempesta: impermeable i paraigua robust. Evita paraigua plà en cas de vent fort.', es: icon + ' Alerta de tormenta: impermeable y paraguas robusto. Evita paraguas planos con viento fuerte.', en: icon + ' Storm alert: waterproof jacket and sturdy umbrella. Avoid flat umbrellas in strong winds.', fr: icon + ' Alerte orage\u00a0: imperméable et parapluie solide. Évitez les parapluies plats par grand vent.', de: icon + ' Gewitterwarnung: Regenmantel und stabiler Regenschirm. Bei Sturm keinen Flachschirm verwenden.' },
+    rain:      { ca: icon + ' Alerta de pluges: botes impermeables i impermeable. Porta roba de recanvi.', es: icon + ' Alerta de lluvias: botas impermeables e impermeable. Lleva ropa de recambio.', en: icon + ' Rain alert: waterproof boots and rain jacket. Carry spare dry clothing.', fr: icon + ' Alerte pluie\u00a0: bottes imperméables et imperméable. Emportez des vêtements de rechange.', de: icon + ' Regenwarnung: Wasserdichte Stiefel und Regenjacke. Wechselkleidung mitnehmen.' },
+    flood:     { ca: icon + ' Alerta d\'inundació: botes altes impermeables si has de sortir. Evita travessar zones inundades.', es: icon + ' Alerta de inundación: botas altas impermeables si debes salir. Evita cruzar zonas inundadas.', en: icon + ' Flood alert: tall waterproof boots if going out. Do not cross flooded areas.', fr: icon + ' Alerte inondation\u00a0: bottes hautes imperméables si vous devez sortir. N\'essayez pas de traverser les zones inondées.', de: icon + ' Hochwasserwarnung: Hohe Gummistiefel beim Ausgehen. Überflutete Bereiche nicht durchqueren.' },
+    snow:      { ca: icon + ' Alerta de neu: botes antilliscants impermeables imprescindibles. Capes tèrmiques i guants.', es: icon + ' Alerta de nieve: botas antideslizantes impermeables imprescindibles. Capas térmicas y guantes.', en: icon + ' Snow alert: non-slip waterproof boots essential. Thermal layers and gloves.', fr: icon + ' Alerte neige\u00a0: bottes imperméables antidérapantes indispensables. Couches thermiques et gants.', de: icon + ' Schneewarnung: Rutschfeste Winterstiefel unbedingt erforderlich. Thermische Schichten und Handschuhe.' },
+    ice:       { ca: icon + ' Alerta de gel: sola antilliscant obligatòria. Evita calçat de sola llisa.', es: icon + ' Alerta de hielo: suela antideslizante obligatoria. Evita calzado de suela lisa.', en: icon + ' Ice alert: non-slip footwear mandatory. Avoid smooth-soled shoes.', fr: icon + ' Alerte verglas\u00a0: semelles antidérapantes obligatoires. Évitez les semelles lisses.', de: icon + ' Glatteis-Warnung: Rutschfeste Sohlen Pflicht. Glatte Schuhsohlen vermeiden.' },
+    fog:       { ca: icon + ' Alerta de boira: roba amb elements reflectants si surts a peu o en bicicleta.', es: icon + ' Alerta de niebla: ropa con elementos reflectantes si sales a pie o en bicicleta.', en: icon + ' Fog alert: wear reflective clothing if walking or cycling.', fr: icon + ' Alerte brouillard\u00a0: portez des vêtements réfléchissants si vous marchez ou pédalez.', de: icon + ' Nebelwarnung: Reflektierende Kleidung beim Gehen oder Radfahren tragen.' },
+    heat:      { ca: icon + ' Alerta de calor extrem: roba de colors clars i transpirable, gorra, FPS 50+ i molta hidratació.', es: icon + ' Alerta de calor extremo: ropa de colores claros y transpirable, gorra, FPS 50+ y mucha hidratación.', en: icon + ' Extreme heat alert: light-coloured breathable clothing, hat, SPF 50+ and plenty of water.', fr: icon + ' Alerte chaleur extrême\u00a0: vêtements clairs et respirants, chapeau, FPS 50+ et hydratation abondante.', de: icon + ' Extreme Hitze-Warnung: Helle, atmungsaktive Kleidung, Hut, LSF 50+ und viel trinken.' },
+    cold:      { ca: icon + ' Alerta de fred extrem: abric d\'hivern, capes tèrmiques, guants, gorra i bufanda imprescindibles.', es: icon + ' Alerta de frío extremo: abrigo de invierno, capas térmicas, guantes, gorro y bufanda imprescindibles.', en: icon + ' Extreme cold alert: heavy winter coat, thermal layers, gloves, hat and scarf essential.', fr: icon + ' Alerte grand froid\u00a0: manteau d\'hiver, couches thermiques, gants, bonnet et écharpe indispensables.', de: icon + ' Extreme Kälte-Warnung: Schwerer Wintermantel, Thermoschichten, Handschuhe, Mütze und Schal unbedingt erforderlich.' },
+    fire:      { ca: icon + ' Risc d\'incendi: evita roba sintètica inflamable si ets en zona forestal.', es: icon + ' Riesgo de incendio: evita ropa sintética inflamable si estás en zona forestal.', en: icon + ' Fire risk: avoid flammable synthetic clothing in forested areas.', fr: icon + ' Risque d\'incendie\u00a0: évitez les vêtements synthétiques inflammables en zone forestière.', de: icon + ' Brandgefahr: Keine brennbaren Kunstfasern in Waldgebieten tragen.' },
+    dust:      { ca: icon + ' Pols en suspensió: mascareta recomanada si tens al·lèrgies o asma. Ulleres de sol amb protecció lateral.', es: icon + ' Polvo en suspensión: mascarilla recomendada si tienes alergias o asma. Gafas de sol con protección lateral.', en: icon + ' Dust event: face mask recommended if you have allergies or asthma. Wraparound sunglasses.', fr: icon + ' Poussière en suspension\u00a0: masque conseillé en cas d\'allergies ou d\'asthme. Lunettes de soleil enveloppantes.', de: icon + ' Staubereignis: Atemschutzmaske bei Allergien oder Asthma empfohlen. Vollrand-Sonnenbrille.' },
+    avalanche: { ca: icon + ' Risc d\'allau: equip d\'allau complet (DVA, pala, sonda) obligatori en alta muntanya.', es: icon + ' Riesgo de alud: equipo de alud completo (ARVA, pala, sonda) obligatorio en alta montaña.', en: icon + ' Avalanche risk: full avalanche kit (beacon, shovel, probe) mandatory in high mountain terrain.', fr: icon + ' Risque d\'avalanche\u00a0: kit complet (DVA, pelle, sonde) obligatoire en haute montagne.', de: icon + ' Lawinengefahr: Komplette Lawinenausrüstung (LVS, Schaufel, Sonde) im Hochgebirge Pflicht.' },
+    coastal:   { ca: icon + ' Temporal costaner: roba impermeable i calçat de grip si has d\'anar a zones costaneres.', es: icon + ' Temporal costero: ropa impermeable y calzado con grip si debes ir a zonas costeras.', en: icon + ' Coastal storm: waterproof clothing and grip footwear if visiting coastal areas.', fr: icon + ' Tempête côtière\u00a0: vêtements imperméables et chaussures à crampons si vous allez en zone côtière.', de: icon + ' Küstensturm: Wasserdichte Kleidung und grifffestes Schuhwerk an der Küste.' },
+  }
+  const note = (notes[a.category] ?? {})[lang] ?? (notes[a.category] ?? {}).en
+  return note ?? ''
+}
+
 // ── Prediction text (today + tomorrow narrative) ──────────────────────────────
 /* eslint-disable prefer-template */
-function generatePrediction(s: Stats48h, lang: string): string {
+function generatePrediction(s: Stats48h, lang: string, alerts: WeatherAlert[] = []): string {
   const wnd     = Math.round(s.maxWind)
   const windDesc = pick({
     ca: 'Ratxes fins a ' + wnd + '\u00a0km/h.',
@@ -524,12 +588,17 @@ function generatePrediction(s: Stats48h, lang: string): string {
     }, lang)
   }
 
-  return todayPart + ' ' + tomPart + ' ' + windFull
+  const notice = alertNotice(alerts, lang)
+  return todayPart + ' ' + tomPart + ' ' + windFull + (notice ? ' ' + notice : '')
 }
 /* eslint-enable prefer-template */
 
 // ── Clothes advice ────────────────────────────────────────────────────────────
-function generateClothesAdvice(s: Stats48h, lang: string): string {
+function generateClothesAdvice(s: Stats48h, lang: string, alerts: WeatherAlert[] = []): string {
+  const alertNote = alertClothingNote(alerts, lang)
+
+  // All clothing logic in a nested function; alert note prepended at the end.
+  function base(): string {
   const fl        = s.avgFeelsLike
   const mfl       = s.minFeelsLike
   const wnd       = Math.round(s.maxWind)
@@ -765,6 +834,10 @@ function generateClothesAdvice(s: Stats48h, lang: string): string {
       fr: 'Chaleur importante (ressenti ' + Math.round(fl) + '\u00b0C). Vêtements légers, respirants et de couleurs claires. Chapeau, lunettes et crème solaire obligatoires. Buvez régulièrement.',
     }, lang),
   ], seed)
+  } // end base()
+
+  const b = base()
+  return alertNote ? alertNote + ' ' + b : b
 }
 
 // ── Day-label helpers ─────────────────────────────────────────────────────────
@@ -794,7 +867,7 @@ function shortClothes(fl: number, rain: boolean, lang: string): string {
  * Returns a "Today: X. Tomorrow: Y." dual-advice string when today and tomorrow
  * call for meaningfully different clothing. Returns empty string when similar.
  */
-function perDayClothesNote(s: Stats48h, lang: string): string {
+function perDayClothesNote(s: Stats48h, lang: string, alerts: WeatherAlert[] = []): string {
   const todayFL  = s.todayAvgFL    ?? s.avgFeelsLike
   const tomFL    = s.tomorrowAvgFL ?? s.avgFeelsLike
   const todayRain = s.todayPrecip    > 1
@@ -804,11 +877,17 @@ function perDayClothesNote(s: Stats48h, lang: string): string {
   const cat = (fl: number, rain: boolean) =>
     (rain ? 10 : 0) + (fl < 0 ? 0 : fl < 6 ? 1 : fl < 12 ? 2 : fl < 18 ? 3 : fl < 25 ? 4 : 5)
 
-  if (cat(todayFL, todayRain) === cat(tomFL, tomRain)) return '' // same → no dual note
+  if (cat(todayFL, todayRain) === cat(tomFL, tomRain)) {
+    // Same category today/tomorrow — no dual note, but still surface alert clothing note if any
+    const alertNote = alertClothingNote(alerts, lang)
+    return alertNote   // empty string if no alert (caller falls back to generateClothesAdvice)
+  }
 
-  const todayLbl = pick({ ca:'Avui', es:'Hoy', en:'Today', fr:"Auj." }, lang)
-  const tomLbl   = pick({ ca:'Demà', es:'Mañana', en:'Tomorrow', fr:'Demain' }, lang)
-  return `${todayLbl}: ${shortClothes(todayFL, todayRain, lang)}. ${tomLbl}: ${shortClothes(tomFL, tomRain, lang)}.`
+  const todayLbl  = pick({ ca:'Avui', es:'Hoy', en:'Today', fr:"Auj." }, lang)
+  const tomLbl    = pick({ ca:'Demà', es:'Mañana', en:'Tomorrow', fr:'Demain' }, lang)
+  const dualNote  = `${todayLbl}: ${shortClothes(todayFL, todayRain, lang)}. ${tomLbl}: ${shortClothes(tomFL, tomRain, lang)}.`
+  const alertNote = alertClothingNote(alerts, lang)
+  return alertNote ? alertNote + ' ' + dualNote : dualNote
 }
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
@@ -819,15 +898,16 @@ export function renderPredictionCard(
   if (!el) return
   if (!wxData || !Object.keys(wxData).length) { el.innerHTML = ''; return }
 
-  const lang  = state.lang
-  const stats = compute48hStats(wxData)
+  const lang    = state.lang
+  const alerts  = state.alerts ?? []
+  const stats   = compute48hStats(wxData)
   if (!stats) { el.innerHTML = ''; return }
 
-  const prediction    = generatePrediction(stats, lang)
-  const perDayNote    = perDayClothesNote(stats, lang)
+  const prediction    = generatePrediction(stats, lang, alerts)
+  const perDayNote    = perDayClothesNote(stats, lang, alerts)
   // If today and tomorrow call for different attire, use per-day note only (cleaner).
   // Otherwise use the full clothes advice.
-  const clothesAdvice = perDayNote || generateClothesAdvice(stats, lang)
+  const clothesAdvice = perDayNote || generateClothesAdvice(stats, lang, alerts)
 
   // Condition icon — driven by feels-like for cold/windy accuracy
   let condIcon = '⛅'

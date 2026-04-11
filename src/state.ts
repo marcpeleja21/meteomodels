@@ -1,4 +1,5 @@
 import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs } from './types'
+import type { WeatherAlert } from './api/alerts'
 
 /** Maps browser navigator.language to one of the 4 supported app languages. */
 function detectLang(): string {
@@ -39,6 +40,7 @@ export const state = {
   forecastMode:         'days' as 'days' | 'hours',
   forecastDaysExpanded: false  as boolean,
   currentObs:           null   as CurrentObs | null,
+  alerts:               []     as WeatherAlert[],
 
   // Table
   tableDays: 4 as number,   // 4 = compact, 7 = full
