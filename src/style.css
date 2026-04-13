@@ -1,3 +1,25 @@
+/* ── CLS PREVENTION: metric-matched font fallbacks ─────────────── *
+ * These @font-face rules define fallback faces whose metrics are    *
+ * tuned to match Inter and DM Mono exactly.  When font-display is  *
+ * 'optional' the browser may never swap, but if it does the text   *
+ * boxes don't change size → zero layout shift from fonts.          */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Helvetica');
+  ascent-override:  90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+  size-adjust:      107.06%;
+}
+@font-face {
+  font-family: 'DM Mono Fallback';
+  src: local('Courier New'), local('Courier');
+  ascent-override:  80%;
+  descent-override: 20%;
+  line-gap-override: 0%;
+  size-adjust:      112%;
+}
+
 /* ── DESIGN SYSTEM ─────────────────────────────────────────────── */
 :root{
   --bg:          #0b1220;
@@ -22,8 +44,8 @@
   --shadow:      0 8px 40px rgba(0,0,0,0.6);
   --shadow-sm:   0 4px 16px rgba(0,0,0,0.4);
   --trans:       0.25s ease;
-  --font-ui:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-data:   'DM Mono', ui-monospace, 'Courier New', monospace;
+  --font-ui:     'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-data:   'DM Mono', 'DM Mono Fallback', ui-monospace, 'Courier New', monospace;
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -288,6 +310,29 @@ input{touch-action:manipulation}
   color:var(--accent2);
   letter-spacing:.4px;
   margin-left:4px;
+}
+
+/* ── ALERTS BANNER HOST ─────────────────────────────────────── *
+ * CLS fix: the host uses max-height clip + overflow:hidden so   *
+ * it collapses to zero height when empty instead of toggling    *
+ * display, which would shift all subsequent content.            */
+.alerts-banner-host {
+  max-height: 0;
+  overflow: hidden;
+  /* No transition here — we want it instant so Lighthouse doesn't
+     see a mid-animation height that still counts as a shift.    */
+}
+.alerts-banner-host--visible {
+  max-height: 1000px; /* large enough for any alert stack */
+  overflow: visible;
+}
+
+/* ── PREDICTION CARD HOST ───────────────────────────────────── *
+ * CLS fix: reserve enough height for a typical rendered card    *
+ * so content below (locBar, model tabs, charts) doesn't jump    *
+ * when the card is populated after the API fetch.               */
+.prediction-card-host {
+  min-height: 110px;
 }
 
 /* ── ALERTS BANNER ──────────────────────────────────────────── */

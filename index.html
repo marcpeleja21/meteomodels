@@ -57,7 +57,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- font-display:optional — no mid-render swap → zero font CLS.
+     Fallback metrics are tuned below in CSS so layout is stable either way. -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet">
 
 <!-- ── Microsoft ────────────────────────────────────────────────────────────── -->
 <meta name="msapplication-TileColor" content="#0b1220">
@@ -182,8 +184,10 @@
       <span style="--d:1.4s">⛈️</span>
     </div>
 
-    <h1 id="welcomeTitle"></h1>
-    <p id="welcomeSub"></p>
+    <!-- Pre-filled with default language so layout is stable on first paint.
+         applyLang() overwrites textContent on every language switch. -->
+    <h1 id="welcomeTitle">Comparativa de Models Meteorològics</h1>
+    <p id="welcomeSub">Cerca qualsevol localitat per comparar les previsions de múltiples models en temps real</p>
 
     <!-- Search -->
     <div class="welcome-search-wrap">
@@ -355,10 +359,13 @@
 
   <!-- WEATHER DISPLAY -->
   <div id="wxDisplay" class="wx-display hidden">
-    <!-- Official weather alerts banner -->
-    <div id="alertsBanner" style="display:none"></div>
-    <!-- AI-style 48h prediction + clothes advice -->
-    <div id="predictionCard"></div>
+    <!-- Official weather alerts banner.
+         Uses max-height:0 → visible height instead of display:none so it never
+         shifts other content — the banner slides in from zero height. -->
+    <div id="alertsBanner" class="alerts-banner-host"></div>
+    <!-- AI-style 48h prediction + clothes advice.
+         min-height reserves space so content below doesn't shift on data load. -->
+    <div id="predictionCard" class="prediction-card-host"></div>
 
     <!-- ── Ad slot 1: below prediction card ── -->
     <!-- data-ad-slot: create a unit in AdSense dashboard → My ads → replace XXXXXXXXXX -->

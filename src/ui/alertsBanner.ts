@@ -31,11 +31,11 @@ export function renderAlertsBanner(alerts: WeatherAlert[]) {
 
   if (!active.length) {
     el.innerHTML = ''
-    el.style.display = 'none'
+    el.classList.remove('alerts-banner-host--visible')
     return
   }
 
-  el.style.display = 'block'
+  el.classList.add('alerts-banner-host--visible')
 
   const worst = worstSeverity(active)
   const wst   = severityStyle(worst)
