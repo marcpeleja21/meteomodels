@@ -44,6 +44,14 @@ function isEurope(lat: number, lon: number): boolean {
   return lat >= 27 && lat <= 72 && lon >= -25 && lon <= 45
 }
 
+/**
+ * Iberian Peninsula — where ARPEGE and HARMONIE EU are the best
+ * available Météo-France-based products (AROME France may not reach here).
+ */
+function isIberia(lat: number, lon: number): boolean {
+  return lat >= 36 && lat <= 44 && lon >= -10 && lon <= 4
+}
+
 /** UK & Ireland */
 function isUK(lat: number, lon: number): boolean {
   return lat >= 49.5 && lat <= 61.5 && lon >= -11 && lon <= 2
@@ -95,6 +103,7 @@ function regionalBonus(key: string, lat: number, lon: number): number {
   const eu  = isEurope(lat, lon)
   const ce  = isCentralEurope(lat, lon)
   const fr  = isFrance(lat, lon)
+  const ib  = isIberia(lat, lon)
   const uk  = isUK(lat, lon)
   const no  = isNordic(lat, lon)
   const ca  = isCanada(lat, lon)
@@ -103,19 +112,21 @@ function regionalBonus(key: string, lat: number, lon: number): number {
 
   switch (key) {
     // ── High-resolution LAMs ──
-    case 'arome_hd':       return fr  ? 5.0 : 0          // 1.5 km — only covers France
-    case 'arome':          return fr  ? 3.5 : 0          // 2.5 km France
+    case 'arome_hd':       return fr  ? 5.0 : 0          // 1.5 km — AROME domain only
+    case 'arome':          return fr  ? 3.5 : 0          // 2.5 km — AROME domain only
     case 'icon_d2':        return ce  ? 3.0 : 0          // 2.2 km Central Europe
     case 'geosphere':      return ce  ? 2.5 : 0          // 2.5 km Alps
-    case 'knmi_harmonie':  return eu  ? (ce ? 1.5 : no ? 1.5 : 1.0) : 0
+    // HARMONIE EU: 2.5 km AROME-physics pan-European LAM — best non-France high-res for Iberia
+    case 'knmi_harmonie':  return eu  ? (ce ? 2.0 : ib ? 2.5 : no ? 1.5 : 1.0) : 0
     case 'dmi_harmonie':   return no  ? 2.5 : (eu ? 1.0 : 0)
     // ── Regional / continental ──
     case 'icon_eu':        return eu  ? 2.0 : 0          // 7 km Europe only
-    case 'arpege':         return eu  ? 1.0 : 0
-    case 'ukmo':           return uk  ? 3.0 : (eu ? 0.5 : 0.2)  // strong globally but best at home
+    // ARPEGE: Météo-France regional model, operationally tuned for Iberian Peninsula
+    case 'arpege':         return eu  ? (ib ? 2.0 : 1.0) : 0
+    case 'ukmo':           return uk  ? 3.0 : (eu ? 0.5 : 0.2)
     case 'gem':            return ca  ? 3.5 : 0
-    // ── Global models — bonus outside their weaker regions ──
-    case 'ecmwf':          return eu  ? 1.0 : 0.5        // marginal home-ground edge
+    // ── Global models ──
+    case 'ecmwf':          return eu  ? 1.0 : 0.5
     case 'gfs':            return us  ? 2.0 : (global ? 0.8 : 0)
     case 'icon':           return eu  ? 0.5 : (global ? 0.3 : 0)
     case 'meteoblue':      return eu  ? 0.3 : 0

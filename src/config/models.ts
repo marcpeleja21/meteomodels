@@ -30,6 +30,17 @@ export function isCentralEurope(lat: number, lon: number): boolean {
 }
 
 /**
+ * AROME France domain as served by Open-Meteo.
+ * Both meteofrance_arome_france_hd (1.5 km) and meteofrance_arome_france (2.5 km)
+ * cover roughly: France, Iberian Peninsula, Benelux, Switzerland, northern Italy,
+ * southern UK and Atlantic margin.
+ * Approximate bounds: lat 37.5°–57.5°N, lon −12°–16°E
+ */
+export function isAROMEDomain(lat: number, lon: number): boolean {
+  return lat >= 37.5 && lat <= 57.5 && lon >= -12 && lon <= 16
+}
+
+/**
  * Returns the active model list for the current location in state.
  * - Inside Europe      → ICON EU shown,       ICON Global hidden
  * - Outside Europe     → ICON Global shown,   ICON EU hidden
@@ -41,6 +52,7 @@ export function getActiveModels(): WeatherModel[] {
   if (!loc) return MODELS
   const europe  = isEurope(loc.latitude, loc.longitude)
   const central = isCentralEurope(loc.latitude, loc.longitude)
+  const arome   = isAROMEDomain(loc.latitude, loc.longitude)
   return MODELS.filter(m => {
     if (m.key === 'icon')          return !europe   // global only outside Europe
     if (m.key === 'icon_eu')       return europe    // EU only inside Europe
@@ -48,6 +60,8 @@ export function getActiveModels(): WeatherModel[] {
     if (m.key === 'geosphere')     return central   // GeoSphere AROME — Central Europe only
     if (m.key === 'knmi_harmonie') return europe    // KNMI HARMONIE — Europe only
     if (m.key === 'dmi_harmonie')  return europe    // DMI HARMONIE — Europe only
+    if (m.key === 'arome_hd')      return arome     // AROME HD 1.5 km — France domain
+    if (m.key === 'arome')         return arome     // AROME 2.5 km — France domain
     return true
   })
 }

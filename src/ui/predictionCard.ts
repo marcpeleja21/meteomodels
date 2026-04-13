@@ -898,6 +898,24 @@ export function renderPredictionCard(
   if (!el) return
   if (!wxData || !Object.keys(wxData).length) { el.innerHTML = ''; return }
 
+  // ── Pre-initialise weights from ALL models that have temperature data ────────
+  // This ensures getCurrentModelWeights() (used by the tooltip in mainCard) always
+  // reflects the full ensemble — including AROME when it IS available — rather than
+  // being overwritten by the last metric computed (e.g. gusts, which AROME may lack).
+  const loc = state.currentLoc
+  if (loc) {
+    const availKeys = Object.entries(wxData)
+      .filter(([, d]) => d?.hourly?.temperature_2m != null)
+      .map(([k]) => k)
+    if (availKeys.length) {
+      const locKey = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}:${availKeys.slice().sort().join(',')}`
+      if (locKey !== _weightsLocKey) {
+        _cachedWeights = computeModelWeights(availKeys, loc.latitude, loc.longitude, loc.elevation ?? 0)
+        _weightsLocKey = locKey
+      }
+    }
+  }
+
   const lang    = state.lang
   const alerts  = state.alerts ?? []
   const stats   = compute48hStats(wxData)

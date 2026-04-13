@@ -16,7 +16,7 @@ export function renderLocBar(loc: GeocodingResult, t: LangData) {
     <div>
       <div class="loc-name">${loc.name}${alt ? ` <small style="font-size:.85rem;font-weight:400;color:var(--text-muted);margin-left:8px">${alt}</small>` : ''}</div>
       <div class="loc-sub">${parts}</div>
-      <div class="loc-time">${t.updated}: ${dateStr}</div>
+      <div class="loc-time">${t.updated}: ${dateStr}<span id="freshnessBadge" class="freshness-badge">🕐 ${t.freshnessNow}</span></div>
     </div>
   `
 }
