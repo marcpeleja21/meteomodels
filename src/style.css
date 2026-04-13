@@ -180,6 +180,45 @@ input{touch-action:manipulation}
   display:flex;align-items:center;justify-content:center;gap:10px;
   margin-top:10px;min-height:28px;
 }
+
+/* ── FAVOURITES ROW ──────────────────────────────────────────── */
+.favs-row{
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:7px; margin-top:14px;
+}
+.favs-label{
+  font-size:.7rem; color:var(--text-dim); font-weight:600;
+  text-transform:uppercase; letter-spacing:.8px;
+  flex-basis:100%; text-align:center; margin-bottom:1px;
+}
+.fav-pill{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 8px 5px 12px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(0,210,230,0.18);
+  border-radius:20px; color:var(--text); font-size:.8rem; font-weight:600;
+  cursor:pointer; touch-action:manipulation;
+  transition:background var(--trans), border-color var(--trans), transform var(--trans);
+}
+.fav-pill:hover{ background:rgba(0,210,230,0.08); border-color:var(--accent); transform:translateY(-1px) }
+.fav-pill-country{ font-size:.66rem; color:var(--text-muted); font-weight:400 }
+.fav-pill-remove{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:16px; height:16px; border-radius:50%; font-size:.85rem; line-height:1;
+  color:var(--text-dim); cursor:pointer; flex-shrink:0;
+  transition:color var(--trans), background var(--trans);
+}
+.fav-pill-remove:hover{ color:var(--red); background:rgba(255,82,82,0.14) }
+
+/* Star toggle button in header location bar */
+.fav-star-btn{
+  flex-shrink:0; padding:3px 7px;
+  background:transparent; border:1px solid var(--card-border);
+  border-radius:var(--radius-sm); color:var(--text-dim); font-size:.95rem;
+  cursor:pointer; line-height:1;
+  transition:all var(--trans);
+}
+.fav-star-btn:hover{ border-color:var(--yellow); color:var(--yellow); background:rgba(255,234,0,0.08) }
+.fav-star-btn.active{ border-color:var(--yellow); color:var(--yellow); background:rgba(255,234,0,0.10) }
 .geoloc-btn{
   background:transparent;border:1px solid rgba(0,210,230,0.35);
   border-radius:var(--radius-sm);color:var(--text-muted);

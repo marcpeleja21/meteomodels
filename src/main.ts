@@ -85,6 +85,9 @@ const loadingModels = document.getElementById('loadingModels') as HTMLDivElement
 const loadingText   = loadingScreen.querySelector('p')         as HTMLParagraphElement
 const wxDisplay     = document.getElementById('wxDisplay')     as HTMLDivElement
 
+const favsRow    = document.getElementById('favsRow')    as HTMLDivElement
+const favStarBtn = document.getElementById('favStarBtn') as HTMLButtonElement
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function t() { return LANG_DATA[state.lang] }
 function show(el: HTMLElement) { el.classList.remove('hidden') }
@@ -140,6 +143,10 @@ function applyLang() {
 
   // Geolocation button label (defined later but safe to call via function ref)
   applyGeolocLang()
+
+  // Re-render favourites row (labels change on lang switch)
+  renderFavsRow()
+  if (state.currentLoc) updateFavStar()
 }
 
 // ── Globe animation ───────────────────────────────────────────────────────────
@@ -417,6 +424,73 @@ headerSearchCancel.addEventListener('click', closeHeaderSearch)
 // ── Change location button ────────────────────────────────────────────────────
 changeLoc.addEventListener('click', openHeaderSearch)
 
+// ── Favourites ─────────────────────────────────────────────────────────────────
+const MAX_FAVS = 5
+
+function isFav(loc: GeocodingResult): boolean {
+  return state.favorites.some(f => f.id === loc.id)
+}
+
+function persistFavs() {
+  localStorage.setItem('mm_favorites', JSON.stringify(state.favorites))
+}
+
+function updateFavStar() {
+  if (!state.currentLoc) return
+  const active = isFav(state.currentLoc)
+  favStarBtn.textContent = active ? '★' : '☆'
+  favStarBtn.classList.toggle('active', active)
+  favStarBtn.title = active ? t().favRemove : t().favAdd
+  favStarBtn.setAttribute('aria-label', active ? t().favRemove : t().favAdd)
+}
+
+function renderFavsRow() {
+  const favs = state.favorites
+  if (!favs.length) { favsRow.innerHTML = ''; return }
+  const lang = t()
+  favsRow.innerHTML =
+    `<span class="favs-label">${lang.favsTitle}</span>` +
+    favs.map(f =>
+      `<button class="fav-pill" data-id="${f.id}" title="${f.country}">` +
+      `<span class="fav-pill-name">${f.name}</span>` +
+      `<span class="fav-pill-country">${f.country_code}</span>` +
+      `<span class="fav-pill-remove" data-id="${f.id}" title="${lang.favRemove}" aria-label="${lang.favRemove}">×</span>` +
+      `</button>`
+    ).join('')
+
+  favsRow.querySelectorAll<HTMLButtonElement>('.fav-pill').forEach(pill => {
+    pill.addEventListener('click', e => {
+      if ((e.target as HTMLElement).classList.contains('fav-pill-remove')) return
+      const fav = state.favorites.find(f => f.id === Number(pill.dataset.id))
+      if (fav) selectLocation(fav)
+    })
+  })
+  favsRow.querySelectorAll<HTMLSpanElement>('.fav-pill-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation()
+      state.favorites = state.favorites.filter(f => f.id !== Number(btn.dataset.id))
+      persistFavs()
+      renderFavsRow()
+      updateFavStar()
+    })
+  })
+}
+
+function toggleFav() {
+  if (!state.currentLoc) return
+  if (isFav(state.currentLoc)) {
+    state.favorites = state.favorites.filter(f => f.id !== state.currentLoc!.id)
+  } else {
+    if (state.favorites.length >= MAX_FAVS) state.favorites.shift()   // drop oldest
+    state.favorites = [...state.favorites, state.currentLoc]
+  }
+  persistFavs()
+  updateFavStar()
+  renderFavsRow()
+}
+
+favStarBtn.addEventListener('click', toggleFav)
+
 // ── Load weather ──────────────────────────────────────────────────────────────
 async function selectLocation(loc: GeocodingResult) {
   state.currentLoc  = loc
@@ -438,9 +512,10 @@ async function selectLocation(loc: GeocodingResult) {
   switchPage('forecast')
   setForecastMode('days')
 
-  // Show location name in header
+  // Show location name in header + update star
   headerLocName.textContent = loc.name
   headerLoc.classList.remove('hidden')
+  updateFavStar()
 
   hide(welcomeScreen)
   hide(wxDisplay)
@@ -536,6 +611,7 @@ function goHome() {
   headerLoc.classList.add('hidden')
   startAnimation('none')
   searchInput.value = ''
+  renderFavsRow()   // refresh pills on welcome screen
 }
 
 const brandHomeEl = document.getElementById('brandHome')!

@@ -305,4 +305,8 @@ export interface LangData {
   freshnessNow:    string
   freshnessFmt:    (mins: number) => string
   dataStale:       string
+  // Favourites
+  favsTitle:  string
+  favAdd:     string
+  favRemove:  string
 }

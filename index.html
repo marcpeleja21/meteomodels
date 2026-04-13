@@ -130,6 +130,7 @@
     <!-- Normal display: pin + name + button -->
     <span class="hloc-pin">📍</span>
     <span id="headerLocName"></span>
+    <button id="favStarBtn" class="fav-star-btn" aria-label="Desa als favorits" title="Desa als favorits">☆</button>
     <button id="changeLoc" class="change-loc-btn">✎ Canviar</button>
     <!-- Inline search (shown when Canviar is clicked) -->
     <div id="headerSearchWrap" class="header-search-wrap hidden">
@@ -201,6 +202,8 @@
         <button id="geolocBtn" class="geoloc-btn">📍 La meva ubicació</button>
         <span id="geolocMsg" class="geoloc-msg"></span>
       </div>
+      <!-- Saved favourite locations — rendered by JS -->
+      <div id="favsRow" class="favs-row"></div>
     </div>
 
     <!-- Benefits — fades out when search is active -->

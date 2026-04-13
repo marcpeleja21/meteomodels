@@ -91,6 +91,9 @@ export const LANG_DATA: Record<string, LangData> = {
     freshnessNow:    'Actualitzat ara',
     freshnessFmt:    (m: number) => `Actualitzat fa ${m} min`,
     dataStale:       '⚠ Dades amb retard (>2h)',
+    favsTitle:  'Llocs desats',
+    favAdd:     'Desa als favorits',
+    favRemove:  'Elimina dels favorits',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -182,6 +185,9 @@ export const LANG_DATA: Record<string, LangData> = {
     freshnessNow:    'Actualizado ahora',
     freshnessFmt:    (m: number) => `Actualizado hace ${m} min`,
     dataStale:       '⚠ Datos con retraso (>2h)',
+    favsTitle:  'Lugares guardados',
+    favAdd:     'Guardar en favoritos',
+    favRemove:  'Eliminar de favoritos',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -273,6 +279,9 @@ export const LANG_DATA: Record<string, LangData> = {
     freshnessNow:    'Updated just now',
     freshnessFmt:    (m: number) => `Updated ${m} min ago`,
     dataStale:       '⚠ Data delayed (>2h)',
+    favsTitle:  'Saved places',
+    favAdd:     'Save to favourites',
+    favRemove:  'Remove from favourites',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -364,6 +373,9 @@ export const LANG_DATA: Record<string, LangData> = {
     freshnessNow:    'Mis à jour maintenant',
     freshnessFmt:    (m: number) => `Mis à jour il y a ${m} min`,
     dataStale:       '⚠ Données en retard (>2h)',
+    favsTitle:  'Lieux enregistrés',
+    favAdd:     'Enregistrer en favoris',
+    favRemove:  'Supprimer des favoris',
   },
   de: {
     appSub: 'Wettermodell-Vergleich',
@@ -455,5 +467,8 @@ export const LANG_DATA: Record<string, LangData> = {
     freshnessNow:    'Gerade aktualisiert',
     freshnessFmt:    (m: number) => `Vor ${m} Min aktualisiert`,
     dataStale:       '⚠ Daten verzögert (>2h)',
+    favsTitle:  'Gespeicherte Orte',
+    favAdd:     'Zu Favoriten hinzufügen',
+    favRemove:  'Aus Favoriten entfernen',
   },
 }

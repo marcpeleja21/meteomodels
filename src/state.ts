@@ -1,4 +1,9 @@
 import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs } from './types'
+
+function loadFavorites(): GeocodingResult[] {
+  try { return JSON.parse(localStorage.getItem('mm_favorites') ?? '[]') }
+  catch { return [] }
+}
 import type { WeatherAlert } from './api/alerts'
 
 /** Maps browser navigator.language to one of the 4 supported app languages. */
@@ -47,4 +52,7 @@ export const state = {
 
   // Data freshness
   fetchedAt: null as number | null,
+
+  // Saved locations
+  favorites: loadFavorites(),
 }
