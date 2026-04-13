@@ -84,8 +84,8 @@ const BASE_SCORE: Record<string, number> = {
   icon:           7.0,   // DWD global, good in mid-latitudes
   icon_eu:        8.0,   // 7 km EU domain — strong regional skill
   icon_d2:        8.5,   // 2.2 km — very high resolution in Central Europe
-  arome_hd:       8.5,   // 1.5 km France — best resolution in domain
-  arome:          8.0,   // 2.5 km France domain
+  arome_hd:       9.5,   // 1.5 km France — best resolution in domain
+  arome:          9.0,   // 2.5 km France domain
   arpege:         7.5,   // European domain, medium resolution
   geosphere:      8.2,   // 2.5 km Alps / Central Europe
   knmi_harmonie:  8.0,   // 2.5 km full-Europe HARMONIE-AROME chain
@@ -112,8 +112,8 @@ function regionalBonus(key: string, lat: number, lon: number): number {
 
   switch (key) {
     // ── High-resolution LAMs ──
-    case 'arome_hd':       return fr  ? 5.0 : 0          // 1.5 km — AROME domain only
-    case 'arome':          return fr  ? 3.5 : 0          // 2.5 km — AROME domain only
+    case 'arome_hd':       return fr  ? 7.0 : 0          // 1.5 km — AROME domain only
+    case 'arome':          return fr  ? 5.0 : 0          // 2.5 km — AROME domain only
     case 'icon_d2':        return ce  ? 3.0 : 0          // 2.2 km Central Europe
     case 'geosphere':      return ce  ? 2.5 : 0          // 2.5 km Alps
     // HARMONIE EU: 2.5 km AROME-physics pan-European LAM — best non-France high-res for Iberia

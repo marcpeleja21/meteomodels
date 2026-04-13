@@ -70,31 +70,78 @@ export function getCurrentWeather(data: OpenMeteoResponse): CurrentWeather {
   }
 }
 
-/** Ensemble (average across models) of current weather */
+/** Ensemble (weighted average across models) of current weather */
 export function getEnsembleCurrent(
-  wxData: Record<string, OpenMeteoResponse | null>
+  wxData:  Record<string, OpenMeteoResponse | null>,
+  weights: Record<string, number> = {},
 ): { data: CurrentWeather; n: number } {
-  const models = Object.values(wxData).filter((d): d is OpenMeteoResponse => d !== null)
-  if (!models.length) return { data: { temp:null, feels:null, rain:null, code:null, wind:null, windDir:null, hum:null, pres:null, cloud:null }, n:0 }
+  const entries = Object.entries(wxData)
+    .filter((e): e is [string, OpenMeteoResponse] => e[1] !== null)
 
-  const currents = models.map(getCurrentWeather)
+  if (!entries.length) return {
+    data: { temp:null, feels:null, rain:null, code:null, wind:null, windDir:null, hum:null, pres:null, cloud:null },
+    n: 0,
+  }
+
+  // Build weighted current readings; fall back to equal weight when weights map is empty
+  const hasWeights = Object.keys(weights).length > 0
+  const currents: Array<{ w: number; c: CurrentWeather }> = entries.map(([key, data]) => ({
+    w: hasWeights ? (weights[key] ?? 1 / entries.length) : 1 / entries.length,
+    c: getCurrentWeather(data),
+  }))
+
+  // Weighted average helper for a numeric field
+  function wavg(field: keyof CurrentWeather): number | null {
+    let wSum = 0, vSum = 0
+    for (const { w, c } of currents) {
+      const v = c[field] as number | null
+      if (v !== null) { wSum += w; vSum += w * v }
+    }
+    return wSum > 0 ? vSum / wSum : null
+  }
+
+  // For the weather code: if AROME HD or AROME has data, use theirs directly
+  // (highest-resolution model in its domain should own the condition label).
+  // Fall back to weighted modal only when neither is available.
+  let code: number | null = null
+  const aromePreference = ['arome_hd', 'arome']
+  for (const key of aromePreference) {
+    const entry = entries.find(([k]) => k === key)
+    if (entry) {
+      const c = getCurrentWeather(entry[1])
+      if (c.code !== null) { code = c.code; break }
+    }
+  }
+  if (code === null) code = weightedModalCode(currents)
+
   return {
     data: {
-      temp:    avg(currents.map(c => c.temp)),
-      feels:   avg(currents.map(c => c.feels)),
-      rain:    avg(currents.map(c => c.rain)),
-      code:    mostCommonCode(currents.map(c => c.code)),
-      wind:    avg(currents.map(c => c.wind)),
-      windDir: avg(currents.map(c => c.windDir)),
-      hum:     avg(currents.map(c => c.hum)),
-      pres:    avg(currents.map(c => c.pres)),
-      cloud:   avg(currents.map(c => c.cloud)),
+      temp:    wavg('temp'),
+      feels:   wavg('feels'),
+      rain:    wavg('rain'),
+      code,
+      wind:    wavg('wind'),
+      windDir: wavg('windDir'),
+      hum:     wavg('hum'),
+      pres:    wavg('pres'),
+      cloud:   wavg('cloud'),
     },
-    n: models.length,
+    n: entries.length,
   }
 }
 
-/** Most common WMO code (modal) */
+/** Weighted modal WMO code — picks the code whose combined weight is highest */
+function weightedModalCode(currents: Array<{ w: number; c: CurrentWeather }>): number | null {
+  const scores: Record<number, number> = {}
+  for (const { w, c } of currents) {
+    if (c.code !== null) scores[c.code] = (scores[c.code] ?? 0) + w
+  }
+  const entries = Object.entries(scores)
+  if (!entries.length) return null
+  return +entries.sort((a, b) => b[1] - a[1])[0][0]
+}
+
+/** Most common WMO code (modal) — used for daily forecast aggregation */
 function mostCommonCode(codes: (number | null)[]): number | null {
   const filtered = codes.filter((c): c is number => c !== null)
   if (!filtered.length) return null

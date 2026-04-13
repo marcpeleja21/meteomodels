@@ -32,6 +32,7 @@ import { renderHourlyPage } from './ui/hourlyPage'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent, hoursUntilPrecip } from './utils/data'
+import { computeModelWeights } from './utils/modelWeights'
 import { wxFromCode } from './utils/weather'
 import type { GeocodingResult } from './types'
 
@@ -576,7 +577,9 @@ async function selectLocation(loc: GeocodingResult) {
   fetchNearbyWebcam(loc.latitude, loc.longitude).then(renderWebcamCard)
 
   // Ensemble current conditions
-  const { data: ensData } = getEnsembleCurrent(state.wxData)
+  const _wxKeys = Object.entries(state.wxData).filter(([,v]) => v !== null).map(([k]) => k)
+  const _wxWeights = computeModelWeights(_wxKeys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0)
+  const { data: ensData } = getEnsembleCurrent(state.wxData, _wxWeights)
   const ensWx = wxFromCode(ensData.code, t().wx)
 
   // Radar visibility:
