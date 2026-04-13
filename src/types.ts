@@ -11,6 +11,8 @@ export interface WeatherModel {
   coverage?: string
   mb?: boolean
   maxDays?: number   // models with limited forecast range (e.g. AROME = 2 days)
+  resKm:            number    // nominal horizontal grid resolution in km
+  terrainSensitive: boolean   // true for coarse grids (>10 km) that struggle in complex terrain
 }
 
 export interface GeocodingResult {
@@ -292,4 +294,15 @@ export interface LangData {
   tipPres:    string   // pressure hPa
   tipUv:      string   // UV index
   tipSnow:    string   // ❄️ snowfall cm
+  // Model resolution & divergence
+  resolutionLbl:   string
+  terrainWarnLow:  string
+  terrainWarnHigh: string
+  divergHigh:      string
+  divergMed:       string
+  divergDetail:    (tempSpread: number, precipSpread: number) => string
+  // Data freshness
+  freshnessNow:    string
+  freshnessFmt:    (mins: number) => string
+  dataStale:       string
 }

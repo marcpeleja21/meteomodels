@@ -4,6 +4,7 @@ import { LANG_DATA } from '../config/i18n'
 import { getCurrentWeather } from '../utils/data'
 import { wxFromCode, inferCodeFromPrecip, fmt } from '../utils/weather'
 import { tempColor, tempMaxColor, tempMinColor, rainPctColor, precipColor, windColor, humidityColor } from '../utils/colors'
+import { computeDivergence } from '../utils/divergence'
 
 export function renderModelCards() {
   const t    = LANG_DATA[state.lang]
@@ -13,7 +14,20 @@ export function renderModelCards() {
   const loaded = getActiveModels().filter(m => state.wxData[m.key] != null && modelValidForDay(m, dayI))
   if (!loaded.length) { el.innerHTML = ''; return }
 
-  el.innerHTML = loaded.map(m => {
+  const div  = computeDivergence(state.wxData)
+  const elevM = state.currentLoc?.elevation ?? 0
+
+  const bannerHtml = (div && div.level !== 'low') ? `
+    <div class="divergence-banner divergence-banner--${div.level}">
+      <span class="diverg-icon">${div.level === 'high' ? '⚠️' : '〰️'}</span>
+      <span class="diverg-text">
+        <strong>${div.level === 'high' ? t.divergHigh : t.divergMed}</strong>
+        · ${t.divergDetail(Math.round(div.tempSpread * 10) / 10, Math.round(div.precipSpread))}
+      </span>
+    </div>
+  ` : ''
+
+  const cards = loaded.map(m => {
     const data = state.wxData[m.key]!
 
     let displayTemp: number | null
@@ -81,7 +95,13 @@ export function renderModelCards() {
           ${gustKmh !== null ? `<span title="${t.tipGusts}" class="mc2-gust" style="color:${windColor(gustKmh)}">↑ ${fmt(gustKmh, 0)}</span>` : ''}
         </div>` : ''}
         ${m.coverage ? `<div class="mc2-note">⚠ ${m.coverage}</div>` : ''}
+        <div class="mc2-meta">
+          <span class="mc2-res" title="${t.resolutionLbl}">📐 ${m.resKm} km</span>
+          ${m.terrainSensitive && elevM > 600 ? `<span class="mc2-terrain-warn" title="${elevM > 1200 ? t.terrainWarnHigh : t.terrainWarnLow}">⛰️</span>` : ''}
+        </div>
       </div>
     `
-  }).join('')
+  })
+
+  el.innerHTML = bannerHtml + '<div class="model-grid-inner">' + cards.join('') + '</div>'
 }

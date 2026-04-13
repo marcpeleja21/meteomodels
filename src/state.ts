@@ -44,4 +44,7 @@ export const state = {
 
   // Table
   tableDays: 4 as number,   // 4 = compact, 7 = full
+
+  // Data freshness
+  fetchedAt: null as number | null,
 }

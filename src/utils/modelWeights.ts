@@ -18,7 +18,7 @@
  *
  * Exported helpers
  * ────────────────
- *   computeModelWeights(keys, lat, lon) → Record<string, number>  (0–1, sums to 1)
+ *   computeModelWeights(keys, lat, lon, elevationM?) → Record<string, number>  (0–1, sums to 1)
  *   formatWeightsTip(weights, names)    → human-readable string for the ⓘ tooltip
  */
 
@@ -103,8 +103,8 @@ function regionalBonus(key: string, lat: number, lon: number): number {
 
   switch (key) {
     // ── High-resolution LAMs ──
-    case 'arome_hd':       return fr  ? 3.5 : 0          // 1.5 km — only covers France
-    case 'arome':          return fr  ? 2.5 : 0          // 2.5 km France
+    case 'arome_hd':       return fr  ? 5.0 : 0          // 1.5 km — only covers France
+    case 'arome':          return fr  ? 3.5 : 0          // 2.5 km France
     case 'icon_d2':        return ce  ? 3.0 : 0          // 2.2 km Central Europe
     case 'geosphere':      return ce  ? 2.5 : 0          // 2.5 km Alps
     case 'knmi_harmonie':  return eu  ? (ce ? 1.5 : no ? 1.5 : 1.0) : 0
@@ -152,14 +152,17 @@ function resolutionBonus(key: string): number {
  * Compute normalised weights (0–1, sum = 1.0) for the given model keys
  * at the given location.
  *
- * @param keys   Model keys that are currently loaded (non-null in wxData)
- * @param lat    Location latitude
- * @param lon    Location longitude
+ * @param keys       Model keys that are currently loaded (non-null in wxData)
+ * @param lat        Location latitude
+ * @param lon        Location longitude
+ * @param elevationM Location elevation in metres (default 0). When > 600 m,
+ *                   high-resolution models receive an additional terrain multiplier.
  */
 export function computeModelWeights(
   keys: string[],
   lat:  number,
   lon:  number,
+  elevationM: number = 0,
 ): Record<string, number> {
   if (!keys.length) return {}
 
@@ -169,7 +172,14 @@ export function computeModelWeights(
   for (const key of keys) {
     const base = BASE_SCORE[key] ?? 6.0
     const reg  = regionalBonus(key, lat, lon)
-    const res  = resolutionBonus(key)
+    let   res  = resolutionBonus(key)
+
+    // High-elevation terrain multiplier: boost fine-grid models in mountain areas
+    if (elevationM > 600 && res > 0) {
+      const terrainMult = 1 + Math.min((elevationM - 600) / 1000, 1.5)
+      res = res * terrainMult
+    }
+
     const score = base + reg + res          // typically 6–13 range
     raw[key] = Math.max(score, 0.1)         // floor at 0.1 to avoid 0-weight
     total += raw[key]

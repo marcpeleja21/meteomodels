@@ -691,6 +691,68 @@ input{touch-action:manipulation}
 .mc2-gust{color:var(--text-dim);font-size:.65rem}
 .mc2-note{margin-top:7px;font-size:.65rem;color:var(--text-dim);font-style:italic}
 
+/* ── Model quality meta row ── */
+.mc2-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.mc2-res {
+  font-size: .65rem;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.mc2-terrain-warn {
+  font-size: .75rem;
+  cursor: help;
+  opacity: 0.85;
+}
+
+/* ── Divergence banner ── */
+.divergence-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  font-size: .8rem;
+  border: 1px solid;
+}
+.divergence-banner--med {
+  background: rgba(255,160,0,0.10);
+  border-color: rgba(255,160,0,0.35);
+  color: #ffcc80;
+}
+.divergence-banner--high {
+  background: rgba(255,82,82,0.12);
+  border-color: rgba(255,82,82,0.4);
+  color: #ff8a80;
+}
+.diverg-icon { font-size: 1rem; flex-shrink: 0; }
+.diverg-text { flex: 1; }
+
+/* ── Model grid inner wrapper ── */
+.model-grid-inner {
+  display: contents; /* inherits the grid from #modelGrid */
+}
+
+/* ── Data freshness badge ── */
+.freshness-badge {
+  font-size: .7rem;
+  color: var(--text-dim);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.freshness-badge.freshness-stale {
+  color: #ff9100;
+  font-weight: 600;
+}
+
 /* ── CHART ──────────────────────────────────────────────────── */
 .chart-card{
   background:var(--card); border:1px solid var(--card-border);

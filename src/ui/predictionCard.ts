@@ -63,7 +63,7 @@ function getWeights(keys: string[]): Record<string, number> {
   // Re-compute only when location or key-set changes
   const locKey = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}:${keys.slice().sort().join(',')}`
   if (locKey !== _weightsLocKey) {
-    _cachedWeights = computeModelWeights(keys, loc.latitude, loc.longitude)
+    _cachedWeights = computeModelWeights(keys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0)
     _weightsLocKey = locKey
   }
   return _cachedWeights

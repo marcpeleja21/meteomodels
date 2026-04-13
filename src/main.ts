@@ -473,6 +473,7 @@ async function selectLocation(loc: GeocodingResult) {
   state.aqiData    = aqiData
   state.currentObs = obsData
   state.alerts     = alertsData
+  state.fetchedAt  = Date.now()
 
   // MeteoBlue
   try {
@@ -623,6 +624,21 @@ window.addEventListener('resize', resizeCanvas)
     }
   }
 })()
+
+// ── Data freshness badge ───────────────────────────────────────────────────────
+setInterval(() => {
+  const badge = document.getElementById('freshnessBadge')
+  if (!badge || !state.fetchedAt) return
+  const mins = Math.round((Date.now() - state.fetchedAt) / 60000)
+  const lang = LANG_DATA[state.lang]
+  if (mins >= 120) {
+    badge.textContent = lang.dataStale
+    badge.classList.add('freshness-stale')
+  } else {
+    badge.textContent = mins <= 1 ? lang.freshnessNow : lang.freshnessFmt(mins)
+    badge.classList.remove('freshness-stale')
+  }
+}, 60_000)
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 inject()
