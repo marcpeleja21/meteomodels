@@ -28,10 +28,10 @@
  * Météo-France AROME operational domain.
  * Covers France, Iberian Peninsula, Switzerland, northern Italy, Benelux,
  * parts of Germany, UK south coast, Morocco/Algeria border, and Atlantic margin.
- * Roughly: lat 36°N–57°N, lon -14°W–17°E
+ * Roughly: lat 35°N–56°N, lon -12°W–17°E
  */
 function isFrance(lat: number, lon: number): boolean {
-  return lat >= 36 && lat <= 57 && lon >= -14 && lon <= 17
+  return lat >= 35 && lat <= 56 && lon >= -12 && lon <= 17
 }
 
 /** Central Europe — where ICON D2 (DWD) and GeoSphere AROME operate */
