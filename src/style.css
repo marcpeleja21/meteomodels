@@ -787,9 +787,29 @@ input{touch-action:manipulation}
 .mtric.active{background:rgba(0,210,230,0.14);border-color:var(--accent);color:var(--accent);font-weight:700}
 .chart-scroll{overflow-x:auto}
 .chart-svg{display:block;overflow:visible}
-.chart-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .leg-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted)}
-.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+/* Toggle button pill — base (unselected) state */
+.leg-toggle{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.72rem;font-family:inherit;
+  padding:3px 9px 3px 6px;
+  border-radius:20px;cursor:pointer;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.10);
+  color:var(--text-dim);
+  transition:background var(--trans),border-color var(--trans),color var(--trans),opacity var(--trans);
+  user-select:none;
+}
+.leg-toggle:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.20);color:var(--text-muted)}
+/* Active (selected) pill */
+.leg-toggle.leg-active{
+  background:rgba(255,255,255,0.07);
+  border-color:rgba(255,255,255,0.22);
+  color:var(--text);
+}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid currentColor;transition:background var(--trans)}
+.leg-active .leg-dot{border-color:transparent}
 
 /* ── FORECAST TABLE ─────────────────────────────────────────── */
 .table-card{

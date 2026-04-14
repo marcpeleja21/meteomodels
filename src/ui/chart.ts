@@ -1,12 +1,14 @@
 import { state } from '../state'
 import { getActiveModels } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
+import { computeModelWeights } from '../utils/modelWeights'
 import type { MetricConfig, LangData } from '../types'
 
 const W = 900, H = 280, PAD = { top: 24, right: 20, bottom: 40, left: 44 }
 const CHART_W = W - PAD.left - PAD.right
 const CHART_H = H - PAD.top  - PAD.bottom
 const DAYS = 5   // show 5 days in the chart
+const TOP_N = 5  // default number of pre-selected models
 
 type MetricKey = 'temp' | 'precip' | 'rain' | 'wind' | 'hum' | 'pres'
 
@@ -23,6 +25,16 @@ function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
       return d.hourly.pressure_msl[i * 24 + 12] ?? null
     }},
   }
+}
+
+/** Seed chartSelectedModels with the top-N models by computed weight. */
+function seedTopModels(loadedKeys: string[]) {
+  const loc = state.currentLoc
+  if (!loc || !loadedKeys.length) return
+
+  const weights = computeModelWeights(loadedKeys, loc.latitude, loc.longitude)
+  const sorted  = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
+  state.chartSelectedModels = new Set(sorted.slice(0, TOP_N))
 }
 
 export function renderChart(onMetricChange?: (key: string) => void) {
@@ -42,17 +54,28 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const loaded = getActiveModels().filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = ''; return }
 
-  // Normalise activeMetric — fall back to 'temp' for unknown/legacy keys
-  if (!Object.keys(metrics).includes(state.activeMetric)) {
-    state.activeMetric = 'temp'
-  }
+  // Normalise activeMetric
+  if (!Object.keys(metrics).includes(state.activeMetric)) state.activeMetric = 'temp'
+
+  // ── Seed top-5 selection when location changes or on first render ──────────
+  // Re-seed if: never seeded, or if a model loaded that isn't tracked at all
+  const loadedKeys = loaded.map(m => m.key)
+  const needsReseed = !state.chartSelectedModels ||
+    loadedKeys.every(k => !state.chartSelectedModels!.has(k))
+  if (needsReseed) seedTopModels(loadedKeys)
+
+  // Ensure the set only contains keys that are actually loaded
+  const sel = state.chartSelectedModels!
+  const visible = loaded.filter(m => sel.has(m.key))
+  // Always show at least 1 model even if selection is stale
+  const renderList = visible.length ? visible : loaded.slice(0, 1)
 
   const isTemp = state.activeMetric === 'temp'
   const metric = metrics[state.activeMetric as MetricKey] ?? metrics.temp
 
-  // Collect all values for scale
+  // Collect all values for scale — use only visible models
   const allVals: number[] = []
-  for (const m of loaded) {
+  for (const m of renderList) {
     for (let i = 0; i < DAYS; i++) {
       if (isTemp) {
         const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
@@ -79,13 +102,13 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   }
 
   // Reference dates
-  const refModel = loaded[0]
+  const refModel = renderList[0] ?? loaded[0]
   const refTimes = refModel ? (state.wxData[refModel.key]?.daily.time ?? []) : []
 
-  // Build polylines per model
+  // Build polylines per visible model
   let lines = ''
   if (isTemp) {
-    lines = loaded.map(m => {
+    lines = renderList.map(m => {
       const ptsMax: string[] = []
       const ptsMin: string[] = []
       for (let i = 0; i < DAYS; i++) {
@@ -100,7 +123,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
       return out
     }).join('\n')
   } else {
-    lines = loaded.map(m => {
+    lines = renderList.map(m => {
       const pts: string[] = []
       for (let i = 0; i < DAYS; i++) {
         const v = metric.src(m.key, i)
@@ -111,10 +134,10 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     }).join('\n')
   }
 
-  // Dots
+  // Dots (visible models only)
   let dots = ''
   if (isTemp) {
-    dots = loaded.map(m => {
+    dots = renderList.map(m => {
       return Array.from({ length: DAYS }, (_, i) => {
         const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
         const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
@@ -125,7 +148,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
       }).join('')
     }).join('')
   } else {
-    dots = loaded.map(m => {
+    dots = renderList.map(m => {
       return Array.from({ length: DAYS }, (_, i) => {
         const v = metric.src(m.key, i)
         if (v === null) return ''
@@ -134,7 +157,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     }).join('')
   }
 
-  // Hit areas (wide invisible rects per column)
+  // Hit areas
   const colW = CHART_W / (DAYS - 1)
   const hitAreas = Array.from({ length: DAYS }, (_, i) => {
     const cx = scaleX(i)
@@ -164,10 +187,10 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     return `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + CHART_W}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`
   }).join('')
 
-  // Vertical highlight line (hidden until hover)
+  // Vertical highlight line
   const hlLine = `<line class="chart-hl" x1="0" y1="${PAD.top}" x2="0" y2="${PAD.top + CHART_H}" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="4,3" style="display:none"/>`
 
-  // SVG tooltip group
+  // Tooltip group
   const tooltipGroup = `
     <g class="chart-tip" style="display:none;pointer-events:none">
       <rect class="chart-tip-bg" rx="6" ry="6" fill="rgba(10,20,40,0.97)" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
@@ -175,10 +198,14 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     </g>
   `
 
-  // Legend
-  const legendHtml = loaded.map(m =>
-    `<span class="leg-item"><span class="leg-dot" style="background:${m.color}"></span>${m.flag} ${m.name}</span>`
-  ).join('')
+  // ── Legend: all loaded models as toggleable pills ──────────────────────────
+  const legendHtml = loaded.map(m => {
+    const active = sel.has(m.key)
+    return `<button class="leg-item leg-toggle${active ? ' leg-active' : ''}" data-model-key="${m.key}" title="${active ? 'Click to hide' : 'Click to show'}">
+      <span class="leg-dot" style="background:${active ? m.color : 'transparent'};border-color:${m.color}"></span>
+      ${m.flag} ${m.name}
+    </button>`
+  }).join('')
 
   el.innerHTML = `
     <div class="chart-header">
@@ -212,13 +239,10 @@ export function renderChart(onMetricChange?: (key: string) => void) {
 
     rect.addEventListener('mouseenter', () => {
       const cx = scaleX(dayI)
-
-      // Move highlight line
       hlEl.setAttribute('x1', String(cx))
       hlEl.setAttribute('x2', String(cx))
       hlEl.style.display = ''
 
-      // Build tooltip rows
       const dateStr = refTimes[dayI]
       const d = dateStr ? new Date(dateStr + 'T12:00:00') : null
       const dayLabel = d ? `${t.days[d.getDay()]} ${d.getDate()}` : `Dia ${dayI + 1}`
@@ -229,7 +253,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
 
       if (isTemp) {
         const rows: { name: string; color: string; vmax: string; vmin: string }[] = []
-        for (const m of loaded) {
+        for (const m of renderList) {
           const vmax = state.wxData[m.key]?.daily.temperature_2m_max[dayI] ?? null
           const vmin = state.wxData[m.key]?.daily.temperature_2m_min[dayI] ?? null
           if (vmax !== null || vmin !== null) {
@@ -241,11 +265,9 @@ export function renderChart(onMetricChange?: (key: string) => void) {
             })
           }
         }
-
         const lh = 16
         tipH = 22 + rows.length * (lh + 2)
         tipW = 190
-
         inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
         rows.forEach((row, ri) => {
           const ry = 14 + (ri + 1) * (lh + 2)
@@ -257,15 +279,13 @@ export function renderChart(onMetricChange?: (key: string) => void) {
         })
       } else {
         const rows: { name: string; color: string; val: string }[] = []
-        for (const m of loaded) {
+        for (const m of renderList) {
           const v = metric.src(m.key, dayI)
           if (v !== null) rows.push({ name: `${m.flag} ${m.name}`, color: m.color, val: `${v.toFixed(metric.unit === 'hPa' ? 0 : 1)} ${metric.unit}` })
         }
-
         const lh = 16
         tipH = 22 + rows.length * lh
         tipW = 170
-
         inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
         rows.forEach((row, ri) => {
           const ry = 14 + (ri + 1) * lh
@@ -277,10 +297,8 @@ export function renderChart(onMetricChange?: (key: string) => void) {
         })
       }
 
-      // Position: prefer right; flip left if near right edge
       let tx = cx + 14
       if (tx + tipW > W - PAD.right) tx = cx - tipW - 14
-
       const ty = PAD.top + 4
 
       tipBg.setAttribute('x', String(tx))
@@ -295,6 +313,21 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     rect.addEventListener('mouseleave', () => {
       tipGrp.style.display = 'none'
       hlEl.style.display   = 'none'
+    })
+  })
+
+  // ── Legend toggle clicks ───────────────────────────────────────────────────
+  el.querySelectorAll<HTMLButtonElement>('.leg-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.modelKey!
+      if (sel.has(key)) {
+        // Don't allow deselecting the last visible model
+        if (sel.size <= 1) return
+        sel.delete(key)
+      } else {
+        sel.add(key)
+      }
+      renderChart(onMetricChange)
     })
   })
 

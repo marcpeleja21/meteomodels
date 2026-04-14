@@ -31,6 +31,7 @@ export const state = {
   meteobluKey: localStorage.getItem('mb_key') ?? '',
   activeMetric: 'temp' as string,
   selectedDay:  0 as number,        // 0 = current, 1+ = day index
+  chartSelectedModels: null as Set<string> | null, // null = auto-seed top 5 on next render
 
   // Subpages
   currentPage:    'forecast' as 'forecast' | 'models',

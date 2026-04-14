@@ -494,12 +494,13 @@ favStarBtn.addEventListener('click', toggleFav)
 
 // ── Load weather ──────────────────────────────────────────────────────────────
 async function selectLocation(loc: GeocodingResult) {
-  state.currentLoc  = loc
-  state.activeModel = 'ensemble'
-  state.selectedDay = 0
-  state.currentPage = 'forecast'
-  state.wxData      = {}
-  state.aqiData     = null
+  state.currentLoc           = loc
+  state.activeModel          = 'ensemble'
+  state.selectedDay          = 0
+  state.currentPage          = 'forecast'
+  state.wxData               = {}
+  state.aqiData              = null
+  state.chartSelectedModels  = null   // re-seed top-5 for the new location
   clearEnsembleCache()
   state.forecastMode         = 'days'
   state.forecastDaysExpanded = false
