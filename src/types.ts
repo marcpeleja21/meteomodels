@@ -298,9 +298,6 @@ export interface LangData {
   resolutionLbl:   string
   terrainWarnLow:  string
   terrainWarnHigh: string
-  divergHigh:      string
-  divergMed:       string
-  divergDetail:    (tempSpread: number, precipSpread: number) => string
   // Data freshness
   freshnessNow:    string
   freshnessFmt:    (mins: number) => string

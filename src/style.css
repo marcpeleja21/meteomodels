@@ -293,7 +293,6 @@ input{touch-action:manipulation}
   50%{ transform:translateY(-8px) }
 }
 
-
 /* ── BENEFIT CARDS (below search on welcome) ─────────────────── */
 .feature-strip{
   display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
@@ -751,29 +750,6 @@ input{touch-action:manipulation}
   opacity: 0.85;
 }
 
-/* ── Divergence banner ── */
-.divergence-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 10px;
-  font-size: .8rem;
-  border: 1px solid;
-}
-.divergence-banner--med {
-  background: rgba(255,160,0,0.10);
-  border-color: rgba(255,160,0,0.35);
-  color: #ffcc80;
-}
-.divergence-banner--high {
-  background: rgba(255,82,82,0.12);
-  border-color: rgba(255,82,82,0.4);
-  color: #ff8a80;
-}
-.diverg-icon { font-size: 1rem; flex-shrink: 0; }
-.diverg-text { flex: 1; }
 
 /* ── Model grid inner wrapper ── */
 .model-grid-inner {
@@ -869,7 +845,6 @@ input{touch-action:manipulation}
 .tbl-expand-btn:hover{background:rgba(0,210,230,0.2);border-color:var(--accent)}
 .sep-row td{height:2px;background:rgba(255,255,255,0.04);padding:0}
 .model-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
-
 
 /* ── NAV DROPDOWN ───────────────────────────────────────────── */
 /* z-index ensures dropdown paints above #headerLoc (which has css order:4 on mobile) */
