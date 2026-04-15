@@ -46,16 +46,26 @@ function variantSeed(): number {
 
 // ── Model weights ─────────────────────────────────────────────────────────────
 /**
- * weightedAvg uses location-aware dynamic weights computed by computeModelWeights().
- * Falls back to a simple average when no location is available.
+ * Two separate caches:
+ *
+ *  _displayWeights  – weights over the FULL loaded model set (all models with
+ *                     temperature data).  Set once per location in
+ *                     renderPredictionCard() and NEVER overwritten by internal
+ *                     per-metric calls.  Exposed via getCurrentModelWeights() so
+ *                     the ⓘ tooltip always shows AROME when it is loaded.
+ *
+ *  _cachedWeights / _weightsLocKey  – per-call cache for weightedAvg().  May
+ *                     cover only the subset of models that have the specific
+ *                     metric being averaged (e.g. gusts); updated freely by
+ *                     getWeights() but never surfaced externally.
  */
-let _cachedWeights: Record<string, number> = {}
+let _displayWeights: Record<string, number> = {}
+let _cachedWeights:  Record<string, number> = {}
 let _weightsLocKey = ''
 
 function getWeights(keys: string[]): Record<string, number> {
   const loc = state.currentLoc
   if (!loc) {
-    // Equal weights when no location loaded yet
     const eq: Record<string, number> = {}
     keys.forEach(k => { eq[k] = 1 / keys.length })
     return eq
@@ -83,9 +93,9 @@ function weightedAvg(vals: Array<{ k: string; v: number }>): number {
   return result
 }
 
-/** Expose current weights for the tooltip in mainCard.ts */
+/** Expose full-set weights for the ⓘ tooltip in mainCard.ts */
 export function getCurrentModelWeights(): Record<string, number> {
-  return { ..._cachedWeights }
+  return { ..._displayWeights }
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -898,21 +908,19 @@ export function renderPredictionCard(
   if (!el) return
   if (!wxData || !Object.keys(wxData).length) { el.innerHTML = ''; return }
 
-  // ── Pre-initialise weights from ALL models that have temperature data ────────
-  // This ensures getCurrentModelWeights() (used by the tooltip in mainCard) always
-  // reflects the full ensemble — including AROME when it IS available — rather than
-  // being overwritten by the last metric computed (e.g. gusts, which AROME may lack).
+  // ── Seed _displayWeights from ALL models with temperature data ───────────────
+  // Written to the SEPARATE _displayWeights cache so that subsequent calls to
+  // getWeights() with metric-specific subsets never overwrite what the ⓘ tooltip
+  // will read via getCurrentModelWeights(). This guarantees AROME always appears
+  // in the weights display when it is loaded, regardless of which metrics it
+  // provides (AROME maxDays:2 means it may be absent from some metric subsets).
   const loc = state.currentLoc
   if (loc) {
     const availKeys = Object.entries(wxData)
       .filter(([, d]) => d?.hourly?.temperature_2m != null)
       .map(([k]) => k)
     if (availKeys.length) {
-      const locKey = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}:${availKeys.slice().sort().join(',')}`
-      if (locKey !== _weightsLocKey) {
-        _cachedWeights = computeModelWeights(availKeys, loc.latitude, loc.longitude, loc.elevation ?? 0)
-        _weightsLocKey = locKey
-      }
+      _displayWeights = computeModelWeights(availKeys, loc.latitude, loc.longitude, loc.elevation ?? 0)
     }
   }
 
