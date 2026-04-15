@@ -101,11 +101,57 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6465200117550789"
      crossorigin="anonymous"></script>
 
-<!-- ── Service Worker ────────────────────────────────────────────────────────── -->
+<!-- ── Service Worker + update toast ─────────────────────────────────────────── -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
+
+      function showUpdateToast(worker) {
+        // Only show one toast at a time
+        if (document.getElementById('sw-update-toast')) return;
+        var toast = document.createElement('div');
+        toast.id = 'sw-update-toast';
+        toast.innerHTML =
+          '<span class="swt-msg">🆕 New version available</span>' +
+          '<button class="swt-btn" id="swt-update-btn">Update now</button>' +
+          '<button class="swt-close" id="swt-close-btn" aria-label="Dismiss">✕</button>';
+        document.body.appendChild(toast);
+        // Animate in
+        requestAnimationFrame(function() { toast.classList.add('swt-visible'); });
+
+        document.getElementById('swt-update-btn').addEventListener('click', function () {
+          worker.postMessage({ type: 'SKIP_WAITING' });
+          toast.remove();
+        });
+        document.getElementById('swt-close-btn').addEventListener('click', function () {
+          toast.classList.remove('swt-visible');
+          setTimeout(function() { toast.remove(); }, 300);
+        });
+      }
+
+      // When a new SW takes control, reload once to apply the update
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!refreshing) { refreshing = true; window.location.reload(); }
+      });
+
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(function (reg) {
+          // New SW already waiting (e.g. user was on the page when deploy happened)
+          if (reg.waiting) { showUpdateToast(reg.waiting); }
+
+          // New SW starts installing after this page load
+          reg.addEventListener('updatefound', function () {
+            var newSW = reg.installing;
+            if (!newSW) return;
+            newSW.addEventListener('statechange', function () {
+              // installed + a previous SW is in control = real update available
+              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                showUpdateToast(newSW);
+              }
+            });
+          });
+        })
         .catch(function (e) { console.warn('[SW] registration failed:', e); });
     });
   }
