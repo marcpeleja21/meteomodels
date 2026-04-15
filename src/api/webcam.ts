@@ -5,6 +5,18 @@ export interface WebcamData {
   linkUrl:   string | null
 }
 
+/** Haversine great-circle distance in km */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 export async function fetchNearbyWebcam(lat: number, lon: number): Promise<WebcamData | null> {
   try {
     // Route through our Vercel edge proxy to avoid CORS restrictions
@@ -25,7 +37,21 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
 
     if (!webcams.length) return null
 
-    // Pick the best webcam: prefer active + has preview image, then any with preview
+    // Sort by haversine distance from the user's exact coordinates.
+    // The server already does this, but we re-sort client-side as a safety net
+    // in case the proxy response is cached or the order changed after filtering.
+    webcams.sort((a: any, b: any) => {
+      const aLat = a.location?.latitude
+      const aLon = a.location?.longitude
+      const bLat = b.location?.latitude
+      const bLon = b.location?.longitude
+      const dA = (aLat != null && aLon != null) ? haversineKm(lat, lon, aLat, aLon) : Infinity
+      const dB = (bLat != null && bLon != null) ? haversineKm(lat, lon, bLat, bLon) : Infinity
+      return dA - dB
+    })
+
+    // Pick the best webcam among those closest: prefer active + has preview image, then any with preview.
+    // Because the list is now sorted by distance, the first matching webcam is the nearest suitable one.
     const hasPreview = (w: any): boolean =>
       !!(w.images?.current?.preview ?? w.images?.current?.thumbnail ?? w.images?.current?.full)
     const wc =

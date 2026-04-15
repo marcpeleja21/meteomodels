@@ -8,6 +8,18 @@ export const config = { runtime: 'edge' }
 
 const WU_KEY = '3b28991981854cdba8991981851cdbb8'
 
+/** Haversine great-circle distance in km */
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 export default async function handler(request) {
   const { searchParams } = new URL(request.url)
   const lat = searchParams.get('lat')
@@ -19,6 +31,9 @@ export default async function handler(request) {
     })
   }
 
+  const userLat = parseFloat(lat)
+  const userLon = parseFloat(lon)
+
   try {
     // Step 1 — find nearest PWS stations
     const nearUrl =
@@ -29,26 +44,41 @@ export default async function handler(request) {
     if (!nearRes.ok) throw new Error(`WU near ${nearRes.status}`)
     const nearData = await nearRes.json()
 
-    const ids       = nearData?.location?.stationId   ?? []
-    const qcStatus  = nearData?.location?.qcStatus    ?? []
-    const distances = nearData?.location?.distanceKm  ?? []
+    const ids        = nearData?.location?.stationId   ?? []
+    const qcStatus   = nearData?.location?.qcStatus    ?? []
+    const distances  = nearData?.location?.distanceKm  ?? []
+    const stationLats = nearData?.location?.latitude   ?? []
+    const stationLons = nearData?.location?.longitude  ?? []
 
-    // Pick the first QC-passed station (qcStatus === 1)
-    let stationId   = null
-    let stationDist = null
+    // Build a candidate list of QC-passed stations with haversine distance
+    // Fall back to WU's distanceKm if per-station lat/lon is unavailable
+    const candidates = []
     for (let i = 0; i < ids.length; i++) {
-      if (qcStatus[i] === 1) {
-        stationId   = ids[i]
-        stationDist = distances[i] ?? null
-        break
+      if (qcStatus[i] !== 1) continue
+      const sLat = stationLats[i]
+      const sLon = stationLons[i]
+      const dist = (sLat != null && sLon != null)
+        ? haversineKm(userLat, userLon, sLat, sLon)
+        : (distances[i] ?? Infinity)
+      candidates.push({ id: ids[i], dist })
+    }
+    // Fall back: if no QC-passed station, accept any
+    if (!candidates.length) {
+      for (let i = 0; i < ids.length; i++) {
+        const sLat = stationLats[i]
+        const sLon = stationLons[i]
+        const dist = (sLat != null && sLon != null)
+          ? haversineKm(userLat, userLon, sLat, sLon)
+          : (distances[i] ?? Infinity)
+        candidates.push({ id: ids[i], dist })
       }
     }
-    // Fall back to first result if none pass QC
-    if (!stationId && ids.length) {
-      stationId   = ids[0]
-      stationDist = distances[0] ?? null
-    }
-    if (!stationId) throw new Error('No nearby PWS found')
+    if (!candidates.length) throw new Error('No nearby PWS found')
+
+    // Pick the nearest station by haversine distance
+    candidates.sort((a, b) => a.dist - b.dist)
+    const stationId   = candidates[0].id
+    const stationDist = candidates[0].dist
 
     // Step 2 — fetch current observations
     const obsUrl =
