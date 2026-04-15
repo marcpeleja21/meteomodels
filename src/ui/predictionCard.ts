@@ -73,7 +73,11 @@ function getWeights(keys: string[]): Record<string, number> {
   // Re-compute only when location or key-set changes
   const locKey = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}:${keys.slice().sort().join(',')}`
   if (locKey !== _weightsLocKey) {
-    _cachedWeights = computeModelWeights(keys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0)
+    const obs = state.currentObs
+    _cachedWeights = computeModelWeights(
+      keys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0,
+      state.wxData, obs?.temp, obs?.time,
+    )
     _weightsLocKey = locKey
   }
   return _cachedWeights
@@ -920,7 +924,11 @@ export function renderPredictionCard(
       .filter(([, d]) => d?.hourly?.temperature_2m != null)
       .map(([k]) => k)
     if (availKeys.length) {
-      _displayWeights = computeModelWeights(availKeys, loc.latitude, loc.longitude, loc.elevation ?? 0)
+      const obs = state.currentObs
+      _displayWeights = computeModelWeights(
+        availKeys, loc.latitude, loc.longitude, loc.elevation ?? 0,
+        wxData, obs?.temp, obs?.time,
+      )
     }
   }
 

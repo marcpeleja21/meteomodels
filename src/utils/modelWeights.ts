@@ -134,7 +134,9 @@ function regionalBonus(key: string, lat: number, lon: number): number {
   }
 }
 
-/** Small bonus for finer horizontal resolution (km → bonus) */
+/** Resolution bonus for finer horizontal grids (km → bonus, 0–3 range).
+ *  Tripled from the original scale so that sub-3 km models (AROME HD, ICON D2)
+ *  contribute ~3× more resolution credit than 25 km global models. */
 function resolutionBonus(key: string): number {
   const resKm: Record<string, number> = {
     arome_hd:       1.5,
@@ -153,49 +155,123 @@ function resolutionBonus(key: string): number {
     meteoblue:      7.0,
   }
   const km = resKm[key] ?? 25
-  // Logarithmic scale: 1.5 km → +1.0, 25 km → 0
-  return Math.max(0, Math.log(25 / km) / Math.log(25 / 1.5))
+  // Logarithmic scale: 1.5 km → +3.0, 7 km → +2.0, 25 km → 0
+  return Math.max(0, Math.log(25 / km) / Math.log(25 / 1.5)) * 3.0
 }
 
+/** Keys considered "high-resolution" (≤ 3 km grid). */
+const HIGH_RES_KEYS = new Set(['arome_hd', 'arome', 'icon_d2', 'geosphere', 'knmi_harmonie', 'dmi_harmonie'])
+
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/** Minimal hourly shape needed for obs bias correction — avoids importing the
+ *  full OpenMeteoResponse type into this utility module. */
+interface HourlyTemps {
+  time:          string[]
+  temperature_2m: (number | null)[]
+}
 
 /**
  * Compute normalised weights (0–1, sum = 1.0) for the given model keys
  * at the given location.
  *
- * @param keys       Model keys that are currently loaded (non-null in wxData)
+ * @param keys       Model keys that are currently loaded
  * @param lat        Location latitude
  * @param lon        Location longitude
- * @param elevationM Location elevation in metres (default 0). When > 600 m,
- *                   high-resolution models receive an additional terrain multiplier.
+ * @param elevationM Location elevation in metres (default 0)
+ * @param wxData     Optional: hourly model data used for obs bias correction
+ * @param obsTemp    Optional: current station temperature (°C) for bias correction
+ * @param obsTimeUtc Optional: ISO timestamp of the observation (for freshness check)
+ *
+ * Three-stage scoring:
+ *   1. Base accuracy score (global skill)
+ *   2. Regional bonus (model specialises in this region)
+ *   3. Resolution bonus (finer grid → better local detail)  [0–3 range]
+ *   4. Terrain multiplier on resolution (for elevation > 600 m)
+ *   5. High-res availability dampener (coarse globals yield when ≤3 km models loaded)
+ *   6. Real-time obs bias correction (reward models closest to current observation)
  */
 export function computeModelWeights(
-  keys: string[],
-  lat:  number,
-  lon:  number,
+  keys:       string[],
+  lat:        number,
+  lon:        number,
   elevationM: number = 0,
+  wxData?:    Record<string, { hourly: HourlyTemps } | null>,
+  obsTemp?:   number | null,
+  obsTimeUtc?: string | null,
 ): Record<string, number> {
   if (!keys.length) return {}
 
+  // ── Stages 1–4: base + regional + resolution + terrain ──────────────────
   const raw: Record<string, number> = {}
-  let total = 0
+
+  const hasHighRes = keys.some(k => HIGH_RES_KEYS.has(k))
 
   for (const key of keys) {
     const base = BASE_SCORE[key] ?? 6.0
     const reg  = regionalBonus(key, lat, lon)
     let   res  = resolutionBonus(key)
 
-    // High-elevation terrain multiplier: boost fine-grid models in mountain areas
+    // Stage 4 — terrain multiplier: high-res gets extra lift in complex terrain
     if (elevationM > 600 && res > 0) {
       const terrainMult = 1 + Math.min((elevationM - 600) / 1000, 1.5)
-      res = res * terrainMult
+      res *= terrainMult
     }
 
-    const score = base + reg + res          // typically 6–13 range
-    raw[key] = Math.max(score, 0.1)         // floor at 0.1 to avoid 0-weight
-    total += raw[key]
+    let score = base + reg + res
+
+    // Stage 5 — high-res availability dampener:
+    // When at least one ≤3 km model is loaded, coarse globals (≥13 km) have
+    // their score scaled down by 30 % so they act as supporting models rather
+    // than co-equal contributors.
+    if (hasHighRes && !HIGH_RES_KEYS.has(key)) {
+      const resKm: Record<string, number> = { ecmwf: 25, gfs: 25, icon: 13, gem: 15, ukmo: 10, arpege: 10, icon_eu: 7, meteoblue: 7 }
+      const km = resKm[key] ?? 25
+      if (km >= 10) score *= 0.70
+    }
+
+    raw[key] = Math.max(score, 0.1)
   }
 
+  // ── Stage 6 — real-time obs bias correction ──────────────────────────────
+  // Only when: observation is fresh (<60 min), temperature is available, and
+  // hourly model data was passed in.
+  if (
+    obsTemp != null &&
+    wxData != null
+  ) {
+    // Check obs freshness: skip if older than 60 minutes
+    const obsAge = obsTimeUtc
+      ? (Date.now() - new Date(obsTimeUtc).getTime()) / 60_000
+      : 0   // if no timestamp, assume fresh
+
+    if (obsAge < 60) {
+      // Find current hour index from the first model with time data
+      const anyHourly = Object.values(wxData).find(d => d?.hourly?.time?.length)?.hourly
+      if (anyHourly) {
+        const now = Date.now()
+        let currentIdx = 0
+        for (let i = 0; i < anyHourly.time.length; i++) {
+          if (new Date(anyHourly.time[i]).getTime() <= now) currentIdx = i
+          else break
+        }
+
+        for (const key of keys) {
+          const hourly = wxData[key]?.hourly
+          if (!hourly) continue
+          const modelTemp = hourly.temperature_2m[currentIdx] ?? null
+          if (modelTemp == null) continue
+
+          const error = Math.abs(modelTemp - obsTemp)
+          // Soft exponential decay: ±1°C → ×0.72, ±3°C → ×0.37, ±5°C → ×0.19
+          raw[key] *= Math.exp(-error / 3.0)
+        }
+      }
+    }
+  }
+
+  // ── Normalise ────────────────────────────────────────────────────────────
+  const total = Object.values(raw).reduce((s, v) => s + v, 0)
   const weights: Record<string, number> = {}
   for (const key of keys) {
     weights[key] = raw[key] / total

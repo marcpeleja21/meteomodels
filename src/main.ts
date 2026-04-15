@@ -579,7 +579,10 @@ async function selectLocation(loc: GeocodingResult) {
 
   // Ensemble current conditions
   const _wxKeys = Object.entries(state.wxData).filter(([,v]) => v !== null).map(([k]) => k)
-  const _wxWeights = computeModelWeights(_wxKeys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0)
+  const _wxWeights = computeModelWeights(
+    _wxKeys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0,
+    state.wxData, state.currentObs?.temp, state.currentObs?.time,
+  )
   const { data: ensData } = getEnsembleCurrent(state.wxData, _wxWeights)
   const ensWx = wxFromCode(ensData.code, t().wx)
 

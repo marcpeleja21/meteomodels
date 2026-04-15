@@ -32,7 +32,11 @@ function seedTopModels(loadedKeys: string[]) {
   const loc = state.currentLoc
   if (!loc || !loadedKeys.length) return
 
-  const weights = computeModelWeights(loadedKeys, loc.latitude, loc.longitude)
+  const obs     = state.currentObs
+  const weights = computeModelWeights(
+    loadedKeys, loc.latitude, loc.longitude, loc.elevation ?? 0,
+    state.wxData, obs?.temp, obs?.time,
+  )
   const sorted  = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
   state.chartSelectedModels = new Set(sorted.slice(0, TOP_N))
 }
