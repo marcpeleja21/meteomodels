@@ -75,28 +75,47 @@ export default async function handler(request) {
     }
     if (!candidates.length) throw new Error('No nearby PWS found')
 
-    // Pick the nearest station by haversine distance
+    // Sort nearest-first; try each in order until one returns live observations.
+    // Stations can be registered in WU but currently offline (HTTP 204 / empty
+    // body) — skip those and fall back to the next closest active station.
     candidates.sort((a, b) => a.dist - b.dist)
-    const stationId   = candidates[0].id
-    const stationDist = candidates[0].dist
 
-    // Step 2 — fetch current observations
-    const obsUrl =
-      `https://api.weather.com/v2/pws/observations/current` +
-      `?stationId=${stationId}&format=json&units=m&apiKey=${WU_KEY}`
+    let obs = null
+    let chosenDist = null
 
-    const obsRes = await fetch(obsUrl)
-    if (!obsRes.ok) throw new Error(`WU obs ${obsRes.status}`)
-    const obsData = await obsRes.json()
+    for (const candidate of candidates) {
+      const obsUrl =
+        `https://api.weather.com/v2/pws/observations/current` +
+        `?stationId=${candidate.id}&format=json&units=m&apiKey=${WU_KEY}`
 
-    const obs = obsData?.observations?.[0]
-    if (!obs) throw new Error('No observation returned')
+      try {
+        const obsRes = await fetch(obsUrl)
+        // 204 = station registered but no current data; skip silently
+        if (obsRes.status === 204) continue
+        if (!obsRes.ok) continue
+
+        const text = await obsRes.text()
+        if (!text) continue               // empty body → station offline
+
+        const obsData = JSON.parse(text)
+        const first = obsData?.observations?.[0]
+        if (!first) continue
+
+        obs = first
+        chosenDist = candidate.dist
+        break
+      } catch {
+        continue                          // parse error or network hiccup → try next
+      }
+    }
+
+    if (!obs) throw new Error('No active PWS found nearby')
 
     // Normalise into a flat shape the frontend can consume directly
     const result = {
       stationId:      obs.stationID,
       stationName:    obs.neighborhood ?? obs.stationID,
-      stationDist:    stationDist !== null ? Math.round(stationDist) : null,
+      stationDist:    chosenDist !== null ? Math.round(chosenDist) : null,
       stationLat:     obs.lat,
       stationLon:     obs.lon,
       obsTimeUtc:     obs.obsTimeUtc,
