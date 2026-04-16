@@ -13,7 +13,7 @@ export function isLocationNight(wxData: Record<string, OpenMeteoResponse | null>
   const model = Object.values(wxData).find((d): d is OpenMeteoResponse => d !== null)
   let hour: number
   if (model) {
-    const i = currentHourIdx(model.hourly.time)
+    const i = currentHourIdx(model.hourly.time, model.timezone)
     hour = parseInt(model.hourly.time[i].slice(11, 13), 10)
   } else {
     hour = new Date().getHours()
@@ -41,13 +41,52 @@ export function modelsForHours(
     .map(m => wxData[m.key]!)
 }
 
-/** Find current hour index in an hourly time array */
-export function currentHourIdx(times: string[]): number {
+/**
+ * Find current hour index in an hourly time array.
+ *
+ * Open-Meteo returns timestamps in the **location's local timezone** when the
+ * API is called with `timezone=auto`.  Using `new Date().toISOString()` here
+ * would give UTC, which can be several hours behind the local time and
+ * therefore point to the wrong (earlier) slot.
+ *
+ * When `timezone` (an IANA name like "Europe/Madrid") is provided we convert
+ * the current instant to that timezone before comparing; otherwise we fall
+ * back to the browser's local time, which is a reasonable approximation when
+ * the user is looking at their own region.
+ */
+export function currentHourIdx(times: string[], timezone?: string | null): number {
   const now = new Date()
-  const nowStr = now.toISOString().slice(0, 13) // "2024-03-15T14"
+  let nowStr: string
+
+  if (timezone) {
+    try {
+      // sv-SE locale gives ISO-like "YYYY-MM-DD HH:mm:ss" in the target tz
+      const fmt = new Intl.DateTimeFormat('sv-SE', {
+        timeZone:  timezone,
+        year:      'numeric',
+        month:     '2-digit',
+        day:       '2-digit',
+        hour:      '2-digit',
+        minute:    '2-digit',
+        hour12:    false,
+      })
+      const s = fmt.format(now) // e.g. "2026-04-16 10:45"
+      // Build "YYYY-MM-DDTHH" to match model timestamps like "2026-04-16T10:00"
+      nowStr = s.slice(0, 10) + 'T' + s.slice(11, 13)
+    } catch {
+      // Unknown timezone — fall back to browser local time
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+      nowStr = local.toISOString().slice(0, 13)
+    }
+  } else {
+    // No timezone info available: use browser local time as best approximation
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    nowStr = local.toISOString().slice(0, 13)
+  }
+
   let best = 0
   for (let i = 0; i < times.length; i++) {
-    // times are like "2024-03-15T14:00"
+    // times are like "2024-03-15T14:00" — compare only up to the hour
     if (times[i].slice(0, 13) <= nowStr) best = i
   }
   return best
@@ -56,7 +95,7 @@ export function currentHourIdx(times: string[]): number {
 /** Extract current-hour weather from a single model response */
 export function getCurrentWeather(data: OpenMeteoResponse): CurrentWeather {
   const h = data.hourly
-  const i = currentHourIdx(h.time)
+  const i = currentHourIdx(h.time, data.timezone)
   return {
     temp:    h.temperature_2m[i]            ?? null,
     feels:   h.apparent_temperature[i]      ?? null,
@@ -165,7 +204,7 @@ export function hoursUntilPrecip(wxData: Record<string, OpenMeteoResponse | null
 
   for (const model of models) {
     const h = model.hourly
-    const base = currentHourIdx(h.time)
+    const base = currentHourIdx(h.time, model.timezone)
 
     for (let offset = 0; offset <= 6; offset++) {
       const idx = base + offset
@@ -246,10 +285,10 @@ export function getEnsembleForecast7(
 }
 
 /** Get current AQI value */
-export function getCurrentAqi(aqiData: AqiResponse | null): number | null {
+export function getCurrentAqi(aqiData: AqiResponse | null, timezone?: string | null): number | null {
   if (!aqiData) return null
   const times = aqiData.hourly.time
-  const idx = currentHourIdx(times)
+  const idx = currentHourIdx(times, timezone)
   return aqiData.hourly.european_aqi[idx] ?? null
 }
 

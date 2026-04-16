@@ -20,6 +20,42 @@ import type { OpenMeteoResponse } from '../types'
 import { computeModelWeights } from '../utils/modelWeights'
 import type { WeatherAlert } from '../api/alerts'
 
+// ── Timezone-aware local time helpers ─────────────────────────────────────────
+/**
+ * Returns "YYYY-MM-DDTHH" for the given Date in the specified IANA timezone.
+ * Falls back to the browser's local time when the timezone is unknown.
+ */
+function localHourStr(d: Date, tz: string | null | undefined): string {
+  if (tz) {
+    try {
+      const fmt = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: tz, year: 'numeric', month: '2-digit',
+        day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+      })
+      const s = fmt.format(d)         // "2026-04-16 10:45"
+      return s.slice(0, 10) + 'T' + s.slice(11, 13)
+    } catch { /* fall through */ }
+  }
+  // Browser local time as fallback
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 13)
+}
+
+/**
+ * Returns "YYYY-MM-DD" for the given Date in the specified timezone.
+ */
+function localDateStr(d: Date, tz: string | null | undefined): string {
+  if (tz) {
+    try {
+      return new Intl.DateTimeFormat('sv-SE', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(d)
+    } catch { /* fall through */ }
+  }
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
 // ── Wind chill ────────────────────────────────────────────────────────────────
 function windChill(tempC: number, windKmh: number): number {
   if (windKmh <= 4.8 || tempC > 10) return tempC
@@ -156,15 +192,24 @@ interface Stats48h {
 function compute48hStats(
   wxData: Record<string, OpenMeteoResponse | null>,
 ): Stats48h | null {
-  const now = Date.now()
-  const end = now + 48 * 3600_000
+  const nowMs = Date.now()
+  const endMs = nowMs + 48 * 3600_000
+
+  // Resolve location timezone from the first available model response so that
+  // "now" and "today/tomorrow" date labels are correct for the location, not
+  // the browser's timezone (which may differ by several hours).
+  const tz = Object.values(wxData).find(d => d != null)?.timezone ?? null
+
+  const nowDate = new Date(nowMs)
+  const endDate = new Date(endMs)
+
+  // "YYYY-MM-DDTHH" strings in the location's local timezone — used for
+  // string-based comparison against model timestamps (which are also local).
+  const nowHourStr = localHourStr(nowDate, tz)
+  const endHourStr = localHourStr(endDate, tz)
 
   // Determine how many daily slots overlap with the 48 h window
-  const todayStart = (() => {
-    const d = new Date(now)
-    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-  })()
-  const gustDayCount = Math.min(3, Math.ceil((end - todayStart) / 86_400_000))
+  const gustDayCount = Math.min(3, Math.ceil(48 / 24) + 1)
 
   type MV = { k: string; v: number }
   const tempMap:      Map<string, MV[]> = new Map()
@@ -186,9 +231,9 @@ function compute48hStats(
     const { time, temperature_2m, precipitation, wind_speed_10m, weather_code } = data.hourly
 
     for (let i = 0; i < time.length; i++) {
-      const ts = new Date(time[i]).getTime()
-      if (ts < now)  continue
-      if (ts > end)  continue
+      const tHour = time[i].slice(0, 13)   // "2026-04-16T10"
+      if (tHour < nowHourStr) continue      // skip hours before current
+      if (tHour > endHourStr) continue      // skip hours after 48 h window
 
       const k   = time[i]
       const day = isDay(k)
@@ -291,8 +336,8 @@ function compute48hStats(
   const ntSeg  = segStats(ntTempMap,  ntWindMap,  ntPrecipTs)
 
   // ── Per-calendar-day breakdown ────────────────────────────────────────────
-  const todayDateStr = new Date(now).toISOString().slice(0, 10)
-  const tomDateStr   = new Date(now + 86_400_000).toISOString().slice(0, 10)
+  const todayDateStr = localDateStr(nowDate, tz)
+  const tomDateStr   = localDateStr(new Date(nowMs + 86_400_000), tz)
 
   let   todayPrecipAcc = 0, tomPrecipAcc = 0
   const todayFLs: number[] = [], tomFLs: number[] = []

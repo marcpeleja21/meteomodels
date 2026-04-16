@@ -129,7 +129,8 @@ function renderEnsemble(el: HTMLElement, t: LangData) {
   const night = isLocationNight(state.wxData)
   const { data: cur, n } = getEnsembleCurrent(state.wxData)
   const wx    = wxFromCode(cur.code, t.wx, night)
-  const aqi   = getCurrentAqi(state.aqiData)
+  const tz    = Object.values(state.wxData).find(d => d != null)?.timezone
+  const aqi   = getCurrentAqi(state.aqiData, tz)
   const aqiI  = aqiInfo(aqi, t.aqi)
 
   const models = Object.values(state.wxData).filter((d): d is OpenMeteoResponse => d !== null)
@@ -178,7 +179,7 @@ function renderSingleModel(el: HTMLElement, t: LangData) {
   }
   const cur  = getCurrentWeather(data)
   const wx   = wxFromCode(cur.code, t.wx, night)
-  const aqi  = getCurrentAqi(state.aqiData)
+  const aqi  = getCurrentAqi(state.aqiData, data.timezone)
   const aqiI = aqiInfo(aqi, t.aqi)
 
   const obsTemp   = state.currentObs?.temp ?? null
