@@ -175,6 +175,8 @@ interface Stats48h {
   tomorrowAvgFL:      number | null
   todayDayMaxTemp:    number | null   // max temp in daytime hours today
   tomorrowDayMaxTemp: number | null   // max temp in daytime hours tomorrow
+  todayDayAvgFL:      number | null   // avg feels-like during daytime today (07-21)
+  tomorrowDayAvgFL:   number | null   // avg feels-like during daytime tomorrow (07-21)
   todayMaxWind:       number          // max hourly wind speed today
   tomorrowMaxWind:    number          // max hourly wind speed tomorrow
 
@@ -343,6 +345,7 @@ function compute48hStats(
   const todayFLs: number[] = [], tomFLs: number[] = []
   const todayWindSpds: number[] = [], tomWindSpds: number[] = []
   const todayDayMaxTs: number[] = [], tomDayMaxTs: number[] = []
+  const todayDayFLs:   number[] = [], tomDayFLs:   number[] = []
   let   todayDayPrecipAcc = 0, todayNightPrecipAcc = 0
   let   tomDayPrecipAcc   = 0, tomNightPrecipAcc   = 0
   const todayNightMinTs: number[] = [], tomNightMinTs: number[] = []
@@ -363,6 +366,7 @@ function compute48hStats(
       if (wVals.length) todayWindSpds.push(w)
       if (isDay(k)) {
         todayDayMaxTs.push(t)
+        todayDayFLs.push(fl)
         todayDayPrecipAcc += p
       } else {
         todayNightPrecipAcc += p
@@ -374,6 +378,7 @@ function compute48hStats(
       if (wVals.length) tomWindSpds.push(w)
       if (isDay(k)) {
         tomDayMaxTs.push(t)
+        tomDayFLs.push(fl)
         tomDayPrecipAcc += p
       } else {
         tomNightPrecipAcc += p
@@ -413,6 +418,8 @@ function compute48hStats(
     tomorrowAvgFL:      tomFLs.length     ? tomFLs.reduce((a,b)=>a+b,0)/tomFLs.length     : null,
     todayDayMaxTemp:    todayDayMaxTs.length ? Math.max(...todayDayMaxTs) : null,
     tomorrowDayMaxTemp: tomDayMaxTs.length   ? Math.max(...tomDayMaxTs)   : null,
+    todayDayAvgFL:      todayDayFLs.length   ? todayDayFLs.reduce((a,b)=>a+b,0)/todayDayFLs.length : null,
+    tomorrowDayAvgFL:   tomDayFLs.length     ? tomDayFLs.reduce((a,b)=>a+b,0)/tomDayFLs.length     : null,
     todayMaxWind:       todayWindSpds.length ? Math.max(...todayWindSpds) : 0,
     tomorrowMaxWind:    tomWindSpds.length   ? Math.max(...tomWindSpds)   : 0,
     todayDayPrecip:     todayDayPrecipAcc,
@@ -658,7 +665,10 @@ function generateClothesAdvice(s: Stats48h, lang: string, alerts: WeatherAlert[]
 
   // All clothing logic in a nested function; alert note prepended at the end.
   function base(): string {
-  const fl        = s.avgFeelsLike
+  // Use daytime feels-like for the main threshold (avoids overnight cold
+  // dragging the average into a "jacket" band on a warm day).
+  // Fall back to 48h overall when no daytime data is available.
+  const fl        = s.dayAvgFL ?? s.avgFeelsLike
   const mfl       = s.minFeelsLike
   const wnd       = Math.round(s.maxWind)
   const hasRain   = s.totalPrecip > 1
@@ -927,10 +937,13 @@ function shortClothes(fl: number, rain: boolean, lang: string): string {
  * call for meaningfully different clothing. Returns empty string when similar.
  */
 function perDayClothesNote(s: Stats48h, lang: string, alerts: WeatherAlert[] = []): string {
-  const todayFL  = s.todayAvgFL    ?? s.avgFeelsLike
-  const tomFL    = s.tomorrowAvgFL ?? s.avgFeelsLike
-  const todayRain = s.todayPrecip    > 1
-  const tomRain   = s.tomorrowPrecip > 1
+  // Prefer daytime-only feels-like (07:00-20:59) so that overnight cold
+  // temperatures don't drag the average below the "jacket" threshold when
+  // the daytime is actually warm. Fall back to 24h avg if no daytime data.
+  const todayFL  = s.todayDayAvgFL  ?? s.todayAvgFL    ?? s.avgFeelsLike
+  const tomFL    = s.tomorrowDayAvgFL ?? s.tomorrowAvgFL ?? s.avgFeelsLike
+  const todayRain = s.todayDayPrecip  > 1
+  const tomRain   = s.tomorrowDayPrecip > 1
 
   // Categorise: bucket feels-like into bands and combine with rain flag
   const cat = (fl: number, rain: boolean) =>
