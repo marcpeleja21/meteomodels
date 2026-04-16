@@ -61,29 +61,39 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
       webcams[0]
     if (!wc) return null
 
-    // v3: player.day is a plain string
+    const is3cat = typeof wc.webcamId === 'string' && wc.webcamId.startsWith('3cat_')
+
+    // 3cat cameras are snapshot-only (no live player embed)
     const playerRaw = wc.player?.day
-    const playerUrl: string | null =
-      typeof playerRaw === 'string'
+    const playerUrl: string | null = is3cat
+      ? null
+      : typeof playerRaw === 'string'
         ? playerRaw
         : wc.webcamId
           ? `https://webcams.windy.com/webcams/public/embed/player/${wc.webcamId}/day`
           : null
 
-    // v3: images.current.preview > thumbnail > full
+    // v3 Windy: images.current.preview > thumbnail > full
+    // 3cat: images.current.preview is the snapshot URL
     const imageUrl: string | null =
       wc.images?.current?.preview ??
       wc.images?.current?.thumbnail ??
       wc.images?.current?.full ??
       null
 
+    // 3cat cameras link to the 3cat.cat weather camera page
+    const camId = is3cat ? wc.webcamId.replace('3cat_', '') : null
+    const linkUrl: string | null = is3cat
+      ? `https://www.3cat.cat/el-temps/camera/${camId}/`
+      : wc.webcamId
+        ? `https://www.windy.com/webcams/${wc.webcamId}`
+        : null
+
     return {
-      title:     wc.title ?? wc.location?.city ?? 'Webcam',
+      title: wc.title ?? wc.location?.city ?? 'Webcam',
       imageUrl,
       playerUrl,
-      linkUrl:   wc.webcamId
-        ? `https://www.windy.com/webcams/${wc.webcamId}`
-        : null,
+      linkUrl,
     }
   } catch { return null }
 }
