@@ -34,7 +34,40 @@ import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent, hoursUntilPrecip } from './utils/data'
 import { computeModelWeights } from './utils/modelWeights'
 import { wxFromCode } from './utils/weather'
-import type { GeocodingResult } from './types'
+import type { GeocodingResult, OpenMeteoResponse, AqiResponse, CurrentObs } from './types'
+import type { WeatherAlert } from './api/alerts'
+
+// ── Location data cache ────────────────────────────────────────────────────────
+// Stores the full fetch result for recently visited locations so that
+// re-selecting the same location within the TTL window returns identical data.
+// This prevents intermittent model fetch failures from causing different models
+// to appear on different loads, and stops obs-bias weights from shifting each render.
+const WX_CACHE_TTL_MS = 10 * 60 * 1000   // 10 minutes
+
+interface WxCacheEntry {
+  wxData:     Record<string, OpenMeteoResponse | null>
+  aqiData:    AqiResponse | null
+  obsData:    CurrentObs | null
+  alertsData: WeatherAlert[]
+  elevation:  number | null
+  timestamp:  number
+}
+
+const wxCache = new Map<string, WxCacheEntry>()
+
+function cacheKey(lat: number, lon: number): string {
+  return `${lat.toFixed(3)},${lon.toFixed(3)}`
+}
+
+function getCachedEntry(lat: number, lon: number): WxCacheEntry | null {
+  const entry = wxCache.get(cacheKey(lat, lon))
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > WX_CACHE_TTL_MS) {
+    wxCache.delete(cacheKey(lat, lon))
+    return null
+  }
+  return entry
+}
 
 // ── MeteoBlue hardcoded key ────────────────────────────────────────────────────
 const MB_KEY = 'eoWsSfipj9Z3D1E8'
@@ -521,6 +554,44 @@ async function selectLocation(loc: GeocodingResult) {
 
   hide(welcomeScreen)
   hide(wxDisplay)
+
+  // ── Try cache first ──────────────────────────────────────────────────────
+  const cached = getCachedEntry(loc.latitude, loc.longitude)
+  if (cached) {
+    // Restore elevation from cache if it wasn't on the loc object
+    if (cached.elevation != null && loc.elevation == null) loc.elevation = cached.elevation
+
+    state.wxData     = cached.wxData
+    state.aqiData    = cached.aqiData
+    state.currentObs = cached.obsData
+    state.alerts     = cached.alertsData
+    state.fetchedAt  = cached.timestamp
+
+    show(wxDisplay)
+    wxDisplay.classList.add('fade-up')
+
+    renderAlertsBanner(cached.alertsData)
+    renderPredictionCard(state.wxData)
+    renderLocBar(loc, t())
+    renderStationCard(cached.obsData)
+    renderModelTabs(getActiveModels(), state.wxData, t(), onModelSelect)
+    renderAll()
+    renderMapCard(loc.latitude, loc.longitude, loc.name)
+    fetchNearbyWebcam(loc.latitude, loc.longitude).then(renderWebcamCard)
+
+    const _wxKeys = Object.entries(state.wxData).filter(([,v]) => v !== null).map(([k]) => k)
+    const _wxWeights = computeModelWeights(
+      _wxKeys, loc.latitude, loc.longitude, state.currentLoc?.elevation ?? 0,
+      state.wxData, state.currentObs?.temp, state.currentObs?.time,
+    )
+    const { data: ensData } = getEnsembleCurrent(state.wxData, _wxWeights)
+    const ensWx = wxFromCode(ensData.code, t().wx)
+    if (ensWx.type === 'rain') startAnimation('rain')
+    else if (ensWx.type === 'snow') startAnimation('snow')
+    else startAnimation('none')
+    return
+  }
+
   show(loadingScreen)
   loadingText.textContent = t().loading
 
@@ -561,6 +632,16 @@ async function selectLocation(loc: GeocodingResult) {
     state.wxData['meteoblue'] = null
     onProgress('meteoblue', false)
   }
+
+  // Store in cache so subsequent selects of this location are stable
+  wxCache.set(cacheKey(loc.latitude, loc.longitude), {
+    wxData:     state.wxData,
+    aqiData:    state.aqiData,
+    obsData:    state.currentObs,
+    alertsData: state.alerts,
+    elevation:  loc.elevation ?? null,
+    timestamp:  state.fetchedAt!,
+  })
 
   hide(loadingScreen)
   show(wxDisplay)
