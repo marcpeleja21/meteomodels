@@ -3,10 +3,9 @@
  * The feed blocks direct browser requests (CORS/network), so we fetch
  * it server-side and relay the XML back with proper CORS headers.
  *
- * Accepts optional ?lat=&lon= params.  When provided the function also
- * queries the MeteoAlarm zones API to find which EMMA zone IDs contain
- * the requested point and returns them in the X-Emma-Ids header so the
- * client can filter alerts precisely without text matching.
+ * Alert filtering is done entirely client-side in alerts.ts using
+ * text-based location matching (city name + admin3/comarca).
+ * The MeteoAlarm zones API (EMMA point lookup) was removed in 2026.
  */
 export const config = { runtime: 'edge' }
 
@@ -24,90 +23,14 @@ const EU_SLUGS = {
 
 const UA = 'MeteoModels/1.0 (meteomodels.vercel.app)'
 
-// ── Point-in-polygon (ray casting) ────────────────────────────────────────────
-function pointInPolygon(lat, lon, ring) {
-  // ring = [[lon, lat], ...] (GeoJSON order)
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
-function pointInGeom(lat, lon, geom) {
-  if (!geom) return false
-  if (geom.type === 'Polygon') {
-    return pointInPolygon(lat, lon, geom.coordinates[0])
-  }
-  if (geom.type === 'MultiPolygon') {
-    return geom.coordinates.some(poly => pointInPolygon(lat, lon, poly[0]))
-  }
-  return false
-}
-
-function pointInBbox(lat, lon, bbox) {
-  // GeoJSON bbox: [west, south, east, north]
-  if (!Array.isArray(bbox) || bbox.length < 4) return false
-  const [west, south, east, north] = bbox
-  return lat >= south && lat <= north && lon >= west && lon <= east
-}
-
 // ── MeteoAlarm zones API ───────────────────────────────────────────────────────
-async function getEmmaIdsForPoint(slug, lat, lon) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 6000)
-  try {
-    const res = await fetch(
-      `https://feeds.meteoalarm.org/api/v1/zones/feeds-${slug}/`,
-      { headers: { 'User-Agent': UA }, signal: controller.signal },
-    )
-    clearTimeout(timer)
-    if (!res.ok) return null
-
-    const ct = res.headers.get('content-type') ?? ''
-    if (!ct.includes('json')) return null
-
-    const data = await res.json()
-
-    // Normalise to a flat array of { id, bbox?, geometry? }
-    let zones = []
-    if (Array.isArray(data)) {
-      zones = data
-    } else if (Array.isArray(data.zones)) {
-      zones = data.zones
-    } else if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-      zones = data.features.map(f => ({
-        id:       f.id ?? f.properties?.id ?? f.properties?.emma_id,
-        bbox:     f.bbox,
-        geometry: f.geometry,
-        ...f.properties,
-      }))
-    } else {
-      return null
-    }
-
-    const matching = []
-    for (const zone of zones) {
-      const id = zone.id ?? zone.emma_id ?? zone.emmaId
-      if (!id) continue
-
-      // Prefer full polygon, fall back to bounding box
-      if (zone.geometry && pointInGeom(lat, lon, zone.geometry)) {
-        matching.push(String(id))
-      } else if (zone.bbox && pointInBbox(lat, lon, zone.bbox)) {
-        matching.push(String(id))
-      }
-    }
-
-    return matching.length > 0 ? matching : null
-  } catch {
-    clearTimeout(timer)
-    return null
-  }
+// NOTE: The MeteoAlarm zones API (feeds.meteoalarm.org/api/v1/zones/feeds-XX/)
+// has been permanently removed (returns 404 for all countries as of 2026).
+// EMMA zone ID lookup is therefore disabled; alert filtering falls back to
+// text-based matching in the client (alertMatchesLocation in alerts.ts).
+// Keeping the helper as a no-op so the handler below needs no restructuring.
+async function getEmmaIdsForPoint(_slug, _lat, _lon) {   // eslint-disable-line no-unused-vars
+  return null
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────

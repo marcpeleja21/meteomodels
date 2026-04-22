@@ -140,22 +140,26 @@ function reEsc(s: string): string {
  * Returns true if the alert's areaDesc is relevant to the selected location.
  *
  * Uses **word-boundary** regex so that e.g. admin1="Aragon" does NOT match
- * zone names like "Pirineo aragonés" (normalises to "aragones") — the old
- * `.includes()` approach caused false positives for adjective-form zone names.
+ * zone names like "Pirineo aragonés" (normalises to "aragones").
  *
- * Candidates: city name + admin2 (province) only.
- * admin1 (autonomous community) is intentionally excluded — MeteoAlarm zone
- * names use adjective forms of the region ("aragonés", "catalán") that would
- * incorrectly match any location in that region regardless of the specific zone.
+ * Candidates: city name + admin3 (comarca/county/district).
+ *
+ * admin2 (province) is intentionally excluded: MeteoAlarm zone names often
+ * use the province name as a qualifier ("Prepirineo de Barcelona", "Pirineo de
+ * Lleida"), which would match every location in that province regardless of
+ * whether the zone is geographically relevant. admin3 (comarca/county) is
+ * specific enough to avoid this while still catching area-level alerts.
+ *
+ * admin1 (autonomous community) is also excluded — too broad.
  */
 function alertMatchesLocation(area: string, loc: GeocodingResult): boolean {
   const normArea = normalise(area)
   if (!normArea) return false
 
-  // Only match on city name and province (admin2) — region/country too broad
+  // Match on city name and comarca/county (admin3) only — province too broad
   const candidates: string[] = [
     loc.name,
-    loc.admin2,
+    loc.admin3,
   ].filter(Boolean) as string[]
 
   return candidates.some(c => {
@@ -163,7 +167,7 @@ function alertMatchesLocation(area: string, loc: GeocodingResult): boolean {
     if (norm.length < 3) return false
     // Word-boundary match: "aragon" must NOT match inside "aragones"
     if (new RegExp(`\\b${reEsc(norm)}\\b`).test(normArea)) return true
-    // Prefix match (≥5 chars) for cross-language variants: "catalo" ↔ Catalonia/Catalunya
+    // Prefix match (≥5 chars) for cross-language variants
     const prefix = norm.slice(0, 6)
     if (prefix.length >= 5 && new RegExp(`\\b${reEsc(prefix)}`).test(normArea)) return true
     return false

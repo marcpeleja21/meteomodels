@@ -49,6 +49,18 @@ function mapResult(r: any): GeocodingResult | null {
   const admin1: string | undefined =
     addr.state ?? undefined
 
+  // admin3 = comarca / county / district — more specific than province.
+  // Used for alert matching so province-level strings ("Barcelona") don't
+  // match sub-provincial zones ("Prepirineo de Barcelona").
+  // We want a level below admin2: if state_district/province consumed admin2,
+  // try county / municipality. Never duplicate admin2 or name.
+  const admin3Raw: string | undefined =
+    addr.county     !== admin2 ? (addr.county     ?? undefined) :
+    addr.district   !== admin2 ? (addr.district   ?? undefined) :
+    addr.suburb     !== admin2 ? (addr.suburb      ?? undefined) :
+    undefined
+  const admin3 = admin3Raw !== name ? admin3Raw : undefined
+
   return {
     id:           r.place_id ?? 0,
     name,
@@ -57,7 +69,8 @@ function mapResult(r: any): GeocodingResult | null {
     country:      addr.country ?? '',
     admin1,
     admin2,
-    timezone:     'auto',   // timezone field kept for interface compat; weather APIs use auto
+    admin3,
+    timezone:     'auto',   // timezone field kept for interface compat; weather APIs use use
     country_code,
   }
 }
@@ -119,6 +132,13 @@ export async function reverseGeocode(
       json.name
     if (!name) return null
     const country_code = (addr.country_code ?? '').toUpperCase()
+    const rev_admin2: string | undefined =
+      addr.state_district ?? addr.province ?? addr.county_district ?? addr.county ?? undefined
+    const rev_admin3Raw: string | undefined =
+      addr.county     !== rev_admin2 ? (addr.county     ?? undefined) :
+      addr.district   !== rev_admin2 ? (addr.district   ?? undefined) :
+      addr.suburb     !== rev_admin2 ? (addr.suburb      ?? undefined) :
+      undefined
     return {
       id:          json.place_id ?? 0,
       name,
@@ -126,7 +146,8 @@ export async function reverseGeocode(
       longitude:   lon,
       country:     addr.country ?? '',
       admin1:      addr.state ?? undefined,
-      admin2:      addr.state_district ?? addr.province ?? addr.county_district ?? addr.county ?? undefined,
+      admin2:      rev_admin2,
+      admin3:      rev_admin3Raw !== name ? rev_admin3Raw : undefined,
       timezone:    'auto',
       country_code,
     }
