@@ -1,23 +1,43 @@
 /**
- * MeteoModels — Combined Ensemble API (legacy)
- * ─────────────────────────────────────────────
- * GET /api/ensemble?lat=LAT&lon=LON[&key=API_KEY]
+ * MeteoModels — Weighted Multi-Model Forecast API
+ * ─────────────────────────────────────────────────
+ * GET /api/models?lat=LAT&lon=LON[&key=API_KEY]
  *
- * Returns model forecasts + real-time PWS observation in a single call.
- * This endpoint is kept for backward compatibility.
+ * Returns the location-aware weighted multi-model ensemble for the current
+ * hour: a weighted average across the best models for that location, plus
+ * the individual reading from each loaded model.
  *
- * Prefer the split endpoints for new integrations:
- *   GET /api/models?lat=LAT&lon=LON      — model forecasts, 30-min cache
- *   GET /api/observation?lat=LAT&lon=LON — real-time PWS obs, 5-min cache
+ * For real-time station observations (rain detection, actual temperature, etc.)
+ * use the companion endpoint: GET /api/observation?lat=LAT&lon=LON
+ *
+ * Authentication (optional)
+ *   Set the ENSEMBLE_API_KEYS env var in Vercel to a comma-separated list
+ *   of valid keys. When absent the endpoint is public.
+ *   Pass via: ?key=, x-api-key header, or Authorization: Bearer
+ *
+ * Rate limits (Open-Meteo free tier — per loaded model set)
+ *   Europe  (~8 models): ~1,250 calls/day · ~75 calls/min
+ *   USA     (~3 models): ~3,300 calls/day · ~200 calls/min
+ *   Global  (~3 models): ~3,300 calls/day · ~200 calls/min
  *
  * Caching
- *   Vercel Edge Cache: 5 min (s-maxage=300), stale-while-revalidate 60 s.
+ *   Vercel Edge Cache: 30 min (s-maxage=1800) — models update every 1–6 h.
+ *   stale-while-revalidate=300 serves cached data while refreshing in background.
+ *
+ * Model coverage
+ *   - Everywhere   : ECMWF IFS 25 km + GFS 25 km
+ *   - Europe       : + ICON EU 7 km + ARPEGE 10 km + KNMI HARMONIE 2.5 km + DMI HARMONIE 2.5 km
+ *   - AROME domain : + AROME HD 1.5 km + AROME 2.5 km  (35–56°N / 12°W–17°E)
+ *   - Central EU   : + ICON D2 2.2 km + GeoSphere 2.5 km
+ *   - UK / Ireland : + UKMO 10 km
+ *   - Canada       : + GEM 15 km
+ *   - CONUS        : + HRRR 3 km
+ *   - Non-Europe   : + ICON Global 13 km
  */
 
 export const config = { runtime: 'edge' }
 
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast'
-const WU_KEY     = '3b28991981854cdba8991981851cdbb8'
 const UA         = 'MeteoModels/1.0 (meteomodels.vercel.app)'
 
 const HOURLY_VARS = [
@@ -37,121 +57,9 @@ const isNordic = (la, lo) => la >= 54 && la <= 72 && lo >= -25 && lo <= 32
 const isCanada = (la, lo) => la >= 42 && la <= 84 && lo >= -141 && lo <= -52
 const isEurope = (la, lo) => la >= 27 && la <= 72 && lo >= -25 && lo <= 45
 const isUSA    = (la, lo) => la >= 15 && la <= 72 && lo >= -170 && lo <= -52 && !isCanada(la, lo)
-// HRRR CONUS domain: ~3 km, runs hourly, best short-range accuracy in the contiguous US
 const isHRRR   = (la, lo) => la >= 22 && la <= 52 && lo >= -134 && lo <= -61
 
-// ── Haversine distance ────────────────────────────────────────────────────────
-
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-// ── PWS observation fetch (mirrors api/pws.js logic) ─────────────────────────
-
-async function fetchPwsObs(lat, lon) {
-  try {
-    const nearUrl =
-      `https://api.weather.com/v3/location/near` +
-      `?geocode=${lat},${lon}&product=pws&format=json&apiKey=${WU_KEY}`
-    const nearRes = await fetch(nearUrl)
-    if (!nearRes.ok) return null
-    const nearData = await nearRes.json()
-
-    const ids         = nearData?.location?.stationId  ?? []
-    const qcStatus    = nearData?.location?.qcStatus   ?? []
-    const distances   = nearData?.location?.distanceKm ?? []
-    const stationLats = nearData?.location?.latitude   ?? []
-    const stationLons = nearData?.location?.longitude  ?? []
-
-    const candidates = []
-    for (let i = 0; i < ids.length; i++) {
-      if (qcStatus[i] !== 1) continue
-      const sLat = stationLats[i], sLon = stationLons[i]
-      const dist = (sLat != null && sLon != null)
-        ? haversineKm(lat, lon, sLat, sLon)
-        : (distances[i] ?? Infinity)
-      candidates.push({ id: ids[i], dist })
-    }
-    if (!candidates.length) {
-      for (let i = 0; i < ids.length; i++) {
-        const sLat = stationLats[i], sLon = stationLons[i]
-        const dist = (sLat != null && sLon != null)
-          ? haversineKm(lat, lon, sLat, sLon)
-          : (distances[i] ?? Infinity)
-        candidates.push({ id: ids[i], dist })
-      }
-    }
-    if (!candidates.length) return null
-
-    candidates.sort((a, b) => a.dist - b.dist)
-
-    for (const candidate of candidates) {
-      try {
-        const obsUrl =
-          `https://api.weather.com/v2/pws/observations/current` +
-          `?stationId=${candidate.id}&format=json&units=m&apiKey=${WU_KEY}`
-        const obsRes = await fetch(obsUrl)
-        if (obsRes.status === 204) continue
-        if (!obsRes.ok) continue
-        const text = await obsRes.text()
-        if (!text) continue
-        const obsData = JSON.parse(text)
-        const obs = obsData?.observations?.[0]
-        if (!obs) continue
-
-        const obsTimeUtc  = obs.obsTimeUtc ?? null
-        const obsAgeMin   = obsTimeUtc
-          ? (Date.now() - new Date(obsTimeUtc).getTime()) / 60_000
-          : Infinity
-        const precipRate  = obs.metric?.precipRate ?? null
-
-        return {
-          // Station metadata
-          station_id:           obs.stationID ?? candidate.id,
-          station_name:         obs.neighborhood ?? obs.stationID ?? candidate.id,
-          station_lat:          obs.lat            ?? null,
-          station_lon:          obs.lon            ?? null,
-          station_dist_km:      candidate.dist !== null ? Math.round(candidate.dist * 10) / 10 : null,
-          obs_time_utc:         obsTimeUtc,
-          obs_age_min:          obsAgeMin !== Infinity ? Math.round(obsAgeMin * 10) / 10 : null,
-          // Temperature
-          temp_c:               obs.metric?.temp          ?? null,
-          feels_like_c:         obs.metric?.heatIndex     ?? obs.metric?.windChill ?? null,
-          dewpoint_c:           obs.metric?.dewpt         ?? null,
-          // Humidity & pressure
-          humidity_pct:         obs.humidity              ?? null,
-          pressure_hpa:         obs.metric?.pressure      ?? null,
-          // Wind
-          wind_speed_kmh:       obs.metric?.windSpeed     ?? null,
-          wind_gust_kmh:        obs.metric?.windGust      ?? null,
-          wind_dir_deg:         obs.winddir               ?? null,
-          // Precipitation  ← key fields for rain billing
-          precip_rate_mmhr:     precipRate,
-          precip_total_mm:      obs.metric?.precipTotal   ?? null,
-          // Solar
-          uv:                   obs.uv                    ?? null,
-          solar_radiation_wm2:  obs.solarRadiation        ?? null,
-          // Ground-truth flag: raining NOW if precipRate > 0 and obs is fresh (<15 min)
-          station_rain:         obsAgeMin < 15 && precipRate != null && precipRate > 0,
-        }
-      } catch {
-        continue
-      }
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-// ── Select the most relevant models for a location ───────────────────────────
+// ── Model selection ───────────────────────────────────────────────────────────
 
 function selectModels(lat, lon) {
   const models = [
@@ -159,22 +67,18 @@ function selectModels(lat, lon) {
     { key: 'gfs',   apiId: 'gfs_seamless',  maxDays: 2 },
   ]
   if (isEurope(lat, lon)) {
-    // Pan-European models — always included inside Europe
-    models.push({ key: 'icon_eu',        apiId: 'icon_eu',                        maxDays: 2 })
-    models.push({ key: 'arpege',         apiId: 'meteofrance_arpege_europe',       maxDays: 2 })
-    models.push({ key: 'knmi_harmonie',  apiId: 'knmi_harmonie_arome_europe',      maxDays: 2 })
-    models.push({ key: 'dmi_harmonie',   apiId: 'dmi_harmonie_arome_europe',       maxDays: 2 })
+    models.push({ key: 'icon_eu',       apiId: 'icon_eu',                       maxDays: 2 })
+    models.push({ key: 'arpege',        apiId: 'meteofrance_arpege_europe',      maxDays: 2 })
+    models.push({ key: 'knmi_harmonie', apiId: 'knmi_harmonie_arome_europe',     maxDays: 2 })
+    models.push({ key: 'dmi_harmonie',  apiId: 'dmi_harmonie_arome_europe',      maxDays: 2 })
   } else {
-    // Outside Europe — add ICON global as third global model
     models.push({ key: 'icon', apiId: 'icon_seamless', maxDays: 2 })
   }
   if (isFrance(lat, lon)) {
-    // High-res Météo-France LAMs (AROME domain covers Iberia, France, Benelux, N Italy)
     models.push({ key: 'arome_hd', apiId: 'meteofrance_arome_france_hd', maxDays: 2 })
     models.push({ key: 'arome',    apiId: 'meteofrance_arome_france',    maxDays: 2 })
   }
   if (isCentEU(lat, lon)) {
-    // Sub-regional high-res LAMs for Central Europe
     models.push({ key: 'icon_d2',   apiId: 'icon_d2',                maxDays: 2 })
     models.push({ key: 'geosphere', apiId: 'geosphere_arome_austria', maxDays: 2 })
   }
@@ -187,30 +91,19 @@ function selectModels(lat, lon) {
   return models
 }
 
-// ── Model weights (mirrors src/utils/modelWeights.ts) ────────────────────────
+// ── Model weights ─────────────────────────────────────────────────────────────
 
 const BASE_SCORE = {
-  ecmwf:         9.0,
-  gfs:           7.2,
-  icon:          7.0,   // DWD global, good in mid-latitudes
-  icon_eu:       8.0,   // 7 km EU domain
-  icon_d2:       8.5,   // 2.2 km Central Europe
-  arome_hd:      9.5,   // 1.5 km France domain — best resolution
-  arome:         9.0,   // 2.5 km France domain
-  arpege:        7.5,   // Météo-France European, operationally tuned for Iberia
-  geosphere:     8.2,   // 2.5 km Alps / Central Europe
-  knmi_harmonie: 8.0,   // 2.5 km pan-European HARMONIE-AROME
-  dmi_harmonie:  7.8,   // 2.5 km Europe — strongest in Nordic / North Sea
-  ukmo:          8.2,   // 10 km global, exceptional in mid-latitudes
-  gem:           6.5,   // 15 km global; authoritative in Canada
-  hrrr:          9.0,   // 3 km CONUS, runs every hour — premier short-range USA model
+  ecmwf: 9.0, gfs: 7.2, icon: 7.0, icon_eu: 8.0, icon_d2: 8.5,
+  arome_hd: 9.5, arome: 9.0, arpege: 7.5, geosphere: 8.2,
+  knmi_harmonie: 8.0, dmi_harmonie: 7.8, ukmo: 8.2, gem: 6.5, hrrr: 9.0,
 }
 
 function regionalBonus(key, lat, lon) {
   const eu = isEurope(lat, lon), ce = isCentEU(lat, lon), fr = isFrance(lat, lon)
   const uk = isUK(lat, lon), no = isNordic(lat, lon), ca = isCanada(lat, lon)
   const us = isUSA(lat, lon)
-  const ib = lat >= 36 && lat <= 44 && lon >= -10 && lon <= 4  // Iberian Peninsula
+  const ib = lat >= 36 && lat <= 44 && lon >= -10 && lon <= 4
   switch (key) {
     case 'hrrr':         return isHRRR(lat, lon) ? 7.0 : 0
     case 'arome_hd':     return fr ? 7.0 : 0
@@ -225,7 +118,7 @@ function regionalBonus(key, lat, lon) {
     case 'gem':          return ca ? 3.5 : 0
     case 'ecmwf':        return eu ? 1.0 : 0.5
     case 'gfs':          return us ? 2.0 : (!eu ? 0.8 : 0)
-    case 'icon':         return eu ? 0.5 : (!eu ? 0.3 : 0)
+    case 'icon':         return !eu ? 0.3 : 0.5
     default:             return 0
   }
 }
@@ -303,9 +196,9 @@ function buildEnsemble(results, weights) {
     return wSum > 0 ? Math.round(vSum / wSum * 10) / 10 : null
   }
 
-  // AROME HD → AROME → weighted modal
+  // Weather code: prefer AROME HD → AROME → weighted modal vote
   let code = null
-  for (const pref of ['arome_hd', 'arome']) {
+  for (const pref of ['arome_hd', 'arome', 'hrrr']) {
     const e = entries.find(([k]) => k === pref)
     if (e) {
       const v = e[1].hourly.weather_code?.[currentIdx(e[1].hourly.time)] ?? null
@@ -322,7 +215,6 @@ function buildEnsemble(results, weights) {
     if (best) code = +best[0]
   }
 
-  // Per-model current readings
   const by_model = {}
   for (const [key, data] of entries) {
     const h = data.hourly
@@ -399,7 +291,7 @@ export default async function handler(request) {
   const lonStr = searchParams.get('lon')
 
   if (!latStr || !lonStr)
-    return json({ error: 'Missing required parameters', required: ['lat', 'lon'], example: '/api/ensemble?lat=41.38&lon=2.17' }, 400)
+    return json({ error: 'Missing required parameters', required: ['lat', 'lon'], example: '/api/models?lat=41.40&lon=2.20' }, 400)
 
   const lat = parseFloat(latStr)
   const lon = parseFloat(lonStr)
@@ -409,19 +301,15 @@ export default async function handler(request) {
 
   // ── Fetch & assemble ──────────────────────────────────────────────────────
   try {
-    const models  = selectModels(lat, lon)
-    const results = {}
+    const modelList = selectModels(lat, lon)
+    const results   = {}
 
-    // Fetch all models + PWS observation in parallel
-    const [, pwsObs] = await Promise.all([
-      Promise.all(
-        models.map(async ({ key, apiId, maxDays }) => {
-          try   { results[key] = await fetchModel(lat, lon, apiId, maxDays) }
-          catch { results[key] = null }
-        })
-      ),
-      fetchPwsObs(lat, lon),
-    ])
+    await Promise.all(
+      modelList.map(async ({ key, apiId, maxDays }) => {
+        try   { results[key] = await fetchModel(lat, lon, apiId, maxDays) }
+        catch { results[key] = null }
+      })
+    )
 
     const loadedKeys = Object.entries(results).filter(([, v]) => v !== null).map(([k]) => k)
     if (!loadedKeys.length)
@@ -431,59 +319,19 @@ export default async function handler(request) {
     const data    = buildEnsemble(results, weights)
     const primary = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))[0]
 
-    // Rain signals
-    const ensCondition = data?.ensemble?.condition ?? 'unknown'
-    const modelRain    = ensCondition === 'rain' || ensCondition === 'storm'
-    const stationRain  = pwsObs?.station_rain ?? false
+    const condition = data?.ensemble?.condition ?? 'unknown'
 
     return json({
       meta: {
         timestamp:  new Date().toISOString(),
         location:   { lat, lon },
         powered_by: 'Open-Meteo (open-meteo.com)',
-        docs:       'https://meteomodels.vercel.app/api/ensemble?lat=LAT&lon=LON',
+        docs:       'https://meteomodels.vercel.app/api/models?lat=LAT&lon=LON',
+        observation_endpoint: `/api/observation?lat=${lat}&lon=${lon}`,
       },
       ...data,
-      /**
-       * Precipitation signals — two independent sources:
-       *   model_rain   → weighted ensemble WMO code says it's raining/storming
-       *   station_rain → nearest PWS reports precipRate > 0, obs < 15 min old
-       *
-       * For rain-billing use cases, prefer station_rain (ground truth).
-       * Fall back to model_rain when no station data is available.
-       */
-      precipitation: {
-        model_rain:   modelRain,
-        station_rain: stationRain,
-        /** Convenience: at least one source confirms rain */
-        raining:      modelRain || stationRain,
-      },
-      /**
-       * Real-time observation from the nearest Weather Underground PWS.
-       * null when no active station is found within range.
-       * obs_age_min < 15 guarantees the data is fresh enough for ground-truth decisions.
-       */
-      observation: pwsObs ? {
-        station_id:          pwsObs.station_id,
-        station_name:        pwsObs.station_name,
-        station_lat:         pwsObs.station_lat,
-        station_lon:         pwsObs.station_lon,
-        station_dist_km:     pwsObs.station_dist_km,
-        obs_time_utc:        pwsObs.obs_time_utc,
-        obs_age_min:         pwsObs.obs_age_min,
-        temp_c:              pwsObs.temp_c,
-        feels_like_c:        pwsObs.feels_like_c,
-        dewpoint_c:          pwsObs.dewpoint_c,
-        humidity_pct:        pwsObs.humidity_pct,
-        pressure_hpa:        pwsObs.pressure_hpa,
-        wind_speed_kmh:      pwsObs.wind_speed_kmh,
-        wind_gust_kmh:       pwsObs.wind_gust_kmh,
-        wind_dir_deg:        pwsObs.wind_dir_deg,
-        precip_rate_mmhr:    pwsObs.precip_rate_mmhr,
-        precip_total_mm:     pwsObs.precip_total_mm,
-        uv:                  pwsObs.uv,
-        solar_radiation_wm2: pwsObs.solar_radiation_wm2,
-      } : null,
+      /** Model-derived rain signal. For ground-truth rain use /api/observation */
+      model_rain: condition === 'rain' || condition === 'storm',
       models: {
         loaded:  loadedKeys,
         primary,
@@ -493,7 +341,10 @@ export default async function handler(request) {
             .map(([k, w]) => [k, Math.round(w * 1000) / 1000])
         ),
       },
-    }, 200, { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' })
+    }, 200, {
+      // 30-min cache — models update every 1–6 h, no point refreshing more often
+      'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=300',
+    })
 
   } catch (e) {
     return json({ error: String(e) }, 500)
