@@ -680,13 +680,13 @@ async function selectLocation(loc: GeocodingResult) {
     obs?.precipRate != null &&
     obs.precipRate > 0
 
-  // Radar visibility:
-  //  - Raining/snowing now (model or station) → show, no tooltip (hoursUntil = null)
-  //  - Storm approaching within 6 h → show with forecast badge
+  // Radar card — driven by model forecast only
+  //  - Model says rain/snow now → show with no badge
+  //  - Model sees precip approaching within 6 h → show with forecast badge
   //  - Nothing → hide
-  const rainingNow = ensWx.type === 'rain' || ensWx.type === 'snow' || stationRainingNow
-  const approachingIn = hoursUntilPrecip(state.wxData) // 0-6 or null
-  if (rainingNow) {
+  const modelRainingNow = ensWx.type === 'rain' || ensWx.type === 'snow'
+  const approachingIn   = hoursUntilPrecip(state.wxData) // 0-6 or null
+  if (modelRainingNow) {
     renderRadarCard(loc.latitude, loc.longitude, null)
   } else if (approachingIn !== null) {
     renderRadarCard(loc.latitude, loc.longitude, approachingIn)
@@ -694,9 +694,9 @@ async function selectLocation(loc: GeocodingResult) {
     clearRadarCard()
   }
 
-  // Background animation — station ground truth takes priority for rain type;
-  // snow is still model-driven (stations don't distinguish rain vs snow reliably)
-  if (stationRainingNow || ensWx.type === 'rain') startAnimation('rain')
+  // Background animation — station ground truth only (precipRate > 0, obs <15 min)
+  // Snow type remains model-driven (rain gauges can't distinguish rain vs snow)
+  if (stationRainingNow) startAnimation('rain')
   else if (ensWx.type === 'snow') startAnimation('snow')
   else startAnimation('none')
 }

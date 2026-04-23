@@ -72,6 +72,15 @@ function isUSA(lat: number, lon: number): boolean {
   return lat >= 15 && lat <= 72 && lon >= -170 && lon <= -52 && !isCanada(lat, lon)
 }
 
+/**
+ * HRRR CONUS domain.
+ * ~3 km resolution, runs every hour. The premier short-range model for the
+ * contiguous United States. Does NOT cover Hawaii or Puerto Rico.
+ */
+function isHRRRDomain(lat: number, lon: number): boolean {
+  return lat >= 22 && lat <= 52 && lon >= -134 && lon <= -61
+}
+
 // ── Score tables ──────────────────────────────────────────────────────────────
 
 /**
@@ -81,6 +90,7 @@ function isUSA(lat: number, lon: number): boolean {
 const BASE_SCORE: Record<string, number> = {
   ecmwf:          9.0,   // consistently top-ranked global model (25 km IFS)
   gfs:            7.2,   // strong globally, weaker in complex terrain
+  hrrr:           9.0,   // 3 km CONUS, runs every hour — best short-range accuracy in USA
   icon:           7.0,   // DWD global, good in mid-latitudes
   icon_eu:        8.0,   // 7 km EU domain — strong regional skill
   icon_d2:        8.5,   // 2.2 km — very high resolution in Central Europe
@@ -112,6 +122,7 @@ function regionalBonus(key: string, lat: number, lon: number): number {
 
   switch (key) {
     // ── High-resolution LAMs ──
+    case 'hrrr':           return isHRRRDomain(lat, lon) ? 7.0 : 0  // 3 km — CONUS only, dominant in domain
     case 'arome_hd':       return fr  ? 7.0 : 0          // 1.5 km — AROME domain only
     case 'arome':          return fr  ? 5.0 : 0          // 2.5 km — AROME domain only
     case 'icon_d2':        return ce  ? 3.0 : 0          // 2.2 km Central Europe
@@ -145,6 +156,7 @@ function resolutionBonus(key: string): number {
     geosphere:      2.5,
     knmi_harmonie:  2.5,
     dmi_harmonie:   2.5,
+    hrrr:           3.0,
     icon_eu:        7.0,
     arpege:        10.0,
     ukmo:          10.0,
@@ -160,7 +172,7 @@ function resolutionBonus(key: string): number {
 }
 
 /** Keys considered "high-resolution" (≤ 3 km grid). */
-const HIGH_RES_KEYS = new Set(['arome_hd', 'arome', 'icon_d2', 'geosphere', 'knmi_harmonie', 'dmi_harmonie'])
+const HIGH_RES_KEYS = new Set(['arome_hd', 'arome', 'icon_d2', 'geosphere', 'knmi_harmonie', 'dmi_harmonie', 'hrrr'])
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -225,7 +237,7 @@ export function computeModelWeights(
     // their score scaled down by 30 % so they act as supporting models rather
     // than co-equal contributors.
     if (hasHighRes && !HIGH_RES_KEYS.has(key)) {
-      const resKm: Record<string, number> = { ecmwf: 25, gfs: 25, icon: 13, gem: 15, ukmo: 10, arpege: 10, icon_eu: 7, meteoblue: 7 }
+      const resKm: Record<string, number> = { ecmwf: 25, gfs: 25, icon: 13, gem: 15, ukmo: 10, arpege: 10, icon_eu: 7, meteoblue: 7, hrrr: 3 }
       const km = resKm[key] ?? 25
       if (km >= 10) score *= 0.70
     }

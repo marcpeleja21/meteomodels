@@ -41,10 +41,19 @@ export function isAROMEDomain(lat: number, lon: number): boolean {
 }
 
 /**
+ * HRRR CONUS domain: ~3 km, runs every hour, best short-range model for the
+ * contiguous United States. Does NOT cover Hawaii or Puerto Rico.
+ */
+function isHRRRDomain(lat: number, lon: number): boolean {
+  return lat >= 22 && lat <= 52 && lon >= -134 && lon <= -61
+}
+
+/**
  * Returns the active model list for the current location in state.
  * - Inside Europe      → ICON EU shown,       ICON Global hidden
  * - Outside Europe     → ICON Global shown,   ICON EU hidden
  * - Central Europe     → ICON D2 + GeoSphere AROME shown
+ * - CONUS              → HRRR shown
  * Falls back to full list when no location is loaded yet.
  */
 export function getActiveModels(): WeatherModel[] {
@@ -53,6 +62,7 @@ export function getActiveModels(): WeatherModel[] {
   const europe  = isEurope(loc.latitude, loc.longitude)
   const central = isCentralEurope(loc.latitude, loc.longitude)
   const arome   = isAROMEDomain(loc.latitude, loc.longitude)
+  const hrrr    = isHRRRDomain(loc.latitude, loc.longitude)
   return MODELS.filter(m => {
     if (m.key === 'icon')          return !europe   // global only outside Europe
     if (m.key === 'icon_eu')       return europe    // EU only inside Europe
@@ -62,11 +72,13 @@ export function getActiveModels(): WeatherModel[] {
     if (m.key === 'dmi_harmonie')  return europe    // DMI HARMONIE — Europe only
     if (m.key === 'arome_hd')      return arome     // AROME HD 1.5 km — France domain
     if (m.key === 'arome')         return arome     // AROME 2.5 km — France domain
+    if (m.key === 'hrrr')          return hrrr      // HRRR 3 km — CONUS only
     return true
   })
 }
 
 export const MODELS: WeatherModel[] = [
+  { key:'hrrr',      name:'HRRR',        fullName:'High-Resolution Rapid Refresh (3 km)', apiId:'gfs_hrrr',            org:'NOAA · EUA',      color:'#29b6f6', flag:'🇺🇸', avail:true,  global:false, coverage:'CONUS', maxDays:2, resKm:3,   terrainSensitive:false },
   { key:'gfs',       name:'GFS',         fullName:'Global Forecast System',       apiId:'gfs_seamless',                 org:'NOAA · EUA',      color:'#4fc3f7', flag:'🇺🇸', avail:true,  global:true,  resKm:25,  terrainSensitive:true  },
   { key:'ecmwf',     name:'ECMWF IFS',   fullName:'Integrated Forecasting System', apiId:'ecmwf_ifs025',                org:'ECMWF · Europa',  color:'#ce93d8', flag:'🇪🇺', avail:true,  global:true,  resKm:25,  terrainSensitive:true  },
   { key:'icon',      name:'ICON',        fullName:'ICON Global',                   apiId:'icon_seamless',               org:'DWD · Alemanya',  color:'#ef9a9a', flag:'🇩🇪', avail:true,  global:true,  resKm:13,  terrainSensitive:true  },
