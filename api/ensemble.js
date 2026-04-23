@@ -168,21 +168,31 @@ async function fetchPwsObs(lat, lon) {
 
 function selectModels(lat, lon) {
   const models = [
-    { key: 'ecmwf', apiId: 'ecmwf_ifs025',  maxDays: 2 },
-    { key: 'gfs',   apiId: 'gfs_seamless',   maxDays: 2 },
+    { key: 'ecmwf', apiId: 'ecmwf_ifs025', maxDays: 2 },
+    { key: 'gfs',   apiId: 'gfs_seamless',  maxDays: 2 },
   ]
+  if (isEurope(lat, lon)) {
+    // Pan-European models — always included inside Europe
+    models.push({ key: 'icon_eu',        apiId: 'icon_eu',                        maxDays: 2 })
+    models.push({ key: 'arpege',         apiId: 'meteofrance_arpege_europe',       maxDays: 2 })
+    models.push({ key: 'knmi_harmonie',  apiId: 'knmi_harmonie_arome_europe',      maxDays: 2 })
+    models.push({ key: 'dmi_harmonie',   apiId: 'dmi_harmonie_arome_europe',       maxDays: 2 })
+  } else {
+    // Outside Europe — add ICON global as third global model
+    models.push({ key: 'icon', apiId: 'icon_seamless', maxDays: 2 })
+  }
   if (isFrance(lat, lon)) {
+    // High-res Météo-France LAMs (AROME domain covers Iberia, France, Benelux, N Italy)
     models.push({ key: 'arome_hd', apiId: 'meteofrance_arome_france_hd', maxDays: 2 })
     models.push({ key: 'arome',    apiId: 'meteofrance_arome_france',    maxDays: 2 })
   }
   if (isCentEU(lat, lon)) {
-    models.push({ key: 'icon_d2',   apiId: 'icon_d2',                 maxDays: 2 })
-    models.push({ key: 'geosphere', apiId: 'geosphere_arome_austria',  maxDays: 2 })
+    // Sub-regional high-res LAMs for Central Europe
+    models.push({ key: 'icon_d2',   apiId: 'icon_d2',                maxDays: 2 })
+    models.push({ key: 'geosphere', apiId: 'geosphere_arome_austria', maxDays: 2 })
   }
   if (isUK(lat, lon))
     models.push({ key: 'ukmo', apiId: 'ukmo_seamless', maxDays: 2 })
-  if (isNordic(lat, lon) && !isCentEU(lat, lon))
-    models.push({ key: 'dmi_harmonie', apiId: 'dmi_harmonie_arome_europe', maxDays: 2 })
   if (isCanada(lat, lon))
     models.push({ key: 'gem', apiId: 'gem_seamless', maxDays: 2 })
   if (isHRRR(lat, lon))
@@ -193,32 +203,53 @@ function selectModels(lat, lon) {
 // ── Model weights (mirrors src/utils/modelWeights.ts) ────────────────────────
 
 const BASE_SCORE = {
-  ecmwf: 9.0, gfs: 7.2, icon_d2: 8.5, arome_hd: 9.5, arome: 9.0,
-  geosphere: 8.2, dmi_harmonie: 7.8, ukmo: 8.2, gem: 6.5,
-  hrrr: 9.0,   // 3 km, runs every hour — premier short-range model for CONUS
+  ecmwf:         9.0,
+  gfs:           7.2,
+  icon:          7.0,   // DWD global, good in mid-latitudes
+  icon_eu:       8.0,   // 7 km EU domain
+  icon_d2:       8.5,   // 2.2 km Central Europe
+  arome_hd:      9.5,   // 1.5 km France domain — best resolution
+  arome:         9.0,   // 2.5 km France domain
+  arpege:        7.5,   // Météo-France European, operationally tuned for Iberia
+  geosphere:     8.2,   // 2.5 km Alps / Central Europe
+  knmi_harmonie: 8.0,   // 2.5 km pan-European HARMONIE-AROME
+  dmi_harmonie:  7.8,   // 2.5 km Europe — strongest in Nordic / North Sea
+  ukmo:          8.2,   // 10 km global, exceptional in mid-latitudes
+  gem:           6.5,   // 15 km global; authoritative in Canada
+  hrrr:          9.0,   // 3 km CONUS, runs every hour — premier short-range USA model
 }
 
 function regionalBonus(key, lat, lon) {
   const eu = isEurope(lat, lon), ce = isCentEU(lat, lon), fr = isFrance(lat, lon)
   const uk = isUK(lat, lon), no = isNordic(lat, lon), ca = isCanada(lat, lon)
   const us = isUSA(lat, lon)
+  const ib = lat >= 36 && lat <= 44 && lon >= -10 && lon <= 4  // Iberian Peninsula
   switch (key) {
-    case 'hrrr':         return isHRRR(lat, lon) ? 7.0 : 0   // dominant in CONUS
+    case 'hrrr':         return isHRRR(lat, lon) ? 7.0 : 0
     case 'arome_hd':     return fr ? 7.0 : 0
     case 'arome':        return fr ? 5.0 : 0
     case 'icon_d2':      return ce ? 3.0 : 0
     case 'geosphere':    return ce ? 2.5 : 0
+    case 'knmi_harmonie':return eu ? (ce ? 2.0 : ib ? 2.5 : no ? 1.5 : 1.0) : 0
     case 'dmi_harmonie': return no ? 2.5 : (eu ? 1.0 : 0)
+    case 'icon_eu':      return eu ? 2.0 : 0
+    case 'arpege':       return eu ? (ib ? 2.0 : 1.0) : 0
     case 'ukmo':         return uk ? 3.0 : (eu ? 0.5 : 0.2)
     case 'gem':          return ca ? 3.5 : 0
     case 'ecmwf':        return eu ? 1.0 : 0.5
     case 'gfs':          return us ? 2.0 : (!eu ? 0.8 : 0)
+    case 'icon':         return eu ? 0.5 : (!eu ? 0.3 : 0)
     default:             return 0
   }
 }
 
 function resBonus(key) {
-  const km = { arome_hd: 1.5, icon_d2: 2.2, arome: 2.5, geosphere: 2.5, dmi_harmonie: 2.5, hrrr: 3.0, ukmo: 10, ecmwf: 25, gfs: 25, gem: 15 }[key] ?? 25
+  const km = {
+    arome_hd: 1.5, icon_d2: 2.2, arome: 2.5, geosphere: 2.5,
+    knmi_harmonie: 2.5, dmi_harmonie: 2.5, hrrr: 3.0,
+    icon_eu: 7.0, arpege: 10.0, ukmo: 10.0,
+    icon: 13.0, gem: 15.0, ecmwf: 25.0, gfs: 25.0,
+  }[key] ?? 25
   return Math.max(0, Math.log(25 / km) / Math.log(25 / 1.5))
 }
 
