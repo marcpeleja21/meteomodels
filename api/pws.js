@@ -44,34 +44,23 @@ export default async function handler(request) {
     if (!nearRes.ok) throw new Error(`WU near ${nearRes.status}`)
     const nearData = await nearRes.json()
 
-    const ids        = nearData?.location?.stationId   ?? []
-    const qcStatus   = nearData?.location?.qcStatus    ?? []
-    const distances  = nearData?.location?.distanceKm  ?? []
+    const ids         = nearData?.location?.stationId  ?? []
+    const distances   = nearData?.location?.distanceKm ?? []
     const stationLats = nearData?.location?.latitude   ?? []
     const stationLons = nearData?.location?.longitude  ?? []
 
-    // Build a candidate list of QC-passed stations with haversine distance
-    // Fall back to WU's distanceKm if per-station lat/lon is unavailable
+    // Build candidate list from ALL nearby stations sorted by haversine distance.
+    // qcStatus is intentionally ignored: many private stations have qcStatus=-1
+    // but report perfectly valid data. Offline stations are filtered downstream
+    // by the 204 / empty-body check on the observations endpoint.
     const candidates = []
     for (let i = 0; i < ids.length; i++) {
-      if (qcStatus[i] !== 1) continue
       const sLat = stationLats[i]
       const sLon = stationLons[i]
       const dist = (sLat != null && sLon != null)
         ? haversineKm(userLat, userLon, sLat, sLon)
         : (distances[i] ?? Infinity)
       candidates.push({ id: ids[i], dist })
-    }
-    // Fall back: if no QC-passed station, accept any
-    if (!candidates.length) {
-      for (let i = 0; i < ids.length; i++) {
-        const sLat = stationLats[i]
-        const sLon = stationLons[i]
-        const dist = (sLat != null && sLon != null)
-          ? haversineKm(userLat, userLon, sLat, sLon)
-          : (distances[i] ?? Infinity)
-        candidates.push({ id: ids[i], dist })
-      }
     }
     if (!candidates.length) throw new Error('No nearby PWS found')
 

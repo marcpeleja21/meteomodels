@@ -65,28 +65,18 @@ async function fetchPwsObs(lat, lon) {
     const nearData = await nearRes.json()
 
     const ids         = nearData?.location?.stationId  ?? []
-    const qcStatus    = nearData?.location?.qcStatus   ?? []
     const distances   = nearData?.location?.distanceKm ?? []
     const stationLats = nearData?.location?.latitude   ?? []
     const stationLons = nearData?.location?.longitude  ?? []
 
+    // All stations, sorted by distance — qcStatus ignored (see api/observation.js)
     const candidates = []
     for (let i = 0; i < ids.length; i++) {
-      if (qcStatus[i] !== 1) continue
       const sLat = stationLats[i], sLon = stationLons[i]
       const dist = (sLat != null && sLon != null)
         ? haversineKm(lat, lon, sLat, sLon)
         : (distances[i] ?? Infinity)
       candidates.push({ id: ids[i], dist })
-    }
-    if (!candidates.length) {
-      for (let i = 0; i < ids.length; i++) {
-        const sLat = stationLats[i], sLon = stationLons[i]
-        const dist = (sLat != null && sLon != null)
-          ? haversineKm(lat, lon, sLat, sLon)
-          : (distances[i] ?? Infinity)
-        candidates.push({ id: ids[i], dist })
-      }
     }
     if (!candidates.length) return null
 

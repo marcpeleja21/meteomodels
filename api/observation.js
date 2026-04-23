@@ -64,30 +64,21 @@ async function fetchPwsObs(lat, lon) {
   const nearData = await nearRes.json()
 
   const ids         = nearData?.location?.stationId  ?? []
-  const qcStatus    = nearData?.location?.qcStatus   ?? []
   const distances   = nearData?.location?.distanceKm ?? []
   const stationLats = nearData?.location?.latitude   ?? []
   const stationLons = nearData?.location?.longitude  ?? []
 
-  // Build haversine-sorted candidate list, QC-passed first
+  // Build candidate list from ALL nearby stations sorted by haversine distance.
+  // qcStatus is intentionally ignored: many private stations (e.g. IRFALE2) have
+  // qcStatus=-1 but report perfectly valid data. Offline stations are filtered
+  // downstream by the 204 / empty-body check on the observations endpoint.
   const candidates = []
   for (let i = 0; i < ids.length; i++) {
-    if (qcStatus[i] !== 1) continue
     const sLat = stationLats[i], sLon = stationLons[i]
     const dist = (sLat != null && sLon != null)
       ? haversineKm(lat, lon, sLat, sLon)
       : (distances[i] ?? Infinity)
     candidates.push({ id: ids[i], dist })
-  }
-  // Fallback: accept any station if none pass QC
-  if (!candidates.length) {
-    for (let i = 0; i < ids.length; i++) {
-      const sLat = stationLats[i], sLon = stationLons[i]
-      const dist = (sLat != null && sLon != null)
-        ? haversineKm(lat, lon, sLat, sLon)
-        : (distances[i] ?? Infinity)
-      candidates.push({ id: ids[i], dist })
-    }
   }
   if (!candidates.length) throw new Error('No nearby PWS found')
 
