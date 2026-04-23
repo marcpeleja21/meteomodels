@@ -131,8 +131,9 @@ export interface CurrentObs {
   windGust:  number | null
   windDir:   number | null
   pressure:  number | null
-  precip:    number | null
-  uv:        number | null
+  precip:     number | null
+  precipRate: number | null   // mm/hr from rain gauge — ground truth for "raining now"
+  uv:         number | null
   solarRadiation: number | null
   code:      number | null
   time:      string | null

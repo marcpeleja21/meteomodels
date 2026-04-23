@@ -667,11 +667,24 @@ async function selectLocation(loc: GeocodingResult) {
   const { data: ensData } = getEnsembleCurrent(state.wxData, _wxWeights)
   const ensWx = wxFromCode(ensData.code, t().wx)
 
+  // ── Ground-truth rain check via PWS ────────────────────────────────────────
+  // If the nearest weather station has a fresh observation (<15 min old) with
+  // precipRate > 0, treat it as authoritative — the rain gauge confirms actual
+  // precipitation regardless of what the models forecast for this hour.
+  const obs = state.currentObs
+  const obsAgeMin = obs?.time
+    ? (Date.now() - new Date(obs.time).getTime()) / 60_000
+    : Infinity
+  const stationRainingNow =
+    obsAgeMin < 15 &&
+    obs?.precipRate != null &&
+    obs.precipRate > 0
+
   // Radar visibility:
-  //  - Raining/snowing now → show, no tooltip (hoursUntil = null)
+  //  - Raining/snowing now (model or station) → show, no tooltip (hoursUntil = null)
   //  - Storm approaching within 6 h → show with forecast badge
   //  - Nothing → hide
-  const rainingNow = ensWx.type === 'rain' || ensWx.type === 'snow'
+  const rainingNow = ensWx.type === 'rain' || ensWx.type === 'snow' || stationRainingNow
   const approachingIn = hoursUntilPrecip(state.wxData) // 0-6 or null
   if (rainingNow) {
     renderRadarCard(loc.latitude, loc.longitude, null)
@@ -681,8 +694,9 @@ async function selectLocation(loc: GeocodingResult) {
     clearRadarCard()
   }
 
-  // Background animation — tied to current conditions only
-  if (ensWx.type === 'rain') startAnimation('rain')
+  // Background animation — station ground truth takes priority for rain type;
+  // snow is still model-driven (stations don't distinguish rain vs snow reliably)
+  if (stationRainingNow || ensWx.type === 'rain') startAnimation('rain')
   else if (ensWx.type === 'snow') startAnimation('snow')
   else startAnimation('none')
 }

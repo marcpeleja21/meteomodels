@@ -21,6 +21,7 @@ export async function fetchCurrentObs(lat: number, lon: number): Promise<Current
       windDir:        d.windDir       ?? null,
       pressure:       d.pressure      ?? null,
       precip:         d.precipTotal   ?? null,
+      precipRate:     d.precipRate    ?? null,
       uv:             d.uv            ?? null,
       solarRadiation: d.solarRadiation ?? null,
       code:           null,           // WU doesn't return WMO codes; icon derived from temp/precip
