@@ -826,10 +826,10 @@ function generateClothesAdvice(s: Stats48h, lang: string, alerts: WeatherAlert[]
 
     return pickV([
       pick({
-        ca: 'Jaqueta lleugera o jersei. Temps fresc però agradable.' + (windy ? ' Vent de ' + wnd + 'km/h: porta una capa extra, la sensació és més fresca del que sembla.' : ' Capa extra per si refresca al vespre.'),
-        es: 'Chaqueta ligera o jersey. Fresco pero agradable.' + (windy ? ' Viento de ' + wnd + 'km/h: lleva una capa extra, la sensación es más fresca.' : ' Capa extra por si refresca por la tarde.'),
-        en: 'Light jacket or jumper. Cool but pleasant.' + (windy ? ' ' + wnd + 'km/h wind: bring an extra layer — it feels fresher than the thermometer says.' : ' Carry an extra layer for the evening.'),
-        fr: 'Veste légère ou pull. Frais mais agréable.' + (windy ? ' Vent de ' + wnd + 'km/h\u00a0: prévoyez une couche en plus, le ressenti est plus frais.' : ' Couche supplémentaire si les températures baissent le soir.'),
+        ca: 'Jaqueta lleugera o jersei. Temps fresc però agradable.' + (windy ? ' Vent de ' + wnd + 'km/h: porta una capa extra, la sensació és més fresca del que sembla.' : ' Les temperatures baixaran al vespre: porta una capa extra.'),
+        es: 'Chaqueta ligera o jersey. Fresco pero agradable.' + (windy ? ' Viento de ' + wnd + 'km/h: lleva una capa extra, la sensación es más fresca.' : ' Las temperaturas bajarán por la tarde: lleva una capa extra.'),
+        en: 'Light jacket or jumper. Cool but pleasant.' + (windy ? ' ' + wnd + 'km/h wind: bring an extra layer — it feels fresher than the thermometer says.' : ' Temperatures will drop in the evening: bring an extra layer.'),
+        fr: 'Veste légère ou pull. Frais mais agréable.' + (windy ? ' Vent de ' + wnd + 'km/h\u00a0: prévoyez une couche en plus, le ressenti est plus frais.' : ' Les températures baisseront en soirée : prévoyez une couche en plus.'),
       }, lang),
       pick({
         ca: 'Temperatura agradable (sensació ' + Math.round(fl) + '\u00b0C). Jersei o jaqueta fina, roba còmoda.' + (windy ? ' Vent de ' + wnd + 'km/h accentua el fred: porta para-vent.' : ' Bon temps per a activitats a l\'exterior.'),
@@ -859,10 +859,10 @@ function generateClothesAdvice(s: Stats48h, lang: string, alerts: WeatherAlert[]
 
     return pickV([
       pick({
-        ca: 'Roba còmoda i lleugera. Porta una capa extra per al vespre o si bufa el vent.',
-        es: 'Ropa cómoda y ligera. Lleva una capa extra para la tarde o si hay viento.',
-        en: 'Comfortable, light clothing. Bring an extra layer for the evening or if the wind picks up.',
-        fr: 'Vêtements légers et confortables. Couche supplémentaire pour le soir ou en cas de vent.',
+        ca: windy ? 'Roba còmoda i lleugera. El vent de ' + wnd + 'km/h farà que sembli més fred: porta una capa extra.' : 'Roba còmoda i lleugera. Les temperatures baixaran al vespre: porta una capa extra.',
+        es: windy ? 'Ropa cómoda y ligera. El viento de ' + wnd + 'km/h hará que parezca más frío: lleva una capa extra.' : 'Ropa cómoda y ligera. Las temperaturas bajarán por la tarde: lleva una capa extra.',
+        en: windy ? 'Comfortable, light clothing. The ' + wnd + 'km/h wind will make it feel cooler: bring an extra layer.' : 'Comfortable, light clothing. Temperatures will drop in the evening: bring an extra layer.',
+        fr: windy ? 'Vêtements légers et confortables. Le vent de ' + wnd + 'km/h accentuera la fraîcheur : prévoyez une couche.' : 'Vêtements légers et confortables. Les températures baisseront le soir : prévoyez une couche supplémentaire.',
       }, lang),
       pick({
         ca: 'Temperatura suau (sensació ' + Math.round(fl) + '\u00b0C). Roba de mig temps lleugera. Capa extra per a la nit.',
