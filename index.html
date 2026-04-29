@@ -12,6 +12,14 @@
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 <link rel="canonical" href="https://meteomodels.vercel.app/">
 
+<!-- ── Hreflang (multilingual SPA) ──────────────────────────────────────────── -->
+<link rel="alternate" hreflang="en"        href="https://meteomodels.vercel.app/">
+<link rel="alternate" hreflang="ca"        href="https://meteomodels.vercel.app/">
+<link rel="alternate" hreflang="es"        href="https://meteomodels.vercel.app/">
+<link rel="alternate" hreflang="fr"        href="https://meteomodels.vercel.app/">
+<link rel="alternate" hreflang="de"        href="https://meteomodels.vercel.app/">
+<link rel="alternate" hreflang="x-default" href="https://meteomodels.vercel.app/">
+
 <!-- ── PWA / Theme ──────────────────────────────────────────────────────────── -->
 <meta name="theme-color" content="#0b1220">
 <meta name="color-scheme" content="dark">
@@ -66,34 +74,141 @@
 <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
 
 <!-- ── JSON-LD Structured Data ─────────────────────────────────────────────── -->
+
+<!-- Schema 1: WebApplication (SoftwareApplication) -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
+  "@type": ["WebApplication", "SoftwareApplication"],
   "name": "MeteoModels",
+  "alternateName": ["MeteoModels Weather", "Comparativa de Models Meteorològics"],
   "url": "https://meteomodels.vercel.app/",
-  "description": "Compare the world's most accurate weather forecast models — GFS, ECMWF IFS, ICON, AROME, ARPEGE and more — side by side, in real time.",
+  "description": "Free weather forecast model comparison app — compare GFS, ECMWF IFS, ICON, AROME, ARPEGE, HRRR, MeteoBlue, UKMO, GEM and HARMONIE side by side, in real time, for any location worldwide. Includes weighted ensemble, real-time PWS observations, official weather alerts, and outfit recommendations.",
   "applicationCategory": "WeatherApplication",
+  "applicationSubCategory": "Numerical Weather Prediction",
   "operatingSystem": "Web, iOS, Android",
+  "browserRequirements": "Requires a modern browser with JavaScript enabled",
   "offers": {
     "@type": "Offer",
     "price": "0",
-    "priceCurrency": "EUR"
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock"
   },
-  "screenshot": "https://meteomodels.vercel.app/screenshots/desktop.png",
-  "featureList": [
-    "Compare GFS, ECMWF, ICON, AROME, ARPEGE weather models",
-    "Hourly and daily forecast",
-    "Temperature, precipitation, wind ensemble comparison",
-    "Official weather alerts (NWS, MeteoAlarm)",
-    "Real-time weather station observations",
-    "Interactive map and nearby webcam"
+  "screenshot": [
+    "https://meteomodels.vercel.app/screenshots/desktop.png",
+    "https://meteomodels.vercel.app/screenshots/mobile.png"
   ],
-  "inLanguage": ["en", "ca", "es", "fr"],
+  "image": "https://meteomodels.vercel.app/screenshots/desktop.png",
+  "featureList": [
+    "Compare GFS, ECMWF IFS, ICON, AROME, ARPEGE, HRRR, MeteoBlue, UKMO, GEM, HARMONIE weather models",
+    "Location-adaptive model weighting: regional high-resolution models ranked higher for your area",
+    "Ensemble probability plumes across 141+ model members",
+    "Hourly and 14-day daily forecasts",
+    "Temperature, precipitation, wind, humidity, UV index comparison",
+    "Real-time personal weather station (PWS) observations from Weather Underground",
+    "Multi-station rain consensus within 2 km",
+    "Official weather alerts from MeteoAlarm (EU) and NWS (USA)",
+    "Interactive OpenStreetMap with nearby webcam",
+    "Outfit and clothing recommendations based on ensemble forecast",
+    "Installable as PWA — works offline",
+    "No account or sign-up required"
+  ],
+  "inLanguage": ["en", "ca", "es", "fr", "de"],
+  "datePublished": "2024-01-01",
+  "dateModified": "2026-04-29",
   "author": {
     "@type": "Person",
-    "name": "marcpeleja"
+    "name": "Marc Peleja",
+    "url": "https://meteomodels.vercel.app/about.html"
+  },
+  "isAccessibleForFree": true,
+  "keywords": "weather models, GFS, ECMWF, ICON, AROME, HRRR, HARMONIE, weather forecast comparison, NWP, ensemble forecast, numerical weather prediction, model comparison"
+}
+</script>
+
+<!-- Schema 2: WebSite with SearchAction (enables Google Sitelinks Search Box) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "MeteoModels",
+  "url": "https://meteomodels.vercel.app/",
+  "description": "Compare the world's leading weather forecast models side by side — GFS, ECMWF, ICON, AROME, HRRR and more — free and in real time.",
+  "inLanguage": ["en", "ca", "es", "fr", "de"],
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://meteomodels.vercel.app/?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
   }
+}
+</script>
+
+<!-- Schema 3: FAQPage — boosts Google AI Overviews and rich snippets -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What weather models does MeteoModels compare?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MeteoModels compares up to 13 numerical weather prediction (NWP) models: GFS (NOAA, USA), ECMWF IFS (European Centre), ICON Global and ICON EU (DWD, Germany), HRRR (NOAA, 3 km resolution for the continental USA), AROME HD and AROME 2.5 km (Météo-France, France), ARPEGE EU (Météo-France), MeteoBlue (Switzerland), UKMO (UK Met Office), GEM (Environment Canada), KNMI HARMONIE (Netherlands, NW Europe) and DMI HARMONIE (Denmark, N Europe)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is MeteoModels free to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. MeteoModels is completely free, requires no account or registration, and works in any modern browser. It can also be installed as a Progressive Web App (PWA) for offline use on any device."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between MeteoModels and a regular weather app?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most weather apps show a single forecast from one model. MeteoModels shows all major models simultaneously with a weighted ensemble average. You can see where models agree (high confidence) and where they diverge (uncertain forecast) — essential information for planning around borderline or severe weather."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does MeteoModels weight weather models?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Each model receives a base accuracy score, a regional bonus (higher for high-resolution regional models covering your area, such as AROME for France or HRRR for the USA), a resolution bonus (finer grid resolution means better terrain capture), and a terrain sensitivity modifier for complex orography. Weights are normalised to 100% and used to compute the ensemble average shown as the main forecast."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does MeteoModels detect rain in real time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MeteoModels queries all active personal weather stations (PWS) from Weather Underground within 2 km of your location via the /api/observation endpoint. The station_rain flag is true if any station reports a precipitation rate above zero mm/h in an observation less than 15 minutes old. A rain_confidence score (0.0 to 1.0) shows the fraction of nearby stations confirming rain, providing a multi-station consensus."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does MeteoModels work offline?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. MeteoModels is a Progressive Web App (PWA). After the first load, the app shell and recently viewed forecasts are cached locally so you can open the app without an internet connection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which languages does MeteoModels support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MeteoModels is available in Catalan, Spanish, English, French and German. The language can be changed at any time using the language selector in the top-right corner of the app."
+      }
+    }
+  ]
 }
 </script>
 

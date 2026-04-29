@@ -1,4 +1,49 @@
 User-agent: *
 Allow: /
 
+# ── AI search crawlers — explicitly welcomed ──────────────────────────────────
+# OpenAI / ChatGPT
+User-agent: GPTBot
+Allow: /
+
+# Anthropic / Claude
+User-agent: ClaudeBot
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+# Google AI (Bard / Gemini, AI Overviews)
+User-agent: Google-Extended
+Allow: /
+
+# Microsoft Bing / Copilot
+User-agent: bingbot
+Allow: /
+
+# Apple (Siri, Spotlight, Safari)
+User-agent: Applebot
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+
+# Meta AI
+User-agent: meta-externalagent
+Allow: /
+
+# Amazon Alexa
+User-agent: Amazonbot
+Allow: /
+
+# Common
+User-agent: Googlebot
+Allow: /
+
+# ── AI-readable content files ─────────────────────────────────────────────────
+# /llms.txt  — machine-readable site description for AI assistants
+# /about.html — human-readable about page
+
 Sitemap: https://meteomodels.vercel.app/sitemap.xml

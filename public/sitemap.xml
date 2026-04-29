@@ -1,17 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
+  <!-- ── Main app ─────────────────────────────────────────────────────────── -->
   <url>
     <loc>https://meteomodels.vercel.app/</loc>
-    <lastmod>2026-03-27</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://meteomodels.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="ca" href="https://meteomodels.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="es" href="https://meteomodels.vercel.app/"/>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://meteomodels.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="en"        href="https://meteomodels.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="ca"        href="https://meteomodels.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="es"        href="https://meteomodels.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="fr"        href="https://meteomodels.vercel.app/"/>
+    <xhtml:link rel="alternate" hreflang="de"        href="https://meteomodels.vercel.app/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://meteomodels.vercel.app/"/>
+    <image:image>
+      <image:loc>https://meteomodels.vercel.app/screenshots/desktop.png</image:loc>
+      <image:title>MeteoModels — Weather forecast model comparison dashboard</image:title>
+      <image:caption>MeteoModels dashboard comparing GFS, ECMWF, ICON, AROME and more for a selected location</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meteomodels.vercel.app/screenshots/mobile.png</image:loc>
+      <image:title>MeteoModels mobile view — weather model comparison on smartphone</image:title>
+      <image:caption>MeteoModels mobile forecast view with ensemble comparison and clothing advice</image:caption>
+    </image:image>
+  </url>
+
+  <!-- ── About page ────────────────────────────────────────────────────────── -->
+  <url>
+    <loc>https://meteomodels.vercel.app/about.html</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ── Privacy policy ────────────────────────────────────────────────────── -->
+  <url>
+    <loc>https://meteomodels.vercel.app/privacy.html</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <!-- ── AI-readable content ───────────────────────────────────────────────── -->
+  <url>
+    <loc>https://meteomodels.vercel.app/llms.txt</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
 
 </urlset>

@@ -1,0 +1,115 @@
+# MeteoModels
+
+> Free weather forecast model comparison tool — compare GFS, ECMWF, ICON, AROME, ARPEGE,
+> HRRR, MeteoBlue, UKMO, GEM, HARMONIE and more side by side, in real time, for any location worldwide.
+
+URL: https://meteomodels.vercel.app/
+About: https://meteomodels.vercel.app/about.html
+
+## What is MeteoModels?
+
+MeteoModels is a browser-based weather application that shows predictions from up to 10+
+numerical weather prediction (NWP) models simultaneously for any location worldwide.
+Instead of relying on a single forecast, users see all major models at once — including
+temperature, precipitation probability, wind speed, humidity, UV index and more.
+
+It is free to use, requires no account or sign-up, and works as a Progressive Web App (PWA)
+installable on any device.
+
+## Weather Models Compared
+
+| Model        | Organisation              | Resolution | Coverage         |
+|--------------|---------------------------|------------|------------------|
+| GFS          | NOAA (USA)                | 0.25°      | Global           |
+| ECMWF IFS    | ECMWF (Europe)            | 0.1°       | Global           |
+| ICON Global  | DWD (Germany)             | 0.1°       | Global           |
+| ICON EU      | DWD (Germany)             | 0.0625°    | Europe           |
+| HRRR         | NOAA (USA)                | 3 km       | CONUS (USA)      |
+| AROME HD     | Météo-France              | 1.3 km     | France + borders |
+| AROME 2.5 km | Météo-France              | 2.5 km     | France + borders |
+| ARPEGE EU    | Météo-France              | 0.1°       | Europe           |
+| MeteoBlue    | MeteoBlue (Switzerland)   | —          | Global           |
+| UKMO         | UK Met Office             | 0.09°      | Global           |
+| GEM          | Environment Canada        | 0.15°      | Global           |
+| KNMI HARMONIE| KNMI (Netherlands)        | 5.5 km     | NW Europe        |
+| DMI HARMONIE | DMI (Denmark)             | 5.5 km     | N Europe         |
+
+Ensemble probability plumes are available for GFS ENS (30 members), ICON ENS (39),
+ECMWF ENS (51), GEM ENS (20) and AROME HD (deterministic reference).
+
+## Key Features
+
+- **Multi-model ensemble**: up to 10+ NWP models compared side by side
+- **Location-adaptive model weighting**: models are automatically scored and weighted by
+  accuracy for the requested location — high-resolution regional models (AROME for France,
+  HRRR for USA, HARMONIE for N/W Europe) receive higher weights when they cover your area
+- **Real-time PWS observations**: actual measurements from the nearest Weather Underground
+  personal weather station within 2 km — temperature, humidity, wind, pressure, UV
+- **Multi-station rain consensus**: cross-validates rain detection across all active
+  weather stations within 2 km; reports `station_rain` (boolean), `rain_confidence` (0–1),
+  `stations_checked` and `stations_raining`
+- **Official weather alerts**: MeteoAlarm (Europe) and NWS (US) alerts filtered to exact location
+- **Clothing advice**: practical daily outfit recommendations in 5 languages, based on ensemble
+- **Hourly and 14-day daily forecasts** with precipitation, wind, humidity, UV
+- **Ensemble probability charts**: visualise forecast uncertainty across 141+ model members
+- **Interactive map** (OpenStreetMap) and nearby webcam view
+- **PWA**: installable on iOS/Android, works offline after first load
+
+## Public REST APIs
+
+### Model Ensemble API
+```
+GET https://meteomodels.vercel.app/api/models?lat=LAT&lon=LON
+```
+Returns a weighted multi-model ensemble for the given coordinates. Selects the best models
+for the location, applies location-adaptive weights, and returns hourly + daily forecast data.
+Cache: 30 min. Rate limit: ~1,250 calls/day (Open-Meteo free tier).
+
+### Real-Time Observation API
+```
+GET https://meteomodels.vercel.app/api/observation?lat=LAT&lon=LON
+```
+Returns current observations from all active Weather Underground PWS stations within 2 km,
+including a multi-station rain consensus. Fields: `station_rain`, `rain_confidence`,
+`stations_checked`, `stations_raining`, full `observation` block per station.
+Cache: 5 min. Rate limit: ~8,300 calls/day (WU free tier).
+
+Both APIs return JSON and support CORS. No authentication required.
+
+## Languages
+
+Catalan · Spanish · English · French · German
+
+## Data Sources
+
+- Open-Meteo (open-source weather forecast API, https://open-meteo.com)
+- Weather Underground / The Weather Company (PWS real-time observations)
+- MeteoAlarm (EU official weather warnings, https://www.meteoalarm.org)
+- NWS (US National Weather Service alerts)
+- OpenStreetMap / Nominatim (geocoding)
+- Open-Meteo elevation API
+
+## Frequently Asked Questions
+
+**What is the difference between MeteoModels and a regular weather app?**
+Most apps show one forecast from one model. MeteoModels shows all major models simultaneously
+with a weighted ensemble average. You can see where models agree (high confidence) and where
+they diverge (uncertain forecast) — essential for planning around borderline weather.
+
+**How does MeteoModels weight models?**
+Each model gets a base score, a regional bonus (higher for high-resolution regional models
+covering your area), a resolution bonus (finer grid = better terrain capture), and a terrain
+sensitivity modifier (for mountainous locations). Final weights are normalised to 100%.
+
+**How accurate is the rain detection?**
+The `station_rain` flag in /api/observation is true if any PWS within 2 km reports
+precipRate > 0 mm/h in an observation less than 15 minutes old. The `rain_confidence` score
+(0.0–1.0) represents the fraction of all active nearby stations confirming rain.
+
+**Is MeteoModels free?**
+Yes — completely free, no account required. The project is supported by the community
+via Ko-fi (https://ko-fi.com/marcpeleja).
+
+## Author
+
+Marc Peleja — https://meteomodels.vercel.app/about.html
