@@ -3,11 +3,10 @@ import { LANG_DATA } from '../config/i18n'
 
 /**
  * Renders a real-time precipitation/radar card using Windy's free embed.
- * Always shown — not conditional on precipitation forecast.
  *
  * @param lat        Location latitude
  * @param lon        Location longitude
- * @param hoursUntil null  → no badge (raining now, or clear sky)
+ * @param hoursUntil null  → raining now (no forecast badge)
  *                   0     → precipitation starting now
  *                   1-6   → precipitation expected in N hours (shows badge)
  */

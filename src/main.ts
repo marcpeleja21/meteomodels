@@ -24,7 +24,7 @@ import { renderTable } from './ui/table'
 import { renderStationCard } from './ui/stationCard'
 import { renderMapCard } from './ui/mapCard'
 import { renderWebcamCard } from './ui/webcamCard'
-import { renderRadarCard } from './ui/radarCard'
+import { renderRadarCard, clearRadarCard } from './ui/radarCard'
 import { renderAlertsBanner } from './ui/alertsBanner'
 import { renderPredictionCard } from './ui/predictionCard'
 import { renderModelsPage } from './ui/modelsPage'
@@ -680,13 +680,19 @@ async function selectLocation(loc: GeocodingResult) {
     obs?.precipRate != null &&
     obs.precipRate > 0
 
-  // Radar card — always visible so users can check current conditions at a glance.
-  //  - Rain/snow now      → no badge (radar speaks for itself)
-  //  - Precip approaching → badge showing hours until arrival
-  //  - Clear              → radar shown with no badge
+  // Radar card — driven by model forecast only
+  //  - Model says rain/snow now → show with no badge
+  //  - Model sees precip approaching within 6 h → show with forecast badge
+  //  - Nothing → hide
   const modelRainingNow = ensWx.type === 'rain' || ensWx.type === 'snow'
   const approachingIn   = hoursUntilPrecip(state.wxData) // 0-6 or null
-  renderRadarCard(loc.latitude, loc.longitude, modelRainingNow ? null : approachingIn)
+  if (modelRainingNow) {
+    renderRadarCard(loc.latitude, loc.longitude, null)
+  } else if (approachingIn !== null) {
+    renderRadarCard(loc.latitude, loc.longitude, approachingIn)
+  } else {
+    clearRadarCard()
+  }
 
   // Background animation — station ground truth only (precipRate > 0, obs <15 min)
   // Snow type remains model-driven (rain gauges can't distinguish rain vs snow)
