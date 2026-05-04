@@ -90,6 +90,19 @@ export default async function handler(request) {
         const first = obsData?.observations?.[0]
         if (!first) continue
 
+        // Skip stations with no usable readings (sensor online but reporting nothing)
+        const hasData =
+          first.metric?.temp      != null ||
+          first.humidity          != null ||
+          first.metric?.windSpeed != null
+        if (!hasData) continue
+
+        // Skip observations older than 60 minutes (station stale/frozen)
+        const obsAgeMin = first.obsTimeUtc
+          ? (Date.now() - new Date(first.obsTimeUtc).getTime()) / 60_000
+          : Infinity
+        if (obsAgeMin > 60) continue
+
         obs = first
         chosenDist = candidate.dist
         break

@@ -81,6 +81,18 @@ async function fetchStationObs(stationId, distKm) {
     const obsAgeMin  = obsTimeUtc
       ? (Date.now() - new Date(obsTimeUtc).getTime()) / 60_000
       : Infinity
+
+    // Reject stations with no usable readings — sensor online but reporting nothing.
+    // At least one of these must be non-null for the station to be considered active.
+    const hasData =
+      obs.metric?.temp      != null ||
+      obs.humidity          != null ||
+      obs.metric?.windSpeed != null
+    if (!hasData) return null
+
+    // Reject observations older than 60 minutes — station is stale/frozen.
+    if (obsAgeMin > 60) return null
+
     const precipRate = obs.metric?.precipRate ?? null
     const fresh      = obsAgeMin < 15
 
