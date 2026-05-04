@@ -28,8 +28,7 @@ export function renderRadarCard(lat: number, lon: number, hoursUntil: number | n
     `?lat=${lat}&lon=${lon}` +
     `&detailLat=${lat}&detailLon=${lon}` +
     `&zoom=8&level=surface` +
-    `&overlay=rain` +
-    `&product=ecmwf` +
+    `&overlay=radar` +
     `&menu=&message=false` +
     `&marker=true` +
     `&calendar=now` +
@@ -49,7 +48,7 @@ export function renderRadarCard(lat: number, lon: number, hoursUntil: number | n
         allowfullscreen
       ></iframe>
       <div class="radar-attribution">
-        Precipitation © <a href="https://www.windy.com" target="_blank" rel="noopener">Windy</a>
+        Radar © <a href="https://www.windy.com" target="_blank" rel="noopener">Windy</a>
       </div>
     </div>`
 }
