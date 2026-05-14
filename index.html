@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 <!-- ── Primary SEO ──────────────────────────────────────────────────────────── -->
-<title>MeteoModels — Compare GFS, ECMWF, ICON, AROME Weather Forecast Models</title>
-<meta name="description" content="Compare the world's most accurate weather forecast models — GFS, ECMWF IFS, ICON, AROME, ARPEGE and more — side by side, in real time. Free, no sign-up required.">
+<title>MeteoModels — Weather Forecasts, Beach Conditions & Ski Snow Reports</title>
+<meta name="description" content="Compare weather models (GFS, ECMWF, ICON, AROME), check nearby beach conditions with wave height & water temperature, and get ski resort snow depth & avalanche risk — free, no sign-up.">
 <meta name="author" content="marcpeleja">
-<meta name="keywords" content="weather forecast, weather models, GFS, ECMWF, ICON, AROME, ARPEGE, MeteoBlue, weather comparison, ensemble forecast, NWP models, meteorology, previsió meteorològica, modelos meteorológicos">
+<meta name="keywords" content="weather forecast, weather models, GFS, ECMWF, ICON, AROME, ARPEGE, MeteoBlue, weather comparison, ensemble forecast, NWP models, meteorology, beach conditions forecast, beach weather, wave height forecast, water temperature, swimming conditions, sea surface temperature, jellyfish risk, ski resort forecast, snow depth forecast, avalanche risk, ski snow report, fresh snow forecast, previsió meteorològica, modelos meteorológicos, prévision météo plage, conditions plage, météo station ski, neige fraîche">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 <link rel="canonical" href="https://meteomodels.vercel.app/">
 
@@ -37,8 +37,8 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MeteoModels">
 <meta property="og:url" content="https://meteomodels.vercel.app/">
-<meta property="og:title" content="MeteoModels — Compare GFS, ECMWF, ICON & More">
-<meta property="og:description" content="Compare the world's most accurate weather forecast models — GFS, ECMWF, ICON, AROME, ARPEGE and more — side by side, in real time. Free, no sign-up required.">
+<meta property="og:title" content="MeteoModels — Weather, Beach Conditions & Ski Reports">
+<meta property="og:description" content="Compare GFS, ECMWF, ICON & more weather models side by side. Plus: nearby beach conditions (waves, water temp, webcams) and ski resort snow reports (depth, fresh snow, avalanche risk). Free.">
 <meta property="og:image" content="https://meteomodels.vercel.app/screenshots/desktop.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="800">
@@ -50,8 +50,8 @@
 
 <!-- ── Twitter / X Card ────────────────────────────────────────────────────── -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MeteoModels — Compare GFS, ECMWF, ICON & More">
-<meta name="twitter:description" content="Compare the world's most accurate weather models — GFS, ECMWF, ICON, AROME and more — side by side, in real time.">
+<meta name="twitter:title" content="MeteoModels — Weather, Beach Conditions & Ski Reports">
+<meta name="twitter:description" content="Compare GFS, ECMWF, ICON & more side by side. Plus beach conditions (waves, water temp) and ski resort snow reports (depth, avalanche risk). Free, no sign-up.">
 <meta name="twitter:image" content="https://meteomodels.vercel.app/screenshots/desktop.png">
 <meta name="twitter:image:alt" content="MeteoModels weather model comparison dashboard">
 
@@ -83,7 +83,7 @@
   "name": "MeteoModels",
   "alternateName": ["MeteoModels Weather", "Comparativa de Models Meteorològics"],
   "url": "https://meteomodels.vercel.app/",
-  "description": "Free weather forecast model comparison app — compare GFS, ECMWF IFS, ICON, AROME, ARPEGE, HRRR, MeteoBlue, UKMO, GEM and HARMONIE side by side, in real time, for any location worldwide. Includes weighted ensemble, real-time PWS observations, official weather alerts, and outfit recommendations.",
+  "description": "Free weather app — compare GFS, ECMWF IFS, ICON, AROME, ARPEGE, HRRR, MeteoBlue, UKMO, GEM and HARMONIE side by side in real time. Includes nearby beach conditions (wave height, water temperature, webcams, jellyfish risk, Blue Flag status) and ski resort snow reports (snow depth, fresh snow, avalanche risk, summit temperature). Weighted ensemble, real-time PWS observations, official weather alerts, and outfit recommendations.",
   "applicationCategory": "WeatherApplication",
   "applicationSubCategory": "Numerical Weather Prediction",
   "operatingSystem": "Web, iOS, Android",
@@ -108,6 +108,8 @@
     "Real-time personal weather station (PWS) observations from Weather Underground",
     "Multi-station rain consensus within 2 km",
     "Official weather alerts from MeteoAlarm (EU) and NWS (USA)",
+    "Nearby beach conditions: wave height, swell, water temperature, UV index, jellyfish risk, Blue Flag status, beach webcams, sea surface temperature map",
+    "Ski resort snow reports: snow depth, fresh snow 24h/7d, snow quality, avalanche risk (EAWS), summit temperature, wind at altitude, resort webcam",
     "Interactive OpenStreetMap with nearby webcam",
     "Outfit and clothing recommendations based on ensemble forecast",
     "Installable as PWA — works offline",
@@ -115,14 +117,14 @@
   ],
   "inLanguage": ["en", "ca", "es", "fr", "de"],
   "datePublished": "2024-01-01",
-  "dateModified": "2026-04-29",
+  "dateModified": "2026-05-14",
   "author": {
     "@type": "Person",
     "name": "Marc Peleja",
     "url": "https://meteomodels.vercel.app/about.html"
   },
   "isAccessibleForFree": true,
-  "keywords": "weather models, GFS, ECMWF, ICON, AROME, HRRR, HARMONIE, weather forecast comparison, NWP, ensemble forecast, numerical weather prediction, model comparison"
+  "keywords": "weather models, GFS, ECMWF, ICON, AROME, HRRR, HARMONIE, weather forecast comparison, NWP, ensemble forecast, numerical weather prediction, model comparison, beach weather forecast, beach conditions, wave height, water temperature, sea surface temperature, jellyfish risk, Blue Flag beach, ski resort snow report, snow depth, fresh snow, avalanche risk, ski forecast"
 }
 </script>
 
@@ -206,6 +208,22 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "MeteoModels is available in Catalan, Spanish, English, French and German. The language can be changed at any time using the language selector in the top-right corner of the app."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does MeteoModels show beach conditions?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The Beaches module finds all beaches within 50 km of your location using OpenStreetMap data. For each beach it shows: wave height, swell height and period, water temperature (sea surface temperature), wind speed, UV index, rain probability, an estimated beach flag (green/yellow/red) based on wave and wind thresholds, jellyfish risk for Mediterranean beaches in season, Blue Flag certification status, a live webcam (when available within 10 km), and a sea surface temperature map powered by Windy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does MeteoModels show ski resort snow conditions?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The Ski module finds ski resorts within 150 km of your location. For each resort it shows: snow depth at base and summit, fresh snow in the last 24 hours and 7 days, snow quality (powder, packed powder, wet/slush), avalanche danger level from the European Avalanche Warning Service (EAWS), summit and base temperature (estimated via lapse rate), wind speed at altitude, a 6-day weather forecast using a weighted model ensemble, a live resort webcam, and a link to the resort's official website for lift and piste status."
       }
     }
   ]
