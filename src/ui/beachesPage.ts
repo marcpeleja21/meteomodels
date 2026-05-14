@@ -9,11 +9,26 @@ import { fetchNearbyWebcam } from '../api/webcam'
 export function calcBeachFlag(
   waveH: number | null,
   windKmh: number | null,
+  airTempC: number | null,
+  waterTempC: number | null,
 ): 'green' | 'yellow' | 'red' {
-  const w = waveH ?? 0
-  const v = windKmh ?? 0
-  if (w >= 2.0 || v >= 60) return 'red'
-  if (w >= 0.8 || v >= 30) return 'yellow'
+  const w  = waveH ?? 0
+  const v  = windKmh ?? 0
+  const at = airTempC   // may be null → treated as "not cold enough to penalise"
+  const wt = waterTempC // may be null → treated as "not cold enough to penalise"
+
+  // ── Red: genuinely dangerous ────────────────────────────────────────────
+  if (w >= 1.0) return 'red'                         // surf too rough
+  if (v >= 50)  return 'red'                         // strong wind
+  if (at !== null && at < 15)  return 'red'          // cold air → cold shock risk
+  if (wt !== null && wt < 15)  return 'red'          // cold water → hypothermia risk
+
+  // ── Yellow: caution ─────────────────────────────────────────────────────
+  if (w >= 0.5) return 'yellow'                      // choppy surf
+  if (v >= 30)  return 'yellow'                      // moderate wind
+  if (at !== null && at < 20)  return 'yellow'       // cool air, uncomfortable
+  if (wt !== null && wt < 18)  return 'yellow'       // cool water, short swims only
+
   return 'green'
 }
 
@@ -47,14 +62,15 @@ export function calcBeachQuality(
   const r = rainPct ?? 0
   const wt = waterTempC ?? 20
 
-  if (w > 1.5) score -= 30
-  else if (w > 0.7) score -= 15
-  if (v > 40) score -= 25
-  else if (v > 25) score -= 10
+  if (w > 1.0) score -= 30
+  else if (w > 0.5) score -= 15
+  if (v > 50) score -= 25
+  else if (v > 30) score -= 10
   if (uv > 9) score -= 10
   if (r > 50) score -= 30
   else if (r > 25) score -= 15
-  if (wt < 16) score -= 15
+  if (wt < 15) score -= 20
+  else if (wt < 18) score -= 10
 
   if (score >= 75) return 'excellent'
   if (score >= 50) return 'good'
@@ -221,10 +237,20 @@ function renderBeachMap(beach: BeachResult) {
 
 const FLAG_TOOLTIP =
   'Estimated beach flag based on current conditions:\n' +
-  '🟢 Green — waves < 0.8 m and wind < 30 km/h: safe for swimming\n' +
-  '🟡 Yellow — waves ≥ 0.8 m or wind ≥ 30 km/h: exercise caution\n' +
-  '🔴 Red — waves ≥ 2.0 m or wind ≥ 60 km/h: dangerous, no swimming\n' +
-  '(Estimated from model data — always follow official local flags on the beach)'
+  '\n' +
+  '🟢 Green — safe for swimming:\n' +
+  '   waves < 0.5 m, wind < 30 km/h,\n' +
+  '   air ≥ 20 °C, water ≥ 18 °C\n' +
+  '\n' +
+  '🟡 Yellow — exercise caution:\n' +
+  '   waves 0.5–1.0 m, wind 30–50 km/h,\n' +
+  '   air 15–19 °C, or water 15–17 °C\n' +
+  '\n' +
+  '🔴 Red — dangerous, no swimming:\n' +
+  '   waves ≥ 1.0 m, wind ≥ 50 km/h,\n' +
+  '   air < 15 °C (cold shock), or water < 15 °C (hypothermia)\n' +
+  '\n' +
+  '⚠ Estimated from model data — always follow official local flags on the beach'
 
 const BLUE_FLAG_TOOLTIP =
   '🔵 Blue Flag certification\n' +
@@ -287,7 +313,7 @@ export function renderBeachesPage(
   const month = new Date().getMonth()   // 0-indexed
 
   // Calc flags / quality for selected beach
-  const flag      = calcBeachFlag(nowWaveH, nowWind)
+  const flag      = calcBeachFlag(nowWaveH, nowWind, nowAirTemp, nowWaterT)
   const quality   = calcBeachQuality(nowWaveH, nowWind, nowUv, nowRainPct, nowWaterT)
   const jellyfish = calcJellyfishRisk(nowWaterT, month, sel.lat, sel.lon)
   const blueFlag  = hasBlueFlag(sel.tags ?? {})
@@ -335,7 +361,7 @@ export function renderBeachesPage(
   const listItems = beaches.map(b => {
     const active = b.id === sel.id ? ' active' : ''
     const distStr = b.distKm < 10 ? `${b.distKm.toFixed(1)} km` : `${Math.round(b.distKm)} km`
-    const bFlag = calcBeachFlag(nowWaveH, nowWind)
+    const bFlag = calcBeachFlag(nowWaveH, nowWind, nowAirTemp, nowWaterT)
     const blueDot = hasBlueFlag(b.tags ?? {}) ? ' 🔵' : ''
     return `<div class="beach-list-item${active}" data-beach-id="${b.id}">
       <span class="beach-flag-dot" title="${FLAG_TOOLTIP}">${flagEmoji[bFlag]}${blueDot}</span>
