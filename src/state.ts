@@ -1,4 +1,5 @@
-import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs } from './types'
+import type { OpenMeteoResponse, AqiResponse, GeocodingResult, CurrentObs,
+              BeachResult, SkiResortResult, MarineData } from './types'
 
 function loadFavorites(): GeocodingResult[] {
   try { return JSON.parse(localStorage.getItem('mm_favorites') ?? '[]') }
@@ -34,7 +35,7 @@ export const state = {
   chartSelectedModels: null as Set<string> | null, // null = auto-seed top 5 on next render
 
   // Subpages
-  currentPage:    'forecast' as 'forecast' | 'models',
+  currentPage:    'forecast' as 'forecast' | 'models' | 'beaches' | 'ski',
   modelPageModel: 'ecmwf'    as string,
   modelPageVar:   'wind'     as string,
   modelPageSource:   'map'   as string,
@@ -56,4 +57,13 @@ export const state = {
 
   // Saved locations
   favorites: loadFavorites(),
+
+  // Beaches & Ski
+  nearbyBeaches:       [] as BeachResult[],
+  nearbySkiResorts:    [] as SkiResortResult[],
+  selectedBeach:       null as BeachResult | null,
+  selectedSkiResort:   null as SkiResortResult | null,
+  marineData:          null as MarineData | null,
+  beachesFetched:      false as boolean,
+  skiFetched:          false as boolean,
 }

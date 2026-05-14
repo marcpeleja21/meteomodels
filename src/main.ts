@@ -29,6 +29,11 @@ import { renderAlertsBanner } from './ui/alertsBanner'
 import { renderPredictionCard } from './ui/predictionCard'
 import { renderModelsPage } from './ui/modelsPage'
 import { renderHourlyPage } from './ui/hourlyPage'
+import { renderBeachesPage } from './ui/beachesPage'
+import { renderSkiPage } from './ui/skiPage'
+import { fetchNearbyBeaches, fetchNearbySkiResorts } from './api/overpass'
+import { fetchMarineData } from './api/marine'
+import { fetchAvalancheRisk } from './api/avalanche'
 
 import { startAnimation, resizeCanvas } from './utils/canvas'
 import { getEnsembleCurrent, hoursUntilPrecip } from './utils/data'
@@ -112,6 +117,8 @@ const navMenu       = document.getElementById('navMenu')       as HTMLDivElement
 const navCurrentLbl = document.getElementById('navCurrentLabel') as HTMLSpanElement
 const pageForecast  = document.getElementById('pageForecast')  as HTMLDivElement
 const pageModels    = document.getElementById('pageModels')    as HTMLDivElement
+const pageBeaches   = document.getElementById('pageBeaches')   as HTMLDivElement
+const pageSki       = document.getElementById('pageSki')       as HTMLDivElement
 
 const welcomeScreen = document.getElementById('welcomeScreen') as HTMLDivElement
 const loadingScreen = document.getElementById('loadingScreen') as HTMLDivElement
@@ -221,27 +228,77 @@ function getPageLabel(page: string) {
   const map: Record<string, string> = {
     forecast: lang.navForecast,
     models:   lang.navModels,
+    beaches:  lang.navBeaches,
+    ski:      lang.navSki,
   }
   return map[page] ?? page
 }
 
-function switchPage(page: 'forecast' | 'models') {
+function switchPage(page: 'forecast' | 'models' | 'beaches' | 'ski') {
   state.currentPage = page
   pageForecast.classList.toggle('hidden', page !== 'forecast')
   pageModels.classList.toggle('hidden',   page !== 'models')
+  pageBeaches.classList.toggle('hidden',  page !== 'beaches')
+  pageSki.classList.toggle('hidden',      page !== 'ski')
   navCurrentLbl.textContent = getPageLabel(page)
   navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(b => {
     b.classList.toggle('active', b.dataset.page === page)
   })
   if (page === 'models')  renderModelsPage()
+  if (page === 'beaches') loadAndRenderBeaches()
+  if (page === 'ski')     loadAndRenderSki()
 }
+
+async function loadAndRenderBeaches() {
+  const loc = state.currentLoc
+  if (!loc) return
+
+  // Lazy-load: only fetch once per location
+  if (!state.beachesFetched) {
+    state.beachesFetched = true
+    pageBeaches.innerHTML = `<div class="loading-inline">🏖️ Loading nearby beaches…</div>`
+    const [beaches, marine] = await Promise.all([
+      fetchNearbyBeaches(loc.latitude, loc.longitude),
+      fetchMarineData(loc.latitude, loc.longitude),
+    ])
+    state.nearbyBeaches = beaches
+    state.marineData    = marine
+  }
+
+  renderBeachesPage(loc.latitude, loc.longitude, state.nearbyBeaches, state.marineData, state.wxData)
+}
+
+async function loadAndRenderSki() {
+  const loc = state.currentLoc
+  if (!loc) return
+
+  if (!state.skiFetched) {
+    state.skiFetched = true
+    pageSki.innerHTML = `<div class="loading-inline">⛷️ Loading nearby ski resorts…</div>`
+    const [resorts, ava] = await Promise.all([
+      fetchNearbySkiResorts(loc.latitude, loc.longitude),
+      fetchAvalancheRisk(loc.latitude, loc.longitude),
+    ])
+    state.nearbySkiResorts = resorts
+    // Store avalanche risk in a module-level variable for re-renders
+    _cachedAvalancheRisk = ava
+  }
+
+  renderSkiPage(loc.latitude, loc.longitude, state.nearbySkiResorts, state.wxData, _cachedAvalancheRisk)
+}
+
+let _cachedAvalancheRisk: import('./types').AvalancheRisk | null = null
 
 function updateNavLabels() {
   const lang = t()
   const optForecast = document.getElementById('navOptForecast')
   const optModels   = document.getElementById('navOptModels')
+  const optBeaches  = document.getElementById('navOptBeaches')
+  const optSki      = document.getElementById('navOptSki')
   if (optForecast) optForecast.textContent = `📅 ${lang.navForecast}`
   if (optModels)   optModels.textContent   = `🗺 ${lang.navModels}`
+  if (optBeaches)  optBeaches.textContent  = lang.navBeaches
+  if (optSki)      optSki.textContent      = lang.navSki
   navCurrentLbl.textContent = getPageLabel(state.currentPage)
 }
 
@@ -394,7 +451,7 @@ navCurrent.addEventListener('click', e => {
 navMenu.querySelectorAll<HTMLButtonElement>('.nav-option').forEach(btn => {
   btn.addEventListener('click', () => {
     navMenu.classList.remove('open')
-    switchPage(btn.dataset.page as 'forecast' | 'models')
+    switchPage(btn.dataset.page as 'forecast' | 'models' | 'beaches' | 'ski')
   })
 })
 
@@ -537,6 +594,15 @@ async function selectLocation(loc: GeocodingResult) {
   clearEnsembleCache()
   state.forecastMode         = 'days'
   state.forecastDaysExpanded = false
+  // Clear beach/ski caches so they re-fetch for the new location
+  state.nearbyBeaches    = []
+  state.nearbySkiResorts = []
+  state.selectedBeach    = null
+  state.selectedSkiResort = null
+  state.marineData       = null
+  state.beachesFetched   = false
+  state.skiFetched       = false
+  _cachedAvalancheRisk   = null
   searchInput.value = loc.name
   hideSuggestions()
   // Persist so shortcuts (?page=hourly / ?page=models) can reload the last city

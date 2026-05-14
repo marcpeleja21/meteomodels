@@ -42,6 +42,9 @@ export interface HourlyData {
   relative_humidity_2m: (number | null)[]
   pressure_msl: (number | null)[]
   cloud_cover: (number | null)[]
+  uv_index: (number | null)[]
+  snow_depth: (number | null)[]
+  snowfall: (number | null)[]
 }
 
 export interface DailyData {
@@ -146,6 +149,50 @@ export interface CurrentObs {
 export interface AqiInfo {
   lbl: string
   cls: string
+}
+
+export interface BeachResult {
+  id: string
+  name: string
+  lat: number
+  lon: number
+  distKm: number
+  tags: Record<string, string>
+}
+
+export interface SkiResortResult {
+  id: string
+  name: string
+  lat: number
+  lon: number
+  distKm: number
+  eleMin?: number
+  eleMax?: number
+  website?: string
+}
+
+export interface MarineData {
+  hourly: {
+    time: string[]
+    wave_height: (number | null)[]
+    wave_direction: (number | null)[]
+    wave_period: (number | null)[]
+    swell_wave_height: (number | null)[]
+    swell_wave_direction: (number | null)[]
+    swell_wave_period: (number | null)[]
+    sea_surface_temperature: (number | null)[]
+  }
+  daily: {
+    time: string[]
+    wave_height_max: (number | null)[]
+    swell_wave_height_max: (number | null)[]
+  }
+}
+
+export interface AvalancheRisk {
+  level: 1 | 2 | 3 | 4 | 5
+  label: string
+  color: string
 }
 
 export interface MetricConfig {
@@ -308,4 +355,54 @@ export interface LangData {
   favsTitle:  string
   favAdd:     string
   favRemove:  string
+  // Nav
+  navBeaches: string
+  navSki:     string
+  // Beaches page
+  beachesTitle:          string
+  beachesRadius:         string
+  noBeachesFound:        string
+  beachFlagGreen:        string
+  beachFlagYellow:       string
+  beachFlagRed:          string
+  beachQualityExcellent: string
+  beachQualityGood:      string
+  beachQualityPoor:      string
+  jellyfishLow:          string
+  jellyfishMedium:       string
+  jellyfishHigh:         string
+  jellyfishRisk:         string
+  waveHeight:            string
+  waterTemp:             string
+  swellHeight:           string
+  swellPeriod:           string
+  beachFlagEstimated:    string
+  // Ski page
+  skiTitle:               string
+  skiRadius:              string
+  noSkiFound:             string
+  snowDepth:              string
+  freshSnow24h:           string
+  freshSnow7d:            string
+  snowQuality:            string
+  snowQualityPowder:      string
+  snowQualityFreshPowder: string
+  snowQualityPackedPowder:string
+  snowQualityPacked:      string
+  snowQualityWetSlush:    string
+  avalancheRisk:          string
+  avalancheLevel1:        string
+  avalancheLevel2:        string
+  avalancheLevel3:        string
+  avalancheLevel4:        string
+  avalancheLevel5:        string
+  skiStatusOpen:          string
+  skiStatusPartial:       string
+  skiStatusClosed:        string
+  checkLiveStatus:        string
+  skiSummaryTitle:        string
+  skiElevation:           string
+  summitTemp:             string
+  baseTemp:               string
+  windSummit:             string
 }

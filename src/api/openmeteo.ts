@@ -14,6 +14,9 @@ const HOURLY_VARS = [
   'relative_humidity_2m',
   'pressure_msl',
   'cloud_cover',
+  'uv_index',
+  'snow_depth',
+  'snowfall',
 ].join(',')
 
 const DAILY_VARS = [

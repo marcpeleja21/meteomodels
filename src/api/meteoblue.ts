@@ -46,6 +46,9 @@ export async function fetchMeteoblue(
       relative_humidity_2m:     toNumArr(h1.relativehumidity),
       pressure_msl:             toNumArr(h1.sealevelpressure),
       cloud_cover:              toNumArr(h1.totalcloudcover),
+      uv_index:                 toNumArr(h1.uvindex ?? []),
+      snow_depth:               toNumArr(h1.snowdepth ?? []),
+      snowfall:                 toNumArr(h1.snowfall ?? []),
     },
     daily: {
       time:                        timesDay,
