@@ -237,13 +237,12 @@ input{touch-action:manipulation}
 /* ── THE DROPDOWN FIX: hide all siblings below the search when focused ── */
 /* Pure CSS – no JS needed. When the input has focus, content below fades  */
 /* away completely so nothing can bleed through the suggestions list.       */
-.welcome-search-wrap:focus-within ~ .feature-strip,
-.welcome-search-wrap:focus-within ~ .powered-by-strip {
+.welcome-search-wrap:focus-within ~ .feature-strip {
   opacity: 0;
   pointer-events: none;
   transform: translateY(6px);
 }
-.feature-strip, .powered-by-strip {
+.feature-strip {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -330,25 +329,6 @@ input{touch-action:manipulation}
 .feat-card strong{font-size:.84rem;font-weight:700;color:var(--text)}
 .feat-card span{font-size:.73rem;color:var(--text-dim);line-height:1.45}
 
-/* ── POWERED-BY STRIP (below benefit cards) ──────────────────── */
-.powered-by-strip{
-  margin:18px auto 0; max-width:680px;
-  font-size:.68rem; color:var(--text-dim);
-  letter-spacing:.6px; text-align:center;
-  line-height:1.6;
-}
-.pb-more{
-  display:inline-block;
-  background:rgba(0,210,230,0.1);
-  border:1px solid rgba(0,210,230,0.2);
-  border-radius:999px;
-  padding:1px 8px;
-  font-size:.64rem;
-  font-weight:600;
-  color:var(--accent2);
-  letter-spacing:.4px;
-  margin-left:4px;
-}
 
 /* ── ALERTS BANNER HOST ─────────────────────────────────────── *
  * CLS fix: the host uses max-height clip + overflow:hidden so   *
@@ -1403,7 +1383,6 @@ footer {
     display:flex;align-items:center;justify-content:center;flex-shrink:0}
   /* On tablet/mobile: 3 cards collapse to 1 column */
   .feature-strip{margin-top:16px;gap:8px;grid-template-columns:1fr}
-  .powered-by-strip{margin-top:12px;font-size:.64rem}
 }
 
 /* ── Extra-compact spacing on very small phones (≤400px) ── */
