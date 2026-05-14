@@ -92,10 +92,28 @@ function cardDir(deg: number | null): string {
   return dirs[Math.round(deg / 45) % 8]
 }
 
-/** Check if a beach has Blue Flag certification from OSM tags */
+/**
+ * Check if a beach has Blue Flag certification from OSM tags.
+ * Handles multiple tag variants used by different contributors.
+ */
 function hasBlueFlag(tags: Record<string, string>): boolean {
-  const bf = tags['blue_flag'] ?? tags['award:blue_flag'] ?? ''
-  return bf.length > 0 && bf !== 'no'
+  const norm = (v: string | undefined) => {
+    if (!v) return ''
+    return v.toLowerCase().replace(/[-_\s]/g, '')
+  }
+  // Direct blue_flag tag
+  const bf = norm(tags['blue_flag'])
+  if (bf === 'yes' || bf === 'blueflag') return true
+  // award:blue_flag tag
+  const abf = norm(tags['award:blue_flag'])
+  if (abf === 'yes' || abf === 'blueflag') return true
+  // award tag set to blue_flag value
+  const award = norm(tags['award'])
+  if (award === 'blueflag') return true
+  // certification tag mentioning blue flag
+  const cert = norm(tags['certification'])
+  if (cert.includes('blue') && cert.includes('flag')) return true
+  return false
 }
 
 // ─── Satellite fallback map (Leaflet + Esri World Imagery) ───────────────────
@@ -179,6 +197,8 @@ async function renderBeachMedia(beach: BeachResult) {
 }
 
 // ─── Windy SST map ───────────────────────────────────────────────────────────
+// Note: do NOT include level=surface — that is an atmospheric parameter that
+// overrides overlay=sst back to wind. SST has no pressure level.
 
 function renderBeachMap(beach: BeachResult) {
   const container = document.getElementById('beachMapCard')
@@ -188,7 +208,7 @@ function renderBeachMap(beach: BeachResult) {
     <div class="media-card">
       <div class="media-label">🌡 Sea Surface Temperature — ${beach.name}</div>
       <iframe
-        src="https://embed.windy.com/embed2.html?lat=${beach.lat}&lon=${beach.lon}&zoom=8&level=surface&overlay=sst&menu=&message=false&marker=true&calendar=now&type=map&location=coordinates&detail=false&metricWind=km%2Fh&metricTemp=%C2%B0C"
+        src="https://embed.windy.com/embed2.html?lat=${beach.lat}&lon=${beach.lon}&zoom=6&overlay=sst&product=ecmwf&menu=&message=false&marker=true&calendar=now&type=map&location=coordinates&detail=false&metricWind=km%2Fh&metricTemp=%C2%B0C"
         class="beach-map-iframe"
         frameborder="0"
         title="Sea surface temperature"
@@ -196,6 +216,24 @@ function renderBeachMap(beach: BeachResult) {
       ></iframe>
     </div>`
 }
+
+// ─── Tooltip texts ────────────────────────────────────────────────────────────
+
+const FLAG_TOOLTIP =
+  'Estimated beach flag based on current conditions:\n' +
+  '🟢 Green — waves < 0.8 m and wind < 30 km/h: safe for swimming\n' +
+  '🟡 Yellow — waves ≥ 0.8 m or wind ≥ 30 km/h: exercise caution\n' +
+  '🔴 Red — waves ≥ 2.0 m or wind ≥ 60 km/h: dangerous, no swimming\n' +
+  '(Estimated from model data — always follow official local flags on the beach)'
+
+const BLUE_FLAG_TOOLTIP =
+  '🔵 Blue Flag certification\n' +
+  'Awarded by the Foundation for Environmental Education (FEE) to beaches meeting strict criteria:\n' +
+  '• Water quality (bathing water meets EU Directive standards)\n' +
+  '• Environmental management (waste, recycling, no dogs)\n' +
+  '• Environmental education & information\n' +
+  '• Safety & services (lifeguards, first aid, disabled access)\n' +
+  'One of the world\'s most recognised eco-labels for beaches — see blueflag.global'
 
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
@@ -293,15 +331,14 @@ export function renderBeachesPage(
       <span class="detail-value">${fmt1(nowWaterT, '°C')}</span>
     </div>` : ''
 
-  // Build beach list items — include flag dot
+  // Build beach list items — include flag dot with tooltip
   const listItems = beaches.map(b => {
     const active = b.id === sel.id ? ' active' : ''
     const distStr = b.distKm < 10 ? `${b.distKm.toFixed(1)} km` : `${Math.round(b.distKm)} km`
-    // Use same global conditions for all beaches (marine data is location-wide)
     const bFlag = calcBeachFlag(nowWaveH, nowWind)
     const blueDot = hasBlueFlag(b.tags ?? {}) ? ' 🔵' : ''
     return `<div class="beach-list-item${active}" data-beach-id="${b.id}">
-      <span class="beach-flag-dot">${flagEmoji[bFlag]}${blueDot}</span>
+      <span class="beach-flag-dot" title="${FLAG_TOOLTIP}">${flagEmoji[bFlag]}${blueDot}</span>
       <span class="beach-name">${b.name}</span>
       <span class="beach-dist">${distStr}</span>
     </div>`
@@ -317,9 +354,9 @@ export function renderBeachesPage(
       <div class="beach-detail">
         <div class="beach-detail-name">${sel.name}</div>
         <div class="beach-badges">
-          <span class="beach-badge flag-${flag}">${flagEmoji[flag]} ${flagLabel} <small>${lang.beachFlagEstimated}</small></span>
+          <span class="beach-badge flag-${flag}" title="${FLAG_TOOLTIP}">${flagEmoji[flag]} ${flagLabel} <small>${lang.beachFlagEstimated}</small></span>
           <span class="beach-badge quality-${quality}">${qualityLabel}</span>
-          ${blueFlag ? `<span class="beach-badge blue-flag-badge">🔵 Blue Flag</span>` : ''}
+          ${blueFlag ? `<span class="beach-badge blue-flag-badge" title="${BLUE_FLAG_TOOLTIP}">🔵 Blue Flag</span>` : ''}
         </div>
         <div class="beach-detail-grid">
           ${marineRows}

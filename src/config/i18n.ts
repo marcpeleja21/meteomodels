@@ -146,6 +146,7 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Onades, temperatura de l\'aigua, webcams i condicions de bany',
     homeSkiTitle:     '⛷️ Estacions d\'esquí',
     homeSkiDesc:      'Neu, risc d\'allaus, previsió i estat de les estacions',
+    skiWorldMapHint:  'Fes clic al mapa per explorar estacions d\'esquí prop d\'aquell punt',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -292,6 +293,7 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Olas, temperatura del agua, webcams y condiciones de baño',
     homeSkiTitle:     '⛷️ Estaciones de esquí',
     homeSkiDesc:      'Nieve, riesgo de aludes, previsión y estado de las estaciones',
+    skiWorldMapHint:  'Haz clic en el mapa para explorar estaciones de esquí cerca de ese punto',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -438,6 +440,7 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Waves, water temp, webcams & swimming conditions',
     homeSkiTitle:     '⛷️ Ski Resorts',
     homeSkiDesc:      'Snow depth, avalanche risk, forecast & resort status',
+    skiWorldMapHint:  'Click the map to explore ski resorts near any area',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -584,6 +587,7 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Vagues, température de l\'eau, webcams & conditions de baignade',
     homeSkiTitle:     '⛷️ Stations de ski',
     homeSkiDesc:      'Enneigement, risque d\'avalanche, prévisions & état des stations',
+    skiWorldMapHint:  'Cliquez sur la carte pour explorer les stations de ski autour de cette zone',
   },
   de: {
     appSub: 'Wettermodell-Vergleich',
@@ -730,5 +734,6 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Wellen, Wassertemperatur, Webcams & Schwimmbedingungen',
     homeSkiTitle:     '⛷️ Skigebiete',
     homeSkiDesc:      'Schneehöhe, Lawinengefahr, Vorhersage & Pistenstatus',
+    skiWorldMapHint:  'Auf die Karte klicken, um Skigebiete in der Nähe zu entdecken',
   },
 }

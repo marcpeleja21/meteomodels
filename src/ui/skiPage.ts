@@ -156,15 +156,52 @@ function skiIcon(color: string, selected: boolean): L.DivIcon {
   })
 }
 
-// ─── Ski map renderer (Leaflet) ───────────────────────────────────────────────
+// ─── World-explore map (no location / no resorts yet) ─────────────────────────
+
+function renderSkiWorldMap(
+  container: HTMLElement,
+  onRegionSelect: (lat: number, lon: number) => void,
+  centerLat?: number,
+  centerLon?: number,
+) {
+  if (_skiMap) { _skiMap.remove(); _skiMap = null; _skiMarkers = [] }
+
+  // Default view: Alps region at zoom 4 so major mountain ranges are visible
+  const initLat  = centerLat ?? 46.5
+  const initLon  = centerLon ?? 8.5
+  const initZoom = centerLat !== undefined ? 7 : 4
+
+  _skiMap = L.map(container, { zoomControl: true, attributionControl: false })
+    .setView([initLat, initLon], initZoom)
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+  }).addTo(_skiMap)
+
+  // Mark current location if known
+  if (centerLat !== undefined && centerLon !== undefined) {
+    L.circleMarker([centerLat, centerLon], {
+      radius: 8,
+      color: '#3b82f6',
+      fillColor: '#60a5fa',
+      fillOpacity: 0.7,
+      weight: 2,
+    }).addTo(_skiMap).bindTooltip('Your location', { permanent: false, direction: 'top' })
+  }
+
+  // Crosshair cursor + click → region select
+  container.style.cursor = 'crosshair'
+  _skiMap.on('click', (e: L.LeafletMouseEvent) => {
+    onRegionSelect(e.latlng.lat, e.latlng.lng)
+  })
+}
+
+// ─── Resort picker map renderer (Leaflet) ─────────────────────────────────────
 
 function renderSkiMapLeaflet(
   resorts: SkiResortResult[],
   selected: SkiResortResult,
   wxData: Record<string, OpenMeteoResponse | null>,
-  _avalancheRisk: AvalancheRisk | null,
-  _lat: number,
-  _lon: number,
   onSelect: (resort: SkiResortResult) => void,
 ) {
   const container = document.getElementById('skiMapContainer')
@@ -185,7 +222,6 @@ function renderSkiMapLeaflet(
   if (!_skiMap) {
     // Initial map creation
     _skiMap = L.map(container, { zoomControl: true, attributionControl: false })
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
     }).addTo(_skiMap)
@@ -221,8 +257,6 @@ function renderSkiMapLeaflet(
 // ─── Detail panel renderer ────────────────────────────────────────────────────
 
 function renderSkiDetail(
-  _lat: number,
-  _lon: number,
   sel: SkiResortResult,
   wxData: Record<string, OpenMeteoResponse | null>,
   avalancheRisk: AvalancheRisk | null,
@@ -349,30 +383,49 @@ function renderSkiDetail(
 
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
+/**
+ * Render the Ski page.
+ *
+ * @param resorts         List of nearby ski resorts (empty = show world explore map)
+ * @param wxData          Weather data keyed by model name
+ * @param avalancheRisk   EAWS avalanche risk (may be null)
+ * @param onRegionSelect  Callback fired when user clicks on the world map to pick a region.
+ *                        The caller should fetch resorts for (lat, lon) and re-render.
+ * @param currentLat      Optional: user's current location latitude (used to centre world map)
+ * @param currentLon      Optional: user's current location longitude
+ */
 export function renderSkiPage(
-  lat: number,
-  lon: number,
   resorts: SkiResortResult[],
   wxData: Record<string, OpenMeteoResponse | null>,
   avalancheRisk: AvalancheRisk | null,
+  onRegionSelect: (lat: number, lon: number) => void,
+  currentLat?: number,
+  currentLon?: number,
 ) {
   const el = document.getElementById('pageSki')
   if (!el) return
 
   const lang = LANG_DATA[state.lang] ?? LANG_DATA.en
 
+  // ── No resorts: show world explore map ──────────────────────────────────────
   if (!resorts.length) {
-    // Destroy map if it exists
-    if (_skiMap) { _skiMap.remove(); _skiMap = null; _skiMarkers = [] }
-
     el.innerHTML = `
       <div class="section-header">
         <h2>${lang.skiTitle}</h2>
         <span class="section-radius">${lang.skiRadius}</span>
       </div>
-      <div class="empty-state">${lang.noSkiFound}</div>`
+      <p class="ski-map-hint">🖱 ${lang.skiWorldMapHint}</p>
+      <div id="skiMapContainer" class="ski-map-container ski-map-world"></div>`
+
+    requestAnimationFrame(() => {
+      const mapContainer = document.getElementById('skiMapContainer')
+      if (!mapContainer) return
+      renderSkiWorldMap(mapContainer, onRegionSelect, currentLat, currentLon)
+    })
     return
   }
+
+  // ── Resorts available: show resort picker map + detail ───────────────────────
 
   // Ensure selection is valid
   if (!state.selectedSkiResort || !resorts.find(r => r.id === state.selectedSkiResort!.id)) {
@@ -393,16 +446,16 @@ export function renderSkiPage(
   /** Select a resort, update markers + detail panel */
   function selectResort(resort: SkiResortResult) {
     state.selectedSkiResort = resort
-    renderSkiDetail(lat, lon, resort, wxData, avalancheRisk, lang)
+    renderSkiDetail(resort, wxData, avalancheRisk, lang)
     // Refresh markers to update selected highlight
-    renderSkiMapLeaflet(resorts, resort, wxData, avalancheRisk, lat, lon, selectResort)
+    renderSkiMapLeaflet(resorts, resort, wxData, selectResort)
   }
 
   // Render Leaflet map with markers
-  renderSkiMapLeaflet(resorts, sel, wxData, avalancheRisk, lat, lon, selectResort)
+  renderSkiMapLeaflet(resorts, sel, wxData, selectResort)
 
   // Render initial detail panel
-  renderSkiDetail(lat, lon, sel, wxData, avalancheRisk, lang)
+  renderSkiDetail(sel, wxData, avalancheRisk, lang)
 }
 
 /** Call this when navigating away from the ski page to clean up the Leaflet instance */

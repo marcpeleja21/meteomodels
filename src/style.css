@@ -1760,6 +1760,11 @@ footer {
   position: relative;
   z-index: 0;
 }
+/* World-explore mode: taller + crosshair cursor */
+.ski-map-world {
+  height: 500px;
+  cursor: crosshair;
+}
 .ski-map-hint {
   font-size: .72rem;
   color: var(--text-muted);

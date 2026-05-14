@@ -279,23 +279,39 @@ async function loadAndRenderBeaches() {
   renderBeachesPage(loc.latitude, loc.longitude, state.nearbyBeaches, state.marineData, state.wxData)
 }
 
-async function loadAndRenderSki() {
-  const loc = state.currentLoc
-  if (!loc) return
+async function loadAndRenderSki(overrideLat?: number, overrideLon?: number) {
+  const loc      = state.currentLoc
+  const fetchLat = overrideLat ?? loc?.latitude
+  const fetchLon = overrideLon ?? loc?.longitude
 
-  if (!state.skiFetched) {
+  // If we have coordinates and haven't fetched yet, fetch nearby resorts
+  if (fetchLat != null && fetchLon != null && !state.skiFetched) {
     state.skiFetched = true
-    pageSki.innerHTML = `<div class="loading-inline">⛷️ Loading nearby ski resorts…</div>`
+    pageSki.innerHTML = `<div class="loading-inline">⛷️ Loading ski resorts…</div>`
     const [resorts, ava] = await Promise.all([
-      fetchNearbySkiResorts(loc.latitude, loc.longitude),
-      fetchAvalancheRisk(loc.latitude, loc.longitude),
+      fetchNearbySkiResorts(fetchLat, fetchLon),
+      fetchAvalancheRisk(fetchLat, fetchLon),
     ])
     state.nearbySkiResorts = resorts
-    // Store avalanche risk in a module-level variable for re-renders
-    _cachedAvalancheRisk = ava
+    _cachedAvalancheRisk   = ava
   }
 
-  renderSkiPage(loc.latitude, loc.longitude, state.nearbySkiResorts, state.wxData, _cachedAvalancheRisk)
+  // Callback wired into the world-explore map: user clicked a region
+  const onRegionSelect = async (clickLat: number, clickLon: number) => {
+    state.skiFetched       = false
+    state.nearbySkiResorts = []
+    _cachedAvalancheRisk   = null
+    await loadAndRenderSki(clickLat, clickLon)
+  }
+
+  renderSkiPage(
+    state.nearbySkiResorts,
+    state.wxData,
+    _cachedAvalancheRisk,
+    onRegionSelect,
+    fetchLat,
+    fetchLon,
+  )
 }
 
 let _cachedAvalancheRisk: import('./types').AvalancheRisk | null = null
