@@ -87,6 +87,7 @@ export async function fetchNearbySkiResorts(
   radiusKm = 150,
 ): Promise<SkiResortResult[]> {
   const radius = radiusKm * 1000
+  // Only resort / area level features — no individual pistes/slopes
   const query = `
 [out:json][timeout:30];
 (
@@ -96,9 +97,9 @@ export async function fetchNearbySkiResorts(
   node["leisure"="sports_centre"]["sport"="skiing"](around:${radius},${lat},${lon});
   way["leisure"="sports_centre"]["sport"="skiing"](around:${radius},${lat},${lon});
   relation["leisure"="sports_centre"]["sport"="skiing"](around:${radius},${lat},${lon});
-  node["piste:type"="downhill"]["name"](around:${radius},${lat},${lon});
-  way["piste:type"="downhill"]["name"](around:${radius},${lat},${lon});
-  relation["piste:type"="downhill"]["name"](around:${radius},${lat},${lon});
+  node["tourism"="ski_resort"](around:${radius},${lat},${lon});
+  way["tourism"="ski_resort"](around:${radius},${lat},${lon});
+  relation["tourism"="ski_resort"](around:${radius},${lat},${lon});
 );
 out center tags;`
 

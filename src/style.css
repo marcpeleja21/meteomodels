@@ -1686,7 +1686,7 @@ footer {
 .beach-map-section, .ski-map-section {
   margin-bottom: 16px;
 }
-.beach-map-iframe, .ski-map-iframe {
+.ski-map-iframe {
   width: 100%;
   height: 280px;
   border: none;
@@ -1718,3 +1718,94 @@ footer {
 #pageBeaches, #pageSki {
   padding: 16px 0;
 }
+
+/* ── Beach: flag dot in list ─────────────────────────────────────── */
+.beach-flag-dot {
+  font-size: .85rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Blue Flag badge ─────────────────────────────────────────────── */
+.blue-flag-badge {
+  background: rgba(30,100,240,0.15);
+  color: #7aadff;
+  border: 1px solid rgba(30,100,240,0.3);
+}
+
+/* ── Beach webcam / media section ────────────────────────────────── */
+.beach-webcam-section {
+  margin-bottom: 16px;
+}
+.webcam-iframe {
+  width: 100%;
+  height: 260px;
+  border: none;
+  display: block;
+  border-radius: 8px;
+}
+.webcam-img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+.webcam-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: .78rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.webcam-link:hover { text-decoration: underline; }
+
+/* ── Windy SST map iframe ────────────────────────────────────────── */
+.beach-map-iframe {
+  width: 100%;
+  height: 320px;
+  border: none;
+  display: block;
+  border-radius: 8px;
+}
+
+/* ── Ski: Leaflet resort selector map ────────────────────────────── */
+.ski-map-container {
+  width: 100%;
+  height: 340px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  margin-bottom: 6px;
+  /* Leaflet needs a non-zero height to render */
+  position: relative;
+  z-index: 0;
+}
+.ski-map-hint {
+  font-size: .72rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0 0 14px;
+}
+
+/* ── Ski detail panel (shown below the map) ──────────────────────── */
+.ski-detail-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+/* Leaflet popup overrides */
+.leaflet-tooltip {
+  background: var(--bg2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 6px !important;
+  font-family: var(--font-ui) !important;
+  font-size: .78rem !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+  padding: 4px 8px !important;
+}
+.leaflet-tooltip::before { border-top-color: var(--card-border) !important; }

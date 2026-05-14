@@ -1,3 +1,4 @@
+import L from 'leaflet'
 import { state } from '../state'
 import { LANG_DATA } from '../config/i18n'
 import type { SkiResortResult, OpenMeteoResponse, AvalancheRisk } from '../types'
@@ -127,37 +128,109 @@ function fmt1(v: number | null, unit: string): string {
   return `${v.toFixed(1)} ${unit}`
 }
 
-// ─── Main renderer ───────────────────────────────────────────────────────────
+// ─── Leaflet map state ────────────────────────────────────────────────────────
 
-export function renderSkiPage(
-  lat: number,
-  lon: number,
+let _skiMap: L.Map | null = null
+let _skiMarkers: L.Marker[] = []
+
+const STATUS_COLORS: Record<'open'|'partial'|'closed', string> = {
+  open: '#22c55e',
+  partial: '#f59e0b',
+  closed: '#ef4444',
+}
+
+/** Create a coloured circle icon for a resort marker */
+function skiIcon(color: string, selected: boolean): L.DivIcon {
+  const size  = selected ? 18 : 13
+  const border = selected ? '3px solid #fff' : '2px solid #fff'
+  const shadow = selected ? '0 0 0 2px ' + color : 'none'
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:${color};border:${border};
+      box-shadow:${shadow};
+      cursor:pointer;"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+// ─── Ski map renderer (Leaflet) ───────────────────────────────────────────────
+
+function renderSkiMapLeaflet(
   resorts: SkiResortResult[],
+  selected: SkiResortResult,
+  wxData: Record<string, OpenMeteoResponse | null>,
+  _avalancheRisk: AvalancheRisk | null,
+  _lat: number,
+  _lon: number,
+  onSelect: (resort: SkiResortResult) => void,
+) {
+  const container = document.getElementById('skiMapContainer')
+  if (!container) return
+
+  // Compute status for each resort (shared wx data)
+  const wx = wxData['ensemble'] ?? Object.values(wxData).find(v => v !== null) ?? null
+  const hi = wx ? nowHourlyIndex(wx.hourly.time) : 0
+  const sdRaw = wx?.hourly.snow_depth?.[hi]
+  const sdCm = sdRaw != null ? sdRaw * 100 : null
+  const tempNow = wx?.hourly.temperature_2m[hi] ?? null
+  const rainNow = wx?.hourly.precipitation_probability[hi] ?? null
+
+  function statusOf(_r: SkiResortResult): 'open' | 'partial' | 'closed' {
+    return calcSkiStatus(sdCm, tempNow, rainNow)
+  }
+
+  if (!_skiMap) {
+    // Initial map creation
+    _skiMap = L.map(container, { zoomControl: true, attributionControl: false })
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+    }).addTo(_skiMap)
+
+    // Fit bounds to all resorts
+    if (resorts.length > 1) {
+      const bounds = L.latLngBounds(resorts.map(r => [r.lat, r.lon]))
+      _skiMap.fitBounds(bounds, { padding: [40, 40] })
+    } else {
+      _skiMap.setView([resorts[0].lat, resorts[0].lon], 10)
+    }
+  } else {
+    // Map already exists — just clear markers
+    _skiMarkers.forEach(m => m.remove())
+    _skiMarkers = []
+  }
+
+  // (Re)add markers
+  resorts.forEach(r => {
+    const st = statusOf(r)
+    const isSelected = r.id === selected.id
+    const icon = skiIcon(STATUS_COLORS[st], isSelected)
+
+    const marker = L.marker([r.lat, r.lon], { icon })
+      .addTo(_skiMap!)
+      .bindTooltip(r.name, { permanent: false, direction: 'top', offset: [0, -8] })
+
+    marker.on('click', () => onSelect(r))
+    _skiMarkers.push(marker)
+  })
+}
+
+// ─── Detail panel renderer ────────────────────────────────────────────────────
+
+function renderSkiDetail(
+  _lat: number,
+  _lon: number,
+  sel: SkiResortResult,
   wxData: Record<string, OpenMeteoResponse | null>,
   avalancheRisk: AvalancheRisk | null,
+  lang: any,
 ) {
-  const el = document.getElementById('pageSki')
-  if (!el) return
+  const container = document.getElementById('skiDetail')
+  if (!container) return
 
-  const lang = LANG_DATA[state.lang] ?? LANG_DATA.en
-
-  if (!resorts.length) {
-    el.innerHTML = `
-      <div class="section-header">
-        <h2>${lang.skiTitle}</h2>
-        <span class="section-radius">${lang.skiRadius}</span>
-      </div>
-      <div class="empty-state">${lang.noSkiFound}</div>`
-    return
-  }
-
-  // Ensure selection is valid
-  if (!state.selectedSkiResort || !resorts.find(r => r.id === state.selectedSkiResort!.id)) {
-    state.selectedSkiResort = resorts[0]
-  }
-  const sel = state.selectedSkiResort
-
-  // Get ensemble weather
   const wx = wxData['ensemble'] ?? Object.values(wxData).find(v => v !== null) ?? null
   const hi = wx ? nowHourlyIndex(wx.hourly.time) : 0
 
@@ -180,10 +253,10 @@ export function renderSkiPage(
   }
 
   // Elevation-based estimates
-  const baseAlt = state.currentLoc?.elevation ?? 0
+  const baseAlt   = state.currentLoc?.elevation ?? 0
   const summitAlt = sel.eleMax ?? (baseAlt + 1000)
-  const summitTemp = nowTemp !== null ? lapseRateTemp(nowTemp, baseAlt, summitAlt) : null
-  const windSummit = nowWind !== null ? nowWind * 1.3 : null  // rough estimate: 30% more at summit
+  const summitTemp   = nowTemp !== null ? lapseRateTemp(nowTemp, baseAlt, summitAlt) : null
+  const windSummit   = nowWind !== null ? nowWind * 1.3 : null
 
   const snowQuality = calcSnowQuality(freshSnow24h, nowTemp)
   const status      = calcSkiStatus(snowDepthCm, nowTemp, nowRainPct)
@@ -192,12 +265,10 @@ export function renderSkiPage(
     windSummit, summitTemp, nowRainPct, lang,
   )
 
-  // Status label
   const statusLabel = status === 'open'
     ? lang.skiStatusOpen
     : status === 'partial' ? lang.skiStatusPartial : lang.skiStatusClosed
 
-  // Snow quality label
   const sqLabels: Record<SnowQuality, string> = {
     powder:      lang.snowQualityPowder,
     freshPowder: lang.snowQualityFreshPowder,
@@ -206,7 +277,6 @@ export function renderSkiPage(
     wetSlush:    lang.snowQualityWetSlush,
   }
 
-  // Avalanche badge
   const avaLevels: Record<number, string> = {
     1: lang.avalancheLevel1, 2: lang.avalancheLevel2, 3: lang.avalancheLevel3,
     4: lang.avalancheLevel4, 5: lang.avalancheLevel5,
@@ -216,124 +286,130 @@ export function renderSkiPage(
     : 'N/A'
   const avaColor = avalancheRisk?.color ?? '#999'
 
-  // Live status link
   const liveLink = sel.website
     ? `<a href="${sel.website}" target="_blank" rel="noopener" class="live-status-link">
         ${lang.checkLiveStatus}
        </a>`
     : ''
 
-  // Elevation display
   const eleStr = (sel.eleMin && sel.eleMax)
     ? `↑ ${sel.eleMax}m ↓ ${sel.eleMin}m`
     : sel.eleMax ? `↑ ${sel.eleMax}m` : ''
 
-  // Resort list
-  const listItems = resorts.map(r => {
-    const active = r.id === sel.id ? ' active' : ''
-    const distStr = r.distKm < 10 ? `${r.distKm.toFixed(1)} km` : `${Math.round(r.distKm)} km`
-    // Quick status colour dot for list
-    const wx2 = wxData['ensemble'] ?? Object.values(wxData).find(v => v !== null) ?? null
-    const hi2 = wx2 ? nowHourlyIndex(wx2.hourly.time) : 0
-    const sd2 = wx2?.hourly.snow_depth?.[hi2]
-    const sdCm2 = sd2 != null ? sd2 * 100 : null
-    const st2 = calcSkiStatus(sdCm2, wx2?.hourly.temperature_2m[hi2] ?? null, wx2?.hourly.precipitation_probability[hi2] ?? null)
-    const dot = st2 === 'open' ? '🟢' : st2 === 'partial' ? '🟡' : '🔴'
-    return `<div class="ski-list-item${active}" data-resort-id="${r.id}">
-      <span class="ski-dot">${dot}</span>
-      <span class="ski-name">${r.name}</span>
-      <span class="ski-dist">${distStr}</span>
+  container.innerHTML = `
+    <div class="ski-detail-name">${sel.name}</div>
+    <div class="ski-badges">
+      <span class="ski-badge status-${status}">${statusLabel}</span>
+      ${eleStr ? `<span class="ski-elevation">${eleStr}</span>` : ''}
+    </div>
+    <div class="ski-detail-grid">
+      <div class="ski-detail-row">
+        <span class="detail-label">❄️ ${lang.snowDepth}</span>
+        <span class="detail-value">${fmtInt(snowDepthCm, 'cm')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🌨 ${lang.freshSnow24h}</span>
+        <span class="detail-value">${fmt1(freshSnow24h, 'cm')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🌨 ${lang.freshSnow7d}</span>
+        <span class="detail-value">${fmtInt(freshSnow7d, 'cm')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🏔 ${lang.snowQuality}</span>
+        <span class="detail-value">${sqLabels[snowQuality]}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🌡 ${lang.baseTemp}</span>
+        <span class="detail-value">${fmtInt(nowTemp, '°C')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🌡 ${lang.summitTemp}</span>
+        <span class="detail-value">${fmtInt(summitTemp, '°C')} ${eleStr ? `(${summitAlt}m)` : ''}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">💨 ${lang.windSummit}</span>
+        <span class="detail-value">${fmtInt(windSummit, 'km/h')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">🌧 Rain prob.</span>
+        <span class="detail-value">${fmtInt(nowRainPct, '%')}</span>
+      </div>
+      <div class="ski-detail-row">
+        <span class="detail-label">⚠️ ${lang.avalancheRisk}</span>
+        <span class="detail-value ava-badge" style="color:${avaColor}">${avaLabel}</span>
+      </div>
+    </div>
+    ${liveLink}
+    <div class="ski-summary-card">
+      <div class="ski-summary-title">${lang.skiSummaryTitle}</div>
+      <div class="ski-summary-text">${summary}</div>
     </div>`
-  }).join('')
+}
 
+// ─── Main renderer ───────────────────────────────────────────────────────────
+
+export function renderSkiPage(
+  lat: number,
+  lon: number,
+  resorts: SkiResortResult[],
+  wxData: Record<string, OpenMeteoResponse | null>,
+  avalancheRisk: AvalancheRisk | null,
+) {
+  const el = document.getElementById('pageSki')
+  if (!el) return
+
+  const lang = LANG_DATA[state.lang] ?? LANG_DATA.en
+
+  if (!resorts.length) {
+    // Destroy map if it exists
+    if (_skiMap) { _skiMap.remove(); _skiMap = null; _skiMarkers = [] }
+
+    el.innerHTML = `
+      <div class="section-header">
+        <h2>${lang.skiTitle}</h2>
+        <span class="section-radius">${lang.skiRadius}</span>
+      </div>
+      <div class="empty-state">${lang.noSkiFound}</div>`
+    return
+  }
+
+  // Ensure selection is valid
+  if (!state.selectedSkiResort || !resorts.find(r => r.id === state.selectedSkiResort!.id)) {
+    state.selectedSkiResort = resorts[0]
+  }
+  const sel = state.selectedSkiResort
+
+  // Scaffold HTML — map container + detail panel
   el.innerHTML = `
     <div class="section-header">
       <h2>${lang.skiTitle}</h2>
       <span class="section-radius">${lang.skiRadius}</span>
     </div>
-    <div class="ski-layout">
-      <div class="ski-list" id="skiList">${listItems}</div>
-      <div class="ski-detail">
-        <div class="ski-detail-name">${sel.name}</div>
-        <div class="ski-badges">
-          <span class="ski-badge status-${status}">${statusLabel}</span>
-          ${eleStr ? `<span class="ski-elevation">${eleStr}</span>` : ''}
-        </div>
-        <div class="ski-detail-grid">
-          <div class="ski-detail-row">
-            <span class="detail-label">❄️ ${lang.snowDepth}</span>
-            <span class="detail-value">${fmtInt(snowDepthCm, 'cm')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🌨 ${lang.freshSnow24h}</span>
-            <span class="detail-value">${fmt1(freshSnow24h, 'cm')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🌨 ${lang.freshSnow7d}</span>
-            <span class="detail-value">${fmtInt(freshSnow7d, 'cm')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🏔 ${lang.snowQuality}</span>
-            <span class="detail-value">${sqLabels[snowQuality]}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🌡 ${lang.baseTemp}</span>
-            <span class="detail-value">${fmtInt(nowTemp, '°C')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🌡 ${lang.summitTemp}</span>
-            <span class="detail-value">${fmtInt(summitTemp, '°C')} ${eleStr ? `(${summitAlt}m)` : ''}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">💨 ${lang.windSummit}</span>
-            <span class="detail-value">${fmtInt(windSummit, 'km/h')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">🌧 Rain prob.</span>
-            <span class="detail-value">${fmtInt(nowRainPct, '%')}</span>
-          </div>
-          <div class="ski-detail-row">
-            <span class="detail-label">⚠️ ${lang.avalancheRisk}</span>
-            <span class="detail-value ava-badge" style="color:${avaColor}">${avaLabel}</span>
-          </div>
-        </div>
-        ${liveLink}
-      </div>
-    </div>
-    <div id="skiMapCard" class="ski-map-section"></div>
-    <div class="ski-summary-card">
-      <div class="ski-summary-title">${lang.skiSummaryTitle}</div>
-      <div class="ski-summary-text">${summary}</div>
-    </div>`
+    <div id="skiMapContainer" class="ski-map-container"></div>
+    <p class="ski-map-hint">Click a resort on the map to see details</p>
+    <div id="skiDetail" class="ski-detail-panel"></div>`
 
-  // Click handlers
-  el.querySelectorAll('.ski-list-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const id = (item as HTMLElement).dataset.resortId
-      const resort = resorts.find(r => r.id === id)
-      if (resort) {
-        state.selectedSkiResort = resort
-        renderSkiPage(lat, lon, resorts, wxData, avalancheRisk)
-        renderSkiMap(resort)
-      }
-    })
-  })
+  /** Select a resort, update markers + detail panel */
+  function selectResort(resort: SkiResortResult) {
+    state.selectedSkiResort = resort
+    renderSkiDetail(lat, lon, resort, wxData, avalancheRisk, lang)
+    // Refresh markers to update selected highlight
+    renderSkiMapLeaflet(resorts, resort, wxData, avalancheRisk, lat, lon, selectResort)
+  }
 
-  renderSkiMap(sel)
+  // Render Leaflet map with markers
+  renderSkiMapLeaflet(resorts, sel, wxData, avalancheRisk, lat, lon, selectResort)
+
+  // Render initial detail panel
+  renderSkiDetail(lat, lon, sel, wxData, avalancheRisk, lang)
 }
 
-function renderSkiMap(sel: SkiResortResult) {
-  const container = document.getElementById('skiMapCard')
-  if (!container) return
-
-  container.innerHTML = `
-    <div class="media-card">
-      <div class="media-label">📍 ${sel.name}</div>
-      <iframe
-        src="https://www.openstreetmap.org/export/embed.html?bbox=${sel.lon - 0.12},${sel.lat - 0.06},${sel.lon + 0.12},${sel.lat + 0.06}&layer=mapnik&marker=${sel.lat},${sel.lon}"
-        class="ski-map-iframe"
-        title="Resort map"
-        loading="lazy"
-      ></iframe>
-    </div>`
+/** Call this when navigating away from the ski page to clean up the Leaflet instance */
+export function destroySkiMap() {
+  if (_skiMap) {
+    _skiMap.remove()
+    _skiMap = null
+    _skiMarkers = []
+  }
 }

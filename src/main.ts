@@ -30,7 +30,7 @@ import { renderPredictionCard } from './ui/predictionCard'
 import { renderModelsPage } from './ui/modelsPage'
 import { renderHourlyPage } from './ui/hourlyPage'
 import { renderBeachesPage } from './ui/beachesPage'
-import { renderSkiPage } from './ui/skiPage'
+import { renderSkiPage, destroySkiMap } from './ui/skiPage'
 import { fetchNearbyBeaches, fetchNearbySkiResorts } from './api/overpass'
 import { fetchMarineData } from './api/marine'
 import { fetchAvalancheRisk } from './api/avalanche'
@@ -235,6 +235,9 @@ function getPageLabel(page: string) {
 }
 
 function switchPage(page: 'forecast' | 'models' | 'beaches' | 'ski') {
+  // Destroy the ski Leaflet map when leaving the ski page
+  if (state.currentPage === 'ski' && page !== 'ski') destroySkiMap()
+
   state.currentPage = page
   pageForecast.classList.toggle('hidden', page !== 'forecast')
   pageModels.classList.toggle('hidden',   page !== 'models')

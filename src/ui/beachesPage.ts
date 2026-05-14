@@ -1,6 +1,8 @@
+import L from 'leaflet'
 import { state } from '../state'
 import { LANG_DATA } from '../config/i18n'
 import type { BeachResult, MarineData, OpenMeteoResponse } from '../types'
+import { fetchNearbyWebcam } from '../api/webcam'
 
 // ─── Algorithms ────────────────────────────────────────────────────────────
 
@@ -90,6 +92,111 @@ function cardDir(deg: number | null): string {
   return dirs[Math.round(deg / 45) % 8]
 }
 
+/** Check if a beach has Blue Flag certification from OSM tags */
+function hasBlueFlag(tags: Record<string, string>): boolean {
+  const bf = tags['blue_flag'] ?? tags['award:blue_flag'] ?? ''
+  return bf.length > 0 && bf !== 'no'
+}
+
+// ─── Satellite fallback map (Leaflet + Esri World Imagery) ───────────────────
+
+let _satMap: L.Map | null = null
+
+function renderSatelliteMap(container: HTMLElement, lat: number, lon: number, label: string) {
+  container.innerHTML = `
+    <div class="media-card">
+      <div class="media-label">🛰 ${label}</div>
+      <div id="beachSatMap" style="width:100%;height:220px;border-radius:8px;overflow:hidden;"></div>
+    </div>`
+
+  // Give the DOM a tick to paint before Leaflet inits
+  requestAnimationFrame(() => {
+    const mapEl = document.getElementById('beachSatMap')
+    if (!mapEl) return
+
+    if (_satMap) {
+      _satMap.remove()
+      _satMap = null
+    }
+
+    _satMap = L.map(mapEl, { zoomControl: true, attributionControl: false }).setView([lat, lon], 14)
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19 }
+    ).addTo(_satMap)
+    L.marker([lat, lon]).addTo(_satMap)
+  })
+}
+
+// ─── Webcam / media section renderer ─────────────────────────────────────────
+
+async function renderBeachMedia(beach: BeachResult) {
+  const container = document.getElementById('beachWebcamCard')
+  if (!container) return
+
+  // Show loading state
+  container.innerHTML = `
+    <div class="media-card">
+      <div class="media-label">📷 Loading webcam…</div>
+      <div class="loading-inline"></div>
+    </div>`
+
+  const wc = await fetchNearbyWebcam(beach.lat, beach.lon, 10)
+
+  // If there's no container anymore (user switched beach), bail out
+  if (!document.getElementById('beachWebcamCard')) return
+
+  if (wc) {
+    // Prefer player embed, fall back to image
+    if (wc.playerUrl) {
+      container.innerHTML = `
+        <div class="media-card">
+          <div class="media-label">📷 ${wc.title}${wc.distKm != null ? ` · ${wc.distKm.toFixed(1)} km` : ''}</div>
+          <iframe
+            src="${wc.playerUrl}"
+            class="webcam-iframe"
+            frameborder="0"
+            allowfullscreen
+            loading="lazy"
+          ></iframe>
+          ${wc.linkUrl ? `<a class="webcam-link" href="${wc.linkUrl}" target="_blank" rel="noopener">Open webcam ↗</a>` : ''}
+        </div>`
+    } else if (wc.imageUrl) {
+      container.innerHTML = `
+        <div class="media-card">
+          <div class="media-label">📷 ${wc.title}${wc.distKm != null ? ` · ${wc.distKm.toFixed(1)} km` : ''}</div>
+          <img src="${wc.imageUrl}" class="webcam-img" alt="Webcam" />
+          ${wc.linkUrl ? `<a class="webcam-link" href="${wc.linkUrl}" target="_blank" rel="noopener">Open webcam ↗</a>` : ''}
+        </div>`
+    } else {
+      // Webcam found but no media → satellite fallback
+      renderSatelliteMap(container, beach.lat, beach.lon, beach.name)
+    }
+  } else {
+    // No nearby webcam → satellite imagery fallback
+    renderSatelliteMap(container, beach.lat, beach.lon, beach.name)
+  }
+}
+
+// ─── Windy SST map ───────────────────────────────────────────────────────────
+
+function renderBeachMap(beach: BeachResult) {
+  const container = document.getElementById('beachMapCard')
+  if (!container) return
+
+  container.innerHTML = `
+    <div class="media-card">
+      <div class="media-label">🌡 Sea Surface Temperature — ${beach.name}</div>
+      <iframe
+        src="https://embed.windy.com/embed2.html?lat=${beach.lat}&lon=${beach.lon}&zoom=8&level=surface&overlay=sst&menu=&message=false&marker=true&calendar=now&type=map&location=coordinates&detail=false&metricWind=km%2Fh&metricTemp=%C2%B0C"
+        class="beach-map-iframe"
+        frameborder="0"
+        title="Sea surface temperature"
+        loading="lazy"
+      ></iframe>
+    </div>`
+}
+
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
 export function renderBeachesPage(
@@ -127,11 +234,11 @@ export function renderBeachesPage(
   let marineHi = 0
   if (marineData) marineHi = nowHourlyIndex(marineData.hourly.time)
 
-  const nowWaveH = marineData?.hourly.wave_height[marineHi] ?? null
+  const nowWaveH   = marineData?.hourly.wave_height[marineHi] ?? null
   const nowWaveDir = marineData?.hourly.wave_direction[marineHi] ?? null
-  const nowSwellH = marineData?.hourly.swell_wave_height[marineHi] ?? null
-  const nowSwellP = marineData?.hourly.swell_wave_period[marineHi] ?? null
-  const nowWaterT = marineData?.hourly.sea_surface_temperature[marineHi] ?? null
+  const nowSwellH  = marineData?.hourly.swell_wave_height[marineHi] ?? null
+  const nowSwellP  = marineData?.hourly.swell_wave_period[marineHi] ?? null
+  const nowWaterT  = marineData?.hourly.sea_surface_temperature[marineHi] ?? null
 
   // Ensure selected beach is valid
   if (!state.selectedBeach || !beaches.find(b => b.id === state.selectedBeach!.id)) {
@@ -142,9 +249,10 @@ export function renderBeachesPage(
   const month = new Date().getMonth()   // 0-indexed
 
   // Calc flags / quality for selected beach
-  const flag     = calcBeachFlag(nowWaveH, nowWind)
-  const quality  = calcBeachQuality(nowWaveH, nowWind, nowUv, nowRainPct, nowWaterT)
+  const flag      = calcBeachFlag(nowWaveH, nowWind)
+  const quality   = calcBeachQuality(nowWaveH, nowWind, nowUv, nowRainPct, nowWaterT)
   const jellyfish = calcJellyfishRisk(nowWaterT, month, sel.lat, sel.lon)
+  const blueFlag  = hasBlueFlag(sel.tags ?? {})
 
   // Flag label
   const flagLabel = flag === 'green'
@@ -154,6 +262,10 @@ export function renderBeachesPage(
   const qualityLabel = quality === 'excellent'
     ? lang.beachQualityExcellent
     : quality === 'good' ? lang.beachQualityGood : lang.beachQualityPoor
+
+  const flagEmoji: Record<'green'|'yellow'|'red', string> = {
+    green: '🟢', yellow: '🟡', red: '🔴',
+  }
 
   // Jellyfish row
   const jfRow = jellyfish
@@ -178,14 +290,18 @@ export function renderBeachesPage(
     </div>
     <div class="beach-detail-row">
       <span class="detail-label">💧 ${lang.waterTemp}</span>
-      <span class="detail-value">${fmtInt(nowWaterT, '°C')}</span>
+      <span class="detail-value">${fmt1(nowWaterT, '°C')}</span>
     </div>` : ''
 
-  // Build beach list items
+  // Build beach list items — include flag dot
   const listItems = beaches.map(b => {
     const active = b.id === sel.id ? ' active' : ''
     const distStr = b.distKm < 10 ? `${b.distKm.toFixed(1)} km` : `${Math.round(b.distKm)} km`
+    // Use same global conditions for all beaches (marine data is location-wide)
+    const bFlag = calcBeachFlag(nowWaveH, nowWind)
+    const blueDot = hasBlueFlag(b.tags ?? {}) ? ' 🔵' : ''
     return `<div class="beach-list-item${active}" data-beach-id="${b.id}">
+      <span class="beach-flag-dot">${flagEmoji[bFlag]}${blueDot}</span>
       <span class="beach-name">${b.name}</span>
       <span class="beach-dist">${distStr}</span>
     </div>`
@@ -201,8 +317,9 @@ export function renderBeachesPage(
       <div class="beach-detail">
         <div class="beach-detail-name">${sel.name}</div>
         <div class="beach-badges">
-          <span class="beach-badge flag-${flag}">${flagLabel} <small>${lang.beachFlagEstimated}</small></span>
+          <span class="beach-badge flag-${flag}">${flagEmoji[flag]} ${flagLabel} <small>${lang.beachFlagEstimated}</small></span>
           <span class="beach-badge quality-${quality}">${qualityLabel}</span>
+          ${blueFlag ? `<span class="beach-badge blue-flag-badge">🔵 Blue Flag</span>` : ''}
         </div>
         <div class="beach-detail-grid">
           ${marineRows}
@@ -226,6 +343,7 @@ export function renderBeachesPage(
         </div>
       </div>
     </div>
+    <div id="beachWebcamCard" class="beach-webcam-section"></div>
     <div id="beachMapCard" class="beach-map-section"></div>`
 
   // Click handlers for beach list
@@ -236,30 +354,11 @@ export function renderBeachesPage(
       if (beach) {
         state.selectedBeach = beach
         renderBeachesPage(lat, lon, beaches, marineData, wxData)
-        // Render a small map for selected beach
-        renderBeachMap(beach)
       }
     })
   })
 
-  // Render map for selected beach
+  // Render Windy SST map + webcam/satellite for selected beach
   renderBeachMap(sel)
-}
-
-/** Render a small Leaflet map showing beach pins */
-function renderBeachMap(selected: BeachResult) {
-  const container = document.getElementById('beachMapCard')
-  if (!container) return
-
-  // Use existing mapCard-style embed via Windy for simplicity (small static map)
-  container.innerHTML = `
-    <div class="media-card">
-      <div class="media-label">📍 ${selected.name}</div>
-      <iframe
-        src="https://www.openstreetmap.org/export/embed.html?bbox=${selected.lon - 0.05},${selected.lat - 0.03},${selected.lon + 0.05},${selected.lat + 0.03}&layer=mapnik&marker=${selected.lat},${selected.lon}"
-        class="beach-map-iframe"
-        title="Beach map"
-        loading="lazy"
-      ></iframe>
-    </div>`
+  renderBeachMedia(sel)
 }

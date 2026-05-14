@@ -3,6 +3,7 @@ export interface WebcamData {
   imageUrl:  string | null
   playerUrl: string | null
   linkUrl:   string | null
+  distKm?:   number   // distance from requested coordinates (added client-side)
 }
 
 /** Haversine great-circle distance in km */
@@ -17,7 +18,15 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-export async function fetchNearbyWebcam(lat: number, lon: number): Promise<WebcamData | null> {
+/**
+ * Fetch the nearest webcam to (lat, lon).
+ * @param maxKm  Only return a webcam within this distance (default: no limit)
+ */
+export async function fetchNearbyWebcam(
+  lat: number,
+  lon: number,
+  maxKm = Infinity,
+): Promise<WebcamData | null> {
   try {
     // Route through our Vercel edge proxy to avoid CORS restrictions
     const url = `/api/webcam?lat=${lat}&lon=${lon}`
@@ -28,30 +37,34 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
     const allWebcams: any[] = json.webcams ?? []
     if (!allWebcams.length) return null
 
-    // Exclude cruise-ship webcams — they may be hundreds of km away from the selected location
+    // Exclude cruise-ship webcams — they may be hundreds of km away
     const CRUISE_RE = /cruise|ship|vessel|ferry|cruiser|viking|msc |costa |carnival|celebrity|royal caribbean/i
-    const webcams = allWebcams.filter((w: any) => {
+    let webcams = allWebcams.filter((w: any) => {
       const text = [w.title, w.location?.city, w.location?.country, w.category?.name].filter(Boolean).join(' ')
       return !CRUISE_RE.test(text)
     })
 
     if (!webcams.length) return null
 
-    // Sort by haversine distance from the user's exact coordinates.
-    // The server already does this, but we re-sort client-side as a safety net
-    // in case the proxy response is cached or the order changed after filtering.
+    // Sort by haversine distance from the user's exact coordinates
     webcams.sort((a: any, b: any) => {
-      const aLat = a.location?.latitude
-      const aLon = a.location?.longitude
-      const bLat = b.location?.latitude
-      const bLon = b.location?.longitude
-      const dA = (aLat != null && aLon != null) ? haversineKm(lat, lon, aLat, aLon) : Infinity
-      const dB = (bLat != null && bLon != null) ? haversineKm(lat, lon, bLat, bLon) : Infinity
+      const dA = (a.location?.latitude != null && a.location?.longitude != null)
+        ? haversineKm(lat, lon, a.location.latitude, a.location.longitude) : Infinity
+      const dB = (b.location?.latitude != null && b.location?.longitude != null)
+        ? haversineKm(lat, lon, b.location.latitude, b.location.longitude) : Infinity
       return dA - dB
     })
 
-    // Pick the best webcam among those closest: prefer active + has preview image, then any with preview.
-    // Because the list is now sorted by distance, the first matching webcam is the nearest suitable one.
+    // Apply distance cap (used e.g. for per-beach webcam: only accept within 10 km)
+    if (isFinite(maxKm)) {
+      webcams = webcams.filter((w: any) => {
+        if (w.location?.latitude == null || w.location?.longitude == null) return false
+        return haversineKm(lat, lon, w.location.latitude, w.location.longitude) <= maxKm
+      })
+      if (!webcams.length) return null
+    }
+
+    // Pick the best webcam: prefer active + preview image, then any with preview
     const hasPreview = (w: any): boolean =>
       !!(w.images?.current?.preview ?? w.images?.current?.thumbnail ?? w.images?.current?.full)
     const wc =
@@ -63,7 +76,6 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
 
     const is3cat = typeof wc.webcamId === 'string' && wc.webcamId.startsWith('3cat_')
 
-    // 3cat cameras are snapshot-only (no live player embed)
     const playerRaw = wc.player?.day
     const playerUrl: string | null = is3cat
       ? null
@@ -73,15 +85,12 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
           ? `https://webcams.windy.com/webcams/public/embed/player/${wc.webcamId}/day`
           : null
 
-    // v3 Windy: images.current.preview > thumbnail > full
-    // 3cat: images.current.preview is the snapshot URL
     const imageUrl: string | null =
       wc.images?.current?.preview ??
       wc.images?.current?.thumbnail ??
       wc.images?.current?.full ??
       null
 
-    // 3cat cameras link to the 3cat.cat weather camera page
     const camId = is3cat ? wc.webcamId.replace('3cat_', '') : null
     const linkUrl: string | null = is3cat
       ? `https://www.3cat.cat/el-temps/camera/${camId}/`
@@ -89,11 +98,16 @@ export async function fetchNearbyWebcam(lat: number, lon: number): Promise<Webca
         ? `https://www.windy.com/webcams/${wc.webcamId}`
         : null
 
+    const distKm = (wc.location?.latitude != null && wc.location?.longitude != null)
+      ? haversineKm(lat, lon, wc.location.latitude, wc.location.longitude)
+      : undefined
+
     return {
       title: wc.title ?? wc.location?.city ?? 'Webcam',
       imageUrl,
       playerUrl,
       linkUrl,
+      distKm,
     }
   } catch { return null }
 }
