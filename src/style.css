@@ -1809,3 +1809,149 @@ footer {
   padding: 4px 8px !important;
 }
 .leaflet-tooltip::before { border-top-color: var(--card-border) !important; }
+
+/* ── Homepage: Beaches & Ski module shortcut cards ───────────────── */
+.home-modules-section {
+  width: 100%;
+  max-width: 740px;
+  margin: 28px auto 0;
+  padding: 0 4px;
+}
+.home-modules-label {
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+.home-modules-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 540px) {
+  .home-modules-strip { grid-template-columns: 1fr; }
+}
+
+.home-module-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  outline: none;
+}
+.home-module-card:hover,
+.home-module-card:focus-visible {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow: 0 12px 36px rgba(0,0,0,.55);
+}
+.home-module-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Glowing gradient blob in the background */
+.home-module-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .35;
+  transition: opacity .18s;
+}
+.home-module-card:hover .home-module-glow { opacity: .55; }
+.home-module-glow-beach {
+  background: radial-gradient(ellipse 90% 90% at 60% 0%, rgba(0,190,220,.35) 0%, transparent 70%);
+}
+.home-module-glow-ski {
+  background: radial-gradient(ellipse 90% 90% at 60% 0%, rgba(120,180,255,.35) 0%, transparent 70%);
+}
+
+/* Top accent stripe */
+.home-module-beach::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #00bcd4, #00e5ff, #0288d1);
+  border-radius: 16px 16px 0 0;
+}
+.home-module-ski::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #64b5f6, #b3e5fc, #4fc3f7);
+  border-radius: 16px 16px 0 0;
+}
+
+.home-module-inner {
+  position: relative;
+  padding: 14px 16px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1;
+}
+.home-module-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.home-module-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.home-module-tag {
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.home-module-beach .home-module-tag {
+  background: rgba(0,188,212,.18);
+  color: #4dd0e1;
+  border: 1px solid rgba(0,188,212,.35);
+}
+.home-module-ski .home-module-tag {
+  background: rgba(100,181,246,.18);
+  color: #90caf9;
+  border: 1px solid rgba(100,181,246,.35);
+}
+.home-module-title {
+  font-size: .94rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+.home-module-desc {
+  font-size: .75rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.home-module-footer {
+  position: relative;
+  z-index: 1;
+  padding: 9px 16px 12px;
+  border-top: 1px solid var(--card-border);
+  margin-top: 4px;
+}
+.home-module-cta {
+  font-size: .75rem;
+  font-weight: 700;
+}
+.home-module-beach .home-module-cta { color: #4dd0e1; }
+.home-module-ski   .home-module-cta { color: #90caf9; }
+
+/* Pulse animation for the search input (prompt user to search) */
+@keyframes searchPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,210,230,0); }
+  30%  { box-shadow: 0 0 0 6px rgba(0,210,230,.4); }
+  100% { box-shadow: 0 0 0 0 rgba(0,210,230,0); }
+}
+.search-pulse { animation: searchPulse .85s ease-out; }

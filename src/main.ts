@@ -163,6 +163,14 @@ function applyLang() {
   setText('feat2-desc',  lang.feat2Desc)
   setText('feat3-title', lang.feat3Title)
   setText('feat3-desc',  lang.feat3Desc)
+  // Homepage module cards
+  setText('homeModulesLabel', lang.homeModulesLabel)
+  setText('homeBeachTitle',   lang.homeBeachTitle)
+  setText('homeBeachDesc',    lang.homeBeachDesc)
+  setText('homeSkiTitle',     lang.homeSkiTitle)
+  setText('homeSkiDesc',      lang.homeSkiDesc)
+  // Update CTA text based on whether a location is already selected
+  _updateModuleCtaText()
   setText('svg3-today',           lang.svgToday)
   setText('svg3-tomorrow',        lang.svgTomorrow)
   setText('svg3-outfit-today',    lang.svgLightClothes)
@@ -291,6 +299,8 @@ async function loadAndRenderSki() {
 }
 
 let _cachedAvalancheRisk: import('./types').AvalancheRisk | null = null
+/** Page to switch to automatically after the next selectLocation() completes */
+let _autoSwitchPage: 'beaches' | 'ski' | null = null
 
 function updateNavLabels() {
   const lang = t()
@@ -304,6 +314,57 @@ function updateNavLabels() {
   if (optSki)      optSki.textContent      = lang.navSki
   navCurrentLbl.textContent = getPageLabel(state.currentPage)
 }
+
+// ── Homepage module card helpers ──────────────────────────────────────────────
+
+function _updateModuleCtaText() {
+  const lang = t()
+  const hasLoc = !!state.currentLoc
+  const beachCta = document.getElementById('homeBeachCta')
+  const skiCta   = document.getElementById('homeSkiCta')
+  const goTo = lang.navBeaches   // e.g. "🏖️ Beaches"
+  const goToSki = lang.navSki
+  if (beachCta) beachCta.textContent = hasLoc ? `${goTo} →` : lang.searchPh + ' →'
+  if (skiCta)   skiCta.textContent   = hasLoc ? `${goToSki} →` : lang.searchPh + ' →'
+}
+
+function _handleModuleCardClick(page: 'beaches' | 'ski') {
+  if (state.currentLoc) {
+    // Location already known — switch immediately
+    show(wxDisplay)
+    hide(welcomeScreen)
+    switchPage(page)
+  } else {
+    // No location — prompt user to search
+    _autoSwitchPage = page
+    // Highlight the search input so users know what to do
+    searchInput.focus()
+    searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Flash the search wrap to draw attention
+    const wrap = searchInput.closest('.welcome-search-row') as HTMLElement | null
+    if (wrap) {
+      wrap.classList.add('search-pulse')
+      setTimeout(() => wrap.classList.remove('search-pulse'), 900)
+    }
+  }
+}
+
+// Wire up home module cards (run once at startup)
+;(function initModuleCards() {
+  const beachCard = document.getElementById('homeModuleBeaches')
+  const skiCard   = document.getElementById('homeModuleSki')
+
+  const activate = (el: HTMLElement | null, page: 'beaches' | 'ski') => {
+    if (!el) return
+    el.addEventListener('click', () => _handleModuleCardClick(page))
+    el.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _handleModuleCardClick(page) }
+    })
+  }
+
+  activate(beachCard, 'beaches')
+  activate(skiCard,   'ski')
+})()
 
 function renderAll() {
   if (state.currentPage === 'forecast') {
@@ -658,6 +719,13 @@ async function selectLocation(loc: GeocodingResult) {
     if (ensWx.type === 'rain') startAnimation('rain')
     else if (ensWx.type === 'snow') startAnimation('snow')
     else startAnimation('none')
+    // Auto-switch if coming from a homepage module card (cached path)
+    if (_autoSwitchPage) {
+      const target = _autoSwitchPage
+      _autoSwitchPage = null
+      switchPage(target)
+    }
+    _updateModuleCtaText()
     return
   }
 
@@ -736,6 +804,16 @@ async function selectLocation(loc: GeocodingResult) {
   const { data: ensData } = getEnsembleCurrent(state.wxData, _wxWeights)
   const ensWx = wxFromCode(ensData.code, t().wx)
 
+  // ── Auto-switch to beaches/ski if user clicked a homepage module card ────────
+  if (_autoSwitchPage) {
+    const target = _autoSwitchPage
+    _autoSwitchPage = null
+    switchPage(target)
+    _updateModuleCtaText()
+  } else {
+    _updateModuleCtaText()
+  }
+
   // ── Ground-truth rain check via PWS ────────────────────────────────────────
   // If the nearest weather station has a fresh observation (<15 min old) with
   // precipRate > 0, treat it as authoritative — the rain gauge confirms actual
@@ -783,6 +861,7 @@ function goHome() {
   startAnimation('none')
   searchInput.value = ''
   renderFavsRow()   // refresh pills on welcome screen
+  _updateModuleCtaText()  // reset CTA to "search" prompt
 }
 
 const brandHomeEl = document.getElementById('brandHome')!

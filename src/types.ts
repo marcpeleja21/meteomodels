@@ -405,4 +405,10 @@ export interface LangData {
   summitTemp:             string
   baseTemp:               string
   windSummit:             string
+  // Homepage module shortcut cards
+  homeModulesLabel: string
+  homeBeachTitle:   string
+  homeBeachDesc:    string
+  homeSkiTitle:     string
+  homeSkiDesc:      string
 }
