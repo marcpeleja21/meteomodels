@@ -296,7 +296,6 @@ async function loadAndRenderSki() {
 
   renderSkiPage(
     state.nearbySkiResorts,
-    state.wxData,
     _cachedAvalancheRisk,
     loc?.latitude,
     loc?.longitude,
@@ -339,8 +338,14 @@ function _handleModuleCardClick(page: 'beaches' | 'ski') {
     show(wxDisplay)
     hide(welcomeScreen)
     switchPage(page)
+  } else if (page === 'ski') {
+    // Ski world map works without a location — navigate directly
+    hide(welcomeScreen)
+    navDropdown.classList.remove('hidden')
+    show(wxDisplay)
+    switchPage('ski')
   } else {
-    // No location — prompt user to search
+    // Beaches need a location — prompt user to search
     _autoSwitchPage = page
     // Highlight the search input so users know what to do
     searchInput.focus()

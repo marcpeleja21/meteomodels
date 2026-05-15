@@ -122,6 +122,54 @@ function fmt1(v: number | null, unit: string): string {
   return `${v.toFixed(1)} ${unit}`
 }
 
+// ─── Per-resort weather cache & fetch ────────────────────────────────────────
+//
+// We fetch Open-Meteo AT THE RESORT'S COORDINATES so the temperature,
+// snow depth, and wind reflect actual mountain conditions rather than
+// the user's searched city weather.
+
+const _resortWxCache = new Map<string, OpenMeteoResponse>()
+
+async function fetchResortWeather(resort: SkiResortResult): Promise<OpenMeteoResponse | null> {
+  if (_resortWxCache.has(resort.id)) return _resortWxCache.get(resort.id)!
+
+  try {
+    const params = new URLSearchParams({
+      latitude:      String(resort.lat),
+      longitude:     String(resort.lon),
+      hourly:        [
+        'temperature_2m',
+        'wind_speed_10m',
+        'wind_gusts_10m',
+        'precipitation_probability',
+        'snow_depth',
+        'snowfall',
+        'weather_code',
+      ].join(','),
+      daily: [
+        'temperature_2m_max',
+        'temperature_2m_min',
+        'precipitation_sum',
+        'precipitation_probability_max',
+        'weather_code',
+        'wind_speed_10m_max',
+        'wind_gusts_10m_max',
+      ].join(','),
+      timezone:      'auto',
+      forecast_days: '3',
+      models:        'best_match',  // auto-selects highest-res model for this location
+    })
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    if (json.error) return null
+    _resortWxCache.set(resort.id, json as OpenMeteoResponse)
+    return json as OpenMeteoResponse
+  } catch {
+    return null
+  }
+}
+
 // ─── Leaflet map state ────────────────────────────────────────────────────────
 
 let _skiMap: L.Map | null = null
@@ -138,7 +186,6 @@ function renderSkiWorldMarkers(
 ) {
   if (!_skiMap || !_renderer) return
 
-  // Remove existing resort markers
   _skiMarkers.forEach(m => m.remove())
   _skiMarkers = []
 
@@ -151,15 +198,15 @@ function renderSkiWorldMarkers(
     let weight: number
 
     if (isSelected) {
-      fillColor = '#f59e0b'  // amber
+      fillColor = '#f59e0b'
       radius    = 8
       weight    = 2
     } else if (isTop3) {
-      fillColor = '#3b82f6'  // blue
+      fillColor = '#3b82f6'
       radius    = 5
       weight    = 1
     } else {
-      fillColor = '#6b7280'  // gray
+      fillColor = '#6b7280'
       radius    = 3
       weight    = 1
     }
@@ -181,48 +228,54 @@ function renderSkiWorldMarkers(
 }
 
 // ─── Detail panel renderer ────────────────────────────────────────────────────
+//
+// Takes weather data fetched specifically for the resort's lat/lon so that
+// temperature, wind, and snow figures reflect the mountain, not the user's city.
 
 function renderSkiDetail(
   sel: SkiResortResult,
-  wxData: Record<string, OpenMeteoResponse | null>,
+  resortWx: OpenMeteoResponse | null,
   avalancheRisk: AvalancheRisk | null,
   lang: any,
 ) {
   const container = document.getElementById('skiDetail')
   if (!container) return
 
-  const wx = wxData['ensemble'] ?? Object.values(wxData).find(v => v !== null) ?? null
-  const hi = wx ? nowHourlyIndex(wx.hourly.time) : 0
+  const hi = resortWx ? nowHourlyIndex(resortWx.hourly.time) : 0
 
-  const nowTemp      = wx?.hourly.temperature_2m[hi] ?? null
-  const nowWind      = wx?.hourly.wind_speed_10m[hi] ?? null
-  const nowRainPct   = wx?.hourly.precipitation_probability[hi] ?? null
-  const snowDepthRaw = wx?.hourly.snow_depth?.[hi] ?? null
-  const freshSnow24h = wx?.hourly.snowfall?.[hi] ?? null
+  const nowTemp      = resortWx?.hourly.temperature_2m[hi] ?? null
+  const nowWind      = resortWx?.hourly.wind_speed_10m[hi] ?? null
+  const nowRainPct   = resortWx?.hourly.precipitation_probability[hi] ?? null
+  const snowDepthRaw = resortWx?.hourly.snow_depth?.[hi] ?? null
+  const freshSnow24h = resortWx?.hourly.snowfall?.[hi] ?? null
 
-  // snow_depth in Open-Meteo is in metres — convert to cm
+  // snow_depth from Open-Meteo is in metres → cm
   const snowDepthCm = snowDepthRaw !== null ? snowDepthRaw * 100 : null
 
-  // 7-day accumulated fresh snow estimate
-  let freshSnow7d: number | null = null
-  if (wx?.hourly.snowfall) {
-    const arr = wx.hourly.snowfall
-    freshSnow7d = arr.slice(0, Math.min(168, arr.length))
+  // 3-day accumulated fresh snow
+  let freshSnow3d: number | null = null
+  if (resortWx?.hourly.snowfall) {
+    const arr = resortWx.hourly.snowfall
+    freshSnow3d = arr.slice(0, Math.min(72, arr.length))
       .reduce((s: number, v) => s + (v ?? 0), 0)
-    freshSnow7d = Math.round(freshSnow7d)
+    freshSnow3d = Math.round(freshSnow3d * 10) / 10
   }
 
-  // Elevation-based estimates
-  const baseAlt    = state.currentLoc?.elevation ?? 0
-  const summitAlt  = sel.eleMax ?? (baseAlt + 1000)
-  const summitTemp = nowTemp !== null ? lapseRateTemp(nowTemp, baseAlt, summitAlt) : null
+  // Summit temperature via lapse rate:
+  // nowTemp is AT the resort coordinates (roughly base elevation).
+  // We estimate summit by applying −6.5 °C / 1 000 m lapse rate.
+  const baseAlt    = sel.eleMin ?? 1000          // resort base or reasonable default
+  const summitAlt  = sel.eleMax ?? baseAlt + 800
+  const summitTemp = nowTemp !== null && sel.eleMax
+    ? lapseRateTemp(nowTemp, baseAlt, summitAlt)
+    : null
   const windSummit = nowWind !== null ? nowWind * 1.3 : null
 
   const snowQuality = calcSnowQuality(freshSnow24h, nowTemp)
   const status      = calcSkiStatus(snowDepthCm, nowTemp, nowRainPct)
   const summary     = calcSkiSummary(
     snowDepthCm, freshSnow24h, avalancheRisk?.level ?? null,
-    windSummit, summitTemp, nowRainPct, lang,
+    windSummit, summitTemp ?? nowTemp, nowRainPct, lang,
   )
 
   const statusLabel = status === 'open'
@@ -273,7 +326,7 @@ function renderSkiDetail(
       </div>
       <div class="ski-detail-row">
         <span class="detail-label">🌨 ${lang.freshSnow7d}</span>
-        <span class="detail-value">${fmtInt(freshSnow7d, 'cm')}</span>
+        <span class="detail-value">${freshSnow3d != null ? fmt1(freshSnow3d, 'cm') + ' (3d)' : '—'}</span>
       </div>
       <div class="ski-detail-row">
         <span class="detail-label">🏔 ${lang.snowQuality}</span>
@@ -283,10 +336,11 @@ function renderSkiDetail(
         <span class="detail-label">🌡 ${lang.baseTemp}</span>
         <span class="detail-value">${fmtInt(nowTemp, '°C')}</span>
       </div>
+      ${summitTemp !== null ? `
       <div class="ski-detail-row">
         <span class="detail-label">🌡 ${lang.summitTemp}</span>
-        <span class="detail-value">${fmtInt(summitTemp, '°C')} ${eleStr ? `(${summitAlt}m)` : ''}</span>
-      </div>
+        <span class="detail-value">${fmtInt(summitTemp, '°C')} (${summitAlt}m)</span>
+      </div>` : ''}
       <div class="ski-detail-row">
         <span class="detail-label">💨 ${lang.windSummit}</span>
         <span class="detail-value">${fmtInt(windSummit, 'km/h')}</span>
@@ -309,23 +363,8 @@ function renderSkiDetail(
 
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
-/**
- * Render the Ski page.
- *
- * Shows a world map with ALL ski resort markers.
- * If a user location is supplied, the top-3 closest resorts are highlighted
- * in blue and listed as quick-access cards below the map.
- * Clicking any marker (or a top-3 card) opens the detail panel.
- *
- * @param resorts     All ski resorts (sorted by distance when location known)
- * @param wxData      Weather data keyed by model name
- * @param avalancheRisk EAWS avalanche risk (may be null)
- * @param currentLat  Optional user latitude (used to centre map + sort top-3)
- * @param currentLon  Optional user longitude
- */
 export function renderSkiPage(
   resorts: SkiResortResult[],
-  wxData: Record<string, OpenMeteoResponse | null>,
   avalancheRisk: AvalancheRisk | null,
   currentLat?: number,
   currentLon?: number,
@@ -340,7 +379,7 @@ export function renderSkiPage(
   const lang   = LANG_DATA[state.lang] ?? LANG_DATA.en
   const hasLoc = currentLat != null && currentLon != null
 
-  // Top-3 resorts (resorts already sorted by distance from fetchAllSkiResorts when refLat/refLon given)
+  // Top-3 closest resorts (resorts are pre-sorted by distance when refLat/refLon were given)
   const top3    = hasLoc ? resorts.slice(0, 3) : []
   const top3Ids = new Set(top3.map(r => r.id))
 
@@ -373,14 +412,13 @@ export function renderSkiPage(
   const initLon  = currentLon ?? 8.5
   const initZoom = hasLoc ? 6 : 4
 
-  _skiMap    = L.map(mapContainer, { zoomControl: true, attributionControl: false })
+  _skiMap   = L.map(mapContainer, { zoomControl: true, attributionControl: false })
     .setView([initLat, initLon], initZoom)
-  _renderer  = L.canvas({ padding: 0.5 })
+  _renderer = L.canvas({ padding: 0.5 })
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 })
     .addTo(_skiMap)
 
-  // Blue dot for user location
   if (hasLoc) {
     L.circleMarker([currentLat!, currentLon!], {
       radius: 9, color: '#fff', weight: 2,
@@ -389,19 +427,32 @@ export function renderSkiPage(
       .bindTooltip('📍 Your location', { permanent: false, direction: 'top' })
   }
 
-  // ── Resort selection logic ─────────────────────────────────────────────────
+  // ── Resort selection ──────────────────────────────────────────────────────
+
   if (!state.selectedSkiResort && top3.length > 0) {
     state.selectedSkiResort = top3[0]
   }
 
-  function selectResort(resort: SkiResortResult) {
+  async function selectResort(resort: SkiResortResult) {
     state.selectedSkiResort = resort
-    renderSkiDetail(resort, wxData, avalancheRisk, lang)
+
+    // Highlight marker and top-3 card immediately
     renderSkiWorldMarkers(resorts, top3Ids, resort.id, selectResort)
-    // Update active state on top-3 cards
     el.querySelectorAll<HTMLButtonElement>('.ski-top3-card').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.id === resort.id)
     })
+
+    // Show loading placeholder in detail panel
+    const detailEl = document.getElementById('skiDetail')
+    if (detailEl) {
+      detailEl.innerHTML = `<div class="loading-inline ski-loading">
+        ⛷️ Loading weather for <strong>${resort.name}</strong>…
+      </div>`
+    }
+
+    // Fetch weather AT the resort's coordinates (accurate mountain data)
+    const resortWx = await fetchResortWeather(resort)
+    renderSkiDetail(resort, resortWx, avalancheRisk, lang)
   }
 
   // Wire top-3 card clicks
@@ -412,7 +463,7 @@ export function renderSkiPage(
     })
   })
 
-  // Render all markers on the world map
+  // Render all resort markers
   if (resorts.length > 0) {
     renderSkiWorldMarkers(
       resorts,
@@ -422,12 +473,9 @@ export function renderSkiPage(
     )
   }
 
-  // Render initial detail panel + highlight initial top-3 card
+  // Auto-load detail for initially selected resort
   if (state.selectedSkiResort && resorts.length > 0) {
-    renderSkiDetail(state.selectedSkiResort, wxData, avalancheRisk, lang)
-    el.querySelectorAll<HTMLButtonElement>('.ski-top3-card').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.id === state.selectedSkiResort?.id)
-    })
+    selectResort(state.selectedSkiResort)
   }
 }
 
