@@ -1751,7 +1751,7 @@ footer {
 /* ── Ski: Leaflet resort selector map ────────────────────────────── */
 .ski-map-container {
   width: 100%;
-  height: 340px;
+  height: 420px;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--card-border);
@@ -1759,11 +1759,6 @@ footer {
   /* Leaflet needs a non-zero height to render */
   position: relative;
   z-index: 0;
-}
-/* World-explore mode: taller + crosshair cursor */
-.ski-map-world {
-  height: 500px;
-  cursor: crosshair;
 }
 .ski-map-hint {
   font-size: .72rem;
@@ -1779,6 +1774,63 @@ footer {
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 16px;
+}
+
+/* ── Ski top-3 closest resorts panel ─────────────────────────────── */
+.ski-top3-section {
+  margin: 12px 0 8px;
+}
+.ski-top3-title {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 0 0 8px;
+}
+.ski-top3-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ski-top3-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, background .15s;
+  min-width: 120px;
+  flex: 1 1 120px;
+  max-width: 200px;
+}
+.ski-top3-card:hover {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,.08);
+}
+.ski-top3-card.active {
+  border-color: #f59e0b;
+  background: rgba(245,158,11,.10);
+}
+.ski-top3-name {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ski-top3-dist {
+  font-size: .72rem;
+  color: var(--text-muted);
+}
+.ski-top3-ele {
+  font-size: .72rem;
+  color: #60a5fa;
 }
 
 /* Leaflet popup overrides */

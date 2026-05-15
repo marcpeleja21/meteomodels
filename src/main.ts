@@ -31,7 +31,7 @@ import { renderModelsPage } from './ui/modelsPage'
 import { renderHourlyPage } from './ui/hourlyPage'
 import { renderBeachesPage } from './ui/beachesPage'
 import { renderSkiPage, destroySkiMap } from './ui/skiPage'
-import { fetchNearbyBeaches, fetchNearbySkiResorts } from './api/overpass'
+import { fetchNearbyBeaches, fetchAllSkiResorts } from './api/overpass'
 import { fetchMarineData } from './api/marine'
 import { fetchAvalancheRisk } from './api/avalanche'
 
@@ -279,38 +279,27 @@ async function loadAndRenderBeaches() {
   renderBeachesPage(loc.latitude, loc.longitude, state.nearbyBeaches, state.marineData, state.wxData)
 }
 
-async function loadAndRenderSki(overrideLat?: number, overrideLon?: number) {
-  const loc      = state.currentLoc
-  const fetchLat = overrideLat ?? loc?.latitude
-  const fetchLon = overrideLon ?? loc?.longitude
+async function loadAndRenderSki() {
+  const loc = state.currentLoc
 
-  // If we have coordinates and haven't fetched yet, fetch nearby resorts
-  if (fetchLat != null && fetchLon != null && !state.skiFetched) {
+  // Fetch all ski resorts worldwide (sorted by distance when location is known)
+  if (!state.skiFetched) {
     state.skiFetched = true
-    pageSki.innerHTML = `<div class="loading-inline">⛷️ Loading ski resorts…</div>`
+    pageSki.innerHTML = `<div class="loading-inline">⛷️ Loading ski resorts worldwide…</div>`
     const [resorts, ava] = await Promise.all([
-      fetchNearbySkiResorts(fetchLat, fetchLon),
-      fetchAvalancheRisk(fetchLat, fetchLon),
+      fetchAllSkiResorts(loc?.latitude, loc?.longitude),
+      loc ? fetchAvalancheRisk(loc.latitude, loc.longitude) : Promise.resolve(null),
     ])
     state.nearbySkiResorts = resorts
     _cachedAvalancheRisk   = ava
-  }
-
-  // Callback wired into the world-explore map: user clicked a region
-  const onRegionSelect = async (clickLat: number, clickLon: number) => {
-    state.skiFetched       = false
-    state.nearbySkiResorts = []
-    _cachedAvalancheRisk   = null
-    await loadAndRenderSki(clickLat, clickLon)
   }
 
   renderSkiPage(
     state.nearbySkiResorts,
     state.wxData,
     _cachedAvalancheRisk,
-    onRegionSelect,
-    fetchLat,
-    fetchLon,
+    loc?.latitude,
+    loc?.longitude,
   )
 }
 

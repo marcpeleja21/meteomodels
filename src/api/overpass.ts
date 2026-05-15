@@ -78,6 +78,73 @@ out center tags;`
 }
 
 /**
+ * Fetch ALL named ski resorts / winter-sports areas worldwide.
+ * Caps at 1 500 OSM elements (sufficient for global coverage).
+ * If refLat / refLon are supplied the results are sorted by distance
+ * from that point and distKm is populated; otherwise distKm = 0.
+ */
+export async function fetchAllSkiResorts(
+  refLat?: number,
+  refLon?: number,
+): Promise<SkiResortResult[]> {
+  const query = `
+[out:json][timeout:60];
+(
+  node["landuse"="winter_sports"];
+  way["landuse"="winter_sports"];
+  relation["landuse"="winter_sports"];
+  node["tourism"="ski_resort"];
+  way["tourism"="ski_resort"];
+  relation["tourism"="ski_resort"];
+);
+out 1500 center tags;`
+
+  try {
+    const data = await overpassQuery(query)
+    const byName = new Map<string, SkiResortResult>()
+
+    for (const el of data.elements ?? []) {
+      const bLat = el.lat ?? el.center?.lat
+      const bLon = el.lon ?? el.center?.lon
+      if (!bLat || !bLon) continue
+
+      const name =
+        el.tags?.name ??
+        el.tags?.['name:en'] ??
+        el.tags?.['name:ca'] ??
+        el.tags?.['name:es'] ??
+        null
+      if (!name) continue
+
+      if (byName.has(name)) continue   // deduplicate by name
+
+      const dist = (refLat != null && refLon != null)
+        ? haversineKm(refLat, refLon, bLat, bLon)
+        : 0
+
+      byName.set(name, {
+        id: String(el.id),
+        name,
+        lat: bLat,
+        lon: bLon,
+        distKm: dist,
+        eleMin:  el.tags?.ele_min ? Number(el.tags.ele_min) : undefined,
+        eleMax:  el.tags?.ele_max ?? el.tags?.ele
+          ? Number(el.tags.ele_max ?? el.tags.ele) : undefined,
+        website: el.tags?.website ?? el.tags?.url ?? undefined,
+      })
+    }
+
+    const results = [...byName.values()]
+    if (refLat != null) results.sort((a, b) => a.distKm - b.distKm)
+    return results
+  } catch (e) {
+    console.warn('[overpass] global ski fetch failed', e)
+    return []
+  }
+}
+
+/**
  * Find ski resorts / winter sports areas within radiusKm of (lat, lon).
  * Returns up to 20 results sorted by distance.
  */

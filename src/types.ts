@@ -412,4 +412,5 @@ export interface LangData {
   homeSkiTitle:      string
   homeSkiDesc:       string
   skiWorldMapHint:   string
+  skiTop3Title:      string
 }

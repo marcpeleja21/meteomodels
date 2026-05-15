@@ -115,8 +115,8 @@ export const LANG_DATA: Record<string, LangData> = {
     beachFlagEstimated:    '(estimat)',
     // Ski
     skiTitle:               '⛷️ Estacions d\'esquí properes',
-    skiRadius:              'Radi 150 km',
-    noSkiFound:             'No s\'han trobat estacions en 150 km',
+    skiRadius:              'Arreu del món',
+    noSkiFound:             'No s\'han trobat estacions d\'esquí',
     snowDepth:              'Gruix de la neu',
     freshSnow24h:           'Neu fresca 24h',
     freshSnow7d:            'Neu fresca 7d',
@@ -146,7 +146,8 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Onades, temperatura de l\'aigua, webcams i condicions de bany',
     homeSkiTitle:     '⛷️ Estacions d\'esquí',
     homeSkiDesc:      'Neu, risc d\'allaus, previsió i estat de les estacions',
-    skiWorldMapHint:  'Fes clic al mapa per explorar estacions d\'esquí prop d\'aquell punt',
+    skiWorldMapHint:  'Fes clic a una estació al mapa per veure els detalls',
+    skiTop3Title:     'Top 3 estacions més properes',
   },
   es: {
     appSub: 'Comparativa de modelos meteorológicos',
@@ -262,8 +263,8 @@ export const LANG_DATA: Record<string, LangData> = {
     beachFlagEstimated:    '(estimado)',
     // Ski
     skiTitle:               '⛷️ Estaciones de esquí cercanas',
-    skiRadius:              'Radio 150 km',
-    noSkiFound:             'No se han encontrado estaciones en 150 km',
+    skiRadius:              'Todo el mundo',
+    noSkiFound:             'No se han encontrado estaciones de esquí',
     snowDepth:              'Espesor de la nieve',
     freshSnow24h:           'Nieve fresca 24h',
     freshSnow7d:            'Nieve fresca 7d',
@@ -293,7 +294,8 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Olas, temperatura del agua, webcams y condiciones de baño',
     homeSkiTitle:     '⛷️ Estaciones de esquí',
     homeSkiDesc:      'Nieve, riesgo de aludes, previsión y estado de las estaciones',
-    skiWorldMapHint:  'Haz clic en el mapa para explorar estaciones de esquí cerca de ese punto',
+    skiWorldMapHint:  'Haz clic en una estación del mapa para ver los detalles',
+    skiTop3Title:     'Top 3 estaciones más cercanas',
   },
   en: {
     appSub: 'Weather model comparison',
@@ -409,8 +411,8 @@ export const LANG_DATA: Record<string, LangData> = {
     beachFlagEstimated:    '(estimated)',
     // Ski
     skiTitle:               '⛷️ Nearby Ski Resorts',
-    skiRadius:              '150 km radius',
-    noSkiFound:             'No ski resorts found within 150 km',
+    skiRadius:              'Worldwide',
+    noSkiFound:             'No ski resorts found',
     snowDepth:              'Snow depth',
     freshSnow24h:           'Fresh snow 24h',
     freshSnow7d:            'Fresh snow 7d',
@@ -440,7 +442,8 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Waves, water temp, webcams & swimming conditions',
     homeSkiTitle:     '⛷️ Ski Resorts',
     homeSkiDesc:      'Snow depth, avalanche risk, forecast & resort status',
-    skiWorldMapHint:  'Click the map to explore ski resorts near any area',
+    skiWorldMapHint:  'Click a resort on the map to see details',
+    skiTop3Title:     'Top 3 Closest Resorts',
   },
   fr: {
     appSub: 'Comparaison de modèles météo',
@@ -556,8 +559,8 @@ export const LANG_DATA: Record<string, LangData> = {
     beachFlagEstimated:    '(estimé)',
     // Ski
     skiTitle:               '⛷️ Stations de ski à proximité',
-    skiRadius:              'Rayon 150 km',
-    noSkiFound:             'Aucune station trouvée dans 150 km',
+    skiRadius:              'Monde entier',
+    noSkiFound:             'Aucune station de ski trouvée',
     snowDepth:              'Épaisseur de la neige',
     freshSnow24h:           'Neige fraîche 24h',
     freshSnow7d:            'Neige fraîche 7j',
@@ -587,7 +590,8 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Vagues, température de l\'eau, webcams & conditions de baignade',
     homeSkiTitle:     '⛷️ Stations de ski',
     homeSkiDesc:      'Enneigement, risque d\'avalanche, prévisions & état des stations',
-    skiWorldMapHint:  'Cliquez sur la carte pour explorer les stations de ski autour de cette zone',
+    skiWorldMapHint:  'Cliquez sur une station sur la carte pour voir les détails',
+    skiTop3Title:     'Top 3 stations les plus proches',
   },
   de: {
     appSub: 'Wettermodell-Vergleich',
@@ -703,8 +707,8 @@ export const LANG_DATA: Record<string, LangData> = {
     beachFlagEstimated:    '(geschätzt)',
     // Ski
     skiTitle:               '⛷️ Skiorte in der Nähe',
-    skiRadius:              'Radius 150 km',
-    noSkiFound:             'Keine Skigebiete innerhalb von 150 km gefunden',
+    skiRadius:              'Weltweit',
+    noSkiFound:             'Keine Skigebiete gefunden',
     snowDepth:              'Schneehöhe',
     freshSnow24h:           'Neuschnee 24h',
     freshSnow7d:            'Neuschnee 7d',
@@ -734,6 +738,7 @@ export const LANG_DATA: Record<string, LangData> = {
     homeBeachDesc:    'Wellen, Wassertemperatur, Webcams & Schwimmbedingungen',
     homeSkiTitle:     '⛷️ Skigebiete',
     homeSkiDesc:      'Schneehöhe, Lawinengefahr, Vorhersage & Pistenstatus',
-    skiWorldMapHint:  'Auf die Karte klicken, um Skigebiete in der Nähe zu entdecken',
+    skiWorldMapHint:  'Klicken Sie auf ein Skigebiet auf der Karte, um Details anzuzeigen',
+    skiTop3Title:     'Top 3 nächste Skigebiete',
   },
 }
