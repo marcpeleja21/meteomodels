@@ -905,6 +905,7 @@ input{touch-action:manipulation}
 }
 .ctrl-tab:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(79,195,247,0.08)}
 .ctrl-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(0,210,230,0.12);font-weight:700}
+.tab-range{font-size:.65em;opacity:.65;background:rgba(255,255,255,.12);border-radius:3px;padding:1px 3px;margin-left:2px;vertical-align:middle}
 .windy-frame-wrap{border-radius:var(--radius);overflow:hidden;border:1px solid var(--card-border)}
 .models-note{text-align:center;font-size:.7rem;color:var(--text-dim);padding:4px}
 
