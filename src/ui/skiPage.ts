@@ -157,7 +157,8 @@ async function fetchResortWeather(resort: SkiResortResult): Promise<OpenMeteoRes
       ].join(','),
       timezone:      'auto',
       forecast_days: '3',
-      models:        'best_match',  // auto-selects highest-res model for this location
+      // No models= param → Open-Meteo default routing (best available for location).
+      // Explicit models=best_match was found to return 504 on the free tier.
     })
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
     if (!res.ok) return null

@@ -29,26 +29,76 @@ const DAILY_VARS = [
   'wind_gusts_10m_max',
 ].join(',')
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Attach a numeric status code to an Error so callers can branch on it
+ * without string-parsing the message.
+ */
+function httpError(status: number): Error & { status: number } {
+  return Object.assign(new Error(`HTTP ${status}`), { status })
+}
+
+/**
+ * Fetch weather data for a single model.
+ *
+ * Retry strategy:
+ *   1. Attempt with `models=<modelId>`.
+ *   2. If the server returns 502/503/504, wait 800 ms and retry once.
+ *   3. If it still fails with a server error, fall back to fetching
+ *      without the `models=` parameter (Open-Meteo default routing),
+ *      which is more resilient and always returns data.
+ *   4. Any other HTTP error (4xx, unexpected 5xx) is thrown immediately.
+ */
 export async function fetchWeatherModel(
   lat: number,
   lon: number,
   modelId: string,
   maxDays = 7
 ): Promise<OpenMeteoResponse> {
-  const params = new URLSearchParams({
+  const commonParams = {
     latitude:      String(lat),
     longitude:     String(lon),
     hourly:        HOURLY_VARS,
     daily:         DAILY_VARS,
     timezone:      'auto',
     forecast_days: String(maxDays),
-    models:        modelId,
-  })
-  const res = await fetch(`${BASE}?${params}`)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = await res.json()
-  if (json.error) throw new Error(json.reason ?? 'API error')
-  return json as OpenMeteoResponse
+  }
+
+  async function doFetch(withModel: boolean): Promise<OpenMeteoResponse> {
+    const params = new URLSearchParams(
+      withModel ? { ...commonParams, models: modelId } : commonParams
+    )
+    const res = await fetch(`${BASE}?${params}`)
+    if (!res.ok) throw httpError(res.status)
+    const json = await res.json()
+    if (json.error) throw new Error(json.reason ?? 'API error')
+    return json as OpenMeteoResponse
+  }
+
+  const isServerError = (e: unknown) => {
+    const s = (e as any)?.status
+    return s === 502 || s === 503 || s === 504
+  }
+
+  // Attempt 1: specific model
+  try {
+    return await doFetch(true)
+  } catch (e) {
+    if (!isServerError(e)) throw e
+  }
+
+  // Attempt 2: retry after 800 ms (handles transient blips)
+  await sleep(800)
+  try {
+    return await doFetch(true)
+  } catch (e) {
+    if (!isServerError(e)) throw e
+  }
+
+  // Attempt 3: fall back to default routing (no models= param)
+  // Open-Meteo chooses the best available model for the location.
+  return doFetch(false)
 }
 
 /** Fetch all available Open-Meteo models concurrently */
