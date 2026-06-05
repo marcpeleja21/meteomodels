@@ -1,4 +1,5 @@
 import type { OpenMeteoResponse } from '../types'
+import { fetchMetNo } from './metno'
 
 const BASE = 'https://api.open-meteo.com/v1/forecast'
 
@@ -101,7 +102,19 @@ export async function fetchWeatherModel(
   return doFetch(false)
 }
 
-/** Fetch all available Open-Meteo models concurrently */
+/**
+ * Fetch all available Open-Meteo models concurrently.
+ *
+ * Fallback chain (applied per-model):
+ *   1. Specific model endpoint  (models=<apiId>)
+ *   2. Retry after 800 ms       (same endpoint — handles transient 502/503/504)
+ *   3. Open-Meteo default route (no models= param)
+ *
+ * If EVERY model still fails after that chain (i.e. Open-Meteo is completely
+ * unreachable), a single request is made to MET Norway (api.met.no) as an
+ * independent backup source.  The MET Norway data is stored under the key of
+ * the highest-priority model that failed (preferring 'ecmwf', then 'gfs').
+ */
 export async function fetchAllModels(
   lat: number,
   lon: number,
@@ -123,6 +136,28 @@ export async function fetchAllModels(
         }
       })
   )
+
+  // ── MET Norway last-resort fallback ───────────────────────────────────────
+  // Triggered only when ALL Open-Meteo attempts returned null, which means
+  // Open-Meteo itself is unreachable (not just individual model shards).
+  const hasAnyData = Object.values(results).some(r => r !== null)
+  if (!hasAnyData) {
+    try {
+      const metnoData = await fetchMetNo(lat, lon)
+      // Assign to the best available model key so the ensemble + tabs see data.
+      const failedKeys = Object.keys(results)
+      const targetKey  =
+        failedKeys.find(k => k === 'ecmwf') ??
+        failedKeys.find(k => k === 'gfs')   ??
+        failedKeys[0]
+      if (targetKey) {
+        results[targetKey] = metnoData
+        onProgress(targetKey, true)
+      }
+    } catch {
+      // MET Norway also unreachable — nothing more we can do
+    }
+  }
 
   return results
 }
