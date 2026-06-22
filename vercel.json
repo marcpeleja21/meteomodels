@@ -52,6 +52,7 @@
   ],
 
   "rewrites": [
-    { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html).*)", "destination": "/index.html" }
+    { "source": "/meteorafels", "destination": "/meteorafels.html" },
+    { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html|meteorafels.html).*)", "destination": "/index.html" }
   ]
 }
