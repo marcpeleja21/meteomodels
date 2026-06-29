@@ -13,12 +13,10 @@ const BASE    = 'https://api.weather.com'
 export default async function handler(request) {
   const period = new URL(request.url).searchParams.get('period') ?? 'day'
 
-  // Local date for Spain (UTC+2 summer) so hourly history lands on the right day
-  const localDate = new Date(Date.now() + 2 * 60 * 60 * 1000)
-    .toISOString().slice(0, 10).replace(/-/g, '')
-
+  // Note: observations/hourly?date=... is blocked by WU's CDN (Akamai 403),
+  // so 'day' uses all/1day (5-min readings, last 24h) and is bucketed by hour below.
   const histUrl = period === 'day'
-    ? `${BASE}/v2/pws/observations/hourly?stationId=${STATION}&format=json&units=m&date=${localDate}&numericPrecision=decimal&apiKey=${WU_KEY}`
+    ? `${BASE}/v2/pws/observations/all/1day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
     : period === 'week'
     ? `${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
     : `${BASE}/v2/pws/dailysummary/28day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
@@ -60,13 +58,22 @@ export default async function handler(request) {
   }
 
   if (period === 'day') {
-    // Hourly observations — compute incremental rain from cumulative precipTotal
-    const hours = (histJson?.observations ?? []).map(h => ({
-      time:      h.obsTimeLocal ?? null,
-      temp:      h.metric?.tempAvg      ?? null,
-      humidity:  h.humidityAvg          ?? null,
-      windspeed: h.metric?.windspeedAvg ?? null,
-      precipCum: h.metric?.precipTotal  ?? 0,
+    // all/1day gives 5-min readings for the last 24h — bucket into hourly averages
+    const buckets = new Map()
+    for (const o of histJson?.observations ?? []) {
+      const hourKey = (o.obsTimeLocal ?? '').slice(0, 13) // 'YYYY-MM-DD HH'
+      if (!hourKey) continue
+      if (!buckets.has(hourKey)) buckets.set(hourKey, { temps: [], humids: [], precipCum: 0 })
+      const b = buckets.get(hourKey)
+      if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
+      if (o.humidityAvg != null) b.humids.push(o.humidityAvg)
+      if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal // last reading wins (cumulative)
+    }
+    const hours = [...buckets.entries()].map(([hourKey, b]) => ({
+      time:      hourKey + ':00:00',
+      temp:      b.temps.length  ? b.temps.reduce((a, c) => a + c, 0) / b.temps.length   : null,
+      humidity:  b.humids.length ? b.humids.reduce((a, c) => a + c, 0) / b.humids.length : null,
+      precipCum: b.precipCum,
     }))
     result.history = hours.map((h, i) => ({
       time:     h.time,

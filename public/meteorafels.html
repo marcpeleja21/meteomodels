@@ -53,12 +53,24 @@
     .brand-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -.5px; color: var(--accent) }
     .brand-sub   { font-size: .62rem; color: var(--text-muted); margin-top: 2px }
     .back-link {
-      margin-left: auto;
       font-size: .78rem; color: var(--text-muted); text-decoration: none;
       padding: 5px 12px; border: 1px solid var(--card-border);
       border-radius: var(--radius-sm); transition: border-color .2s, color .2s;
     }
     .back-link:hover { border-color: var(--accent); color: var(--accent) }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px }
+    .lang-switch {
+      display: flex; gap: 2px; background: rgba(255,255,255,.04);
+      border: 1px solid var(--card-border); border-radius: 20px; padding: 2px;
+    }
+    .lang-btn {
+      font-family: var(--font-data); font-size: .66rem; font-weight: 700;
+      padding: 4px 9px; border-radius: 16px; border: none;
+      background: transparent; color: var(--text-muted); cursor: pointer;
+      transition: all .15s ease;
+    }
+    .lang-btn:hover { color: var(--text) }
+    .lang-btn.active { background: rgba(0,210,230,.18); color: var(--accent) }
 
     /* ── Status bar ── */
     .status-bar {
@@ -121,17 +133,6 @@
     }
     .webcam-icon { font-size: 3rem; opacity: .28 }
     .webcam-msg  { font-size: .82rem; color: var(--text-muted); text-align: center; max-width: 380px; line-height: 1.55 }
-    .webcam-setup {
-      padding: 14px 18px; border-top: 1px solid var(--card-border);
-      font-size: .74rem; color: var(--text-muted); line-height: 1.7;
-    }
-    .webcam-setup code {
-      font-family: var(--font-data); font-size: .7rem;
-      background: rgba(255,255,255,.06); padding: 1px 5px;
-      border-radius: 4px; color: var(--accent2);
-    }
-    .webcam-setup a { color: var(--accent); text-decoration: none }
-    .webcam-setup a:hover { text-decoration: underline }
 
     /* ── Metric cards grid ── */
     .grid {
@@ -268,10 +269,18 @@
     <span class="brand-icon" id="globeIcon">🌍</span>
     <div>
       <div class="brand-title">MeteoRàfels</div>
-      <div class="brand-sub">Estació meteorològica personal · IRFALE2</div>
+      <div class="brand-sub" id="brandSub">Estació meteorològica personal · IRFALE2</div>
     </div>
   </div>
-  <a href="/" class="back-link">← MeteoModels</a>
+  <div class="header-right">
+    <div class="lang-switch" id="langSwitch">
+      <button class="lang-btn" data-lang="ca">CA</button>
+      <button class="lang-btn" data-lang="es">ES</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="fr">FR</button>
+    </div>
+    <a href="/" class="back-link">← MeteoModels</a>
+  </div>
 </header>
 
 <div class="status-bar">
@@ -291,12 +300,12 @@
   <div id="dataWrap" class="hidden">
 
     <!-- ①  Webcam (top) -->
-    <div class="section-title">📷 Webcam Ràfels</div>
+    <div class="section-title" id="webcamSectionTitle">📷 Webcam Ràfels</div>
     <div class="webcam-card" id="webcamCard">
       <div class="webcam-header">
         <div class="webcam-header-left">
           <div class="live-dot" id="liveDot"></div>
-          <span>EN DIRECTE</span>
+          <span id="liveLabel">EN DIRECTE</span>
         </div>
         <span class="webcam-time" id="webcamTime"></span>
       </div>
@@ -304,28 +313,28 @@
     </div>
 
     <!-- ②  Current conditions -->
-    <div class="section-title">📍 Condicions actuals</div>
+    <div class="section-title" id="conditionsSectionTitle">📍 Condicions actuals</div>
     <div class="grid">
 
       <!-- Temperature (wide) -->
       <div class="card card-temp card-wide">
-        <div class="card-label">🌡 Temperatura</div>
+        <div class="card-label" id="lblTemp">🌡 Temperatura</div>
         <div class="card-value"><span id="valTemp">—</span><span class="unit">°C</span></div>
         <div class="card-sub">
-          Sensació tèrmica <b id="valFeels">—</b>°C
-          &nbsp;·&nbsp; Punt de rosada <b id="valDew">—</b>°C
+          <span id="lblFeelsLike">Sensació tèrmica</span> <b id="valFeels">—</b>°C
+          &nbsp;·&nbsp; <span id="lblDewPoint">Punt de rosada</span> <b id="valDew">—</b>°C
         </div>
       </div>
 
       <!-- Humidity -->
       <div class="card">
-        <div class="card-label">💧 Humitat</div>
+        <div class="card-label" id="lblHumidity">💧 Humitat</div>
         <div class="card-value"><span id="valHumidity">—</span><span class="unit">%</span></div>
       </div>
 
       <!-- Pressure -->
       <div class="card">
-        <div class="card-label">🔵 Pressió</div>
+        <div class="card-label" id="lblPressure">🔵 Pressió</div>
         <div class="card-value" style="font-size:1.55rem">
           <span id="valPressure">—</span><span class="unit">hPa</span>
         </div>
@@ -333,14 +342,14 @@
 
       <!-- Wind -->
       <div class="card">
-        <div class="card-label">💨 Vent</div>
+        <div class="card-label" id="lblWind">💨 Vent</div>
         <div class="card-wind-body">
           <div style="flex:1">
             <div class="card-value" style="font-size:1.55rem">
               <span id="valWind">—</span><span class="unit">km/h</span>
             </div>
             <div class="card-sub">
-              Ratxa <b id="valGust">—</b> km/h<br>
+              <span id="lblGust">Ratxa</span> <b id="valGust">—</b> km/h<br>
               <span id="valWindDir">—</span>
             </div>
           </div>
@@ -348,7 +357,7 @@
             <circle cx="30" cy="30" r="27" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)" stroke-width="1.2"/>
             <text x="30" y="10"  text-anchor="middle" font-size="7.5" fill="#6e8caa" font-family="sans-serif">N</text>
             <text x="30" y="55"  text-anchor="middle" font-size="7.5" fill="#6e8caa" font-family="sans-serif">S</text>
-            <text x="6"  y="33"  text-anchor="middle" font-size="7.5" fill="#6e8caa" font-family="sans-serif">O</text>
+            <text x="6"  y="33"  text-anchor="middle" font-size="7.5" fill="#6e8caa" font-family="sans-serif" id="compassW">O</text>
             <text x="54" y="33"  text-anchor="middle" font-size="7.5" fill="#6e8caa" font-family="sans-serif">E</text>
             <g id="compassArrow" transform="rotate(0,30,30)">
               <polygon points="30,9 33,33 30,29 27,33" fill="#00d2e6"/>
@@ -360,23 +369,23 @@
 
       <!-- Precipitation -->
       <div class="card">
-        <div class="card-label">🌧 Precipitació</div>
+        <div class="card-label" id="lblPrecip">🌧 Precipitació</div>
         <div class="card-value" style="font-size:1.55rem">
           <span id="valPrecipRate" class="rain-none">—</span><span class="unit">mm/h</span>
         </div>
-        <div class="card-sub">Total avui <b id="valPrecipTotal">—</b> mm</div>
+        <div class="card-sub"><span id="lblTotalToday">Total avui</span> <b id="valPrecipTotal">—</b> mm</div>
       </div>
 
       <!-- UV -->
       <div class="card">
-        <div class="card-label">☀️ Índex UV</div>
+        <div class="card-label" id="lblUv">☀️ Índex UV</div>
         <div class="card-value" style="font-size:1.8rem"><span id="valUv">—</span></div>
         <div class="uv-bar"><div class="uv-marker" id="uvMarker" style="left:0%"></div></div>
       </div>
 
       <!-- Solar radiation -->
       <div class="card">
-        <div class="card-label">⚡ Radiació solar</div>
+        <div class="card-label" id="lblSolar">⚡ Radiació solar</div>
         <div class="card-value" style="font-size:1.55rem">
           <span id="valSolar">—</span><span class="unit">W/m²</span>
         </div>
@@ -385,7 +394,7 @@
     </div><!-- /grid -->
 
     <!-- ③  Evolution charts -->
-    <div class="section-title">📊 Evolució</div>
+    <div class="section-title" id="evoSectionTitle">📊 Evolució</div>
     <div class="evo-controls">
       <div class="tab-group" role="group" aria-label="Mètrica">
         <button class="tab-btn active" data-metric="temp">Temperatura</button>
@@ -410,7 +419,7 @@
 </main>
 
 <footer class="footer">
-  <span>Dades: <a href="https://www.wunderground.com/dashboard/pws/IRFALE2" target="_blank" rel="noopener">Weather Underground · IRFALE2</a></span>
+  <span><span id="footerLabel">Dades:</span> <a href="https://www.wunderground.com/dashboard/pws/IRFALE2" target="_blank" rel="noopener">Weather Underground · IRFALE2</a></span>
   <span>·</span>
   <span><a href="/">MeteoModels</a></span>
 </footer>
@@ -423,6 +432,164 @@ const REFRESH_MS = 5 * 60 * 1000
 let activeMetric = 'temp'   // 'temp' | 'rain' | 'humidity'
 let activePeriod = 'day'    // 'day'  | 'week' | 'month'
 const dataCache  = {}       // { day:{}, week:{}, month:{} }
+let webcamState = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
+
+/* ══════════════════════════════════════════════
+   i18n
+══════════════════════════════════════════════ */
+const LANG = {
+  ca: {
+    locale: 'ca-ES',
+    brandSub: "Estació meteorològica personal · IRFALE2",
+    loading: 'Carregant…',
+    loadingStation: "Carregant dades de l'estació…",
+    refresh: '↻ Actualitzar',
+    live: 'EN DIRECTE',
+    webcamTitle: '📷 Webcam Ràfels',
+    conditionsTitle: '📍 Condicions actuals',
+    evoTitle: '📊 Evolució',
+    temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
+    wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV', solar: '⚡ Radiació solar',
+    feelsLike: 'Sensació tèrmica', dewPoint: 'Punt de rosada', gust: 'Ratxa', totalToday: 'Total avui',
+    metricTemp: 'Temperatura', metricRain: 'Pluja', metricHumidity: 'Humitat',
+    periodDay: 'Dia', periodWeek: 'Setmana', periodMonth: 'Mes',
+    noData: 'Sense dades per aquest període',
+    dataSource: 'Dades:',
+    webcamMsg: 'La webcam es configurarà properament.',
+    obsLabel: 'Última observació',
+    agoFmt: m => `fa ${m} min`,
+    errorPrefix: 'Error: ',
+    compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
+    dayAbbr: ['Dg','Dl','Dm','Dc','Dj','Dv','Ds'],
+    west: 'O',
+  },
+  es: {
+    locale: 'es-ES',
+    brandSub: 'Estación meteorológica personal · IRFALE2',
+    loading: 'Cargando…',
+    loadingStation: 'Cargando datos de la estación…',
+    refresh: '↻ Actualizar',
+    live: 'EN DIRECTO',
+    webcamTitle: '📷 Webcam de Ràfels',
+    conditionsTitle: '📍 Condiciones actuales',
+    evoTitle: '📊 Evolución',
+    temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
+    wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV', solar: '⚡ Radiación solar',
+    feelsLike: 'Sensación térmica', dewPoint: 'Punto de rocío', gust: 'Racha', totalToday: 'Total hoy',
+    metricTemp: 'Temperatura', metricRain: 'Lluvia', metricHumidity: 'Humedad',
+    periodDay: 'Día', periodWeek: 'Semana', periodMonth: 'Mes',
+    noData: 'Sin datos para este periodo',
+    dataSource: 'Datos:',
+    webcamMsg: 'La webcam se configurará próximamente.',
+    obsLabel: 'Última observación',
+    agoFmt: m => `hace ${m} min`,
+    errorPrefix: 'Error: ',
+    compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
+    dayAbbr: ['Do','Lu','Ma','Mi','Ju','Vi','Sá'],
+    west: 'O',
+  },
+  en: {
+    locale: 'en-GB',
+    brandSub: 'Personal weather station · IRFALE2',
+    loading: 'Loading…',
+    loadingStation: 'Loading station data…',
+    refresh: '↻ Refresh',
+    live: 'LIVE',
+    webcamTitle: '📷 Ràfels Webcam',
+    conditionsTitle: '📍 Current conditions',
+    evoTitle: '📊 Evolution',
+    temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
+    wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index', solar: '⚡ Solar radiation',
+    feelsLike: 'Feels like', dewPoint: 'Dew point', gust: 'Gust', totalToday: 'Total today',
+    metricTemp: 'Temperature', metricRain: 'Rain', metricHumidity: 'Humidity',
+    periodDay: 'Day', periodWeek: 'Week', periodMonth: 'Month',
+    noData: 'No data for this period',
+    dataSource: 'Data:',
+    webcamMsg: 'The webcam will be configured soon.',
+    obsLabel: 'Last observation',
+    agoFmt: m => `${m} min ago`,
+    errorPrefix: 'Error: ',
+    compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],
+    dayAbbr: ['Su','Mo','Tu','We','Th','Fr','Sa'],
+    west: 'W',
+  },
+  fr: {
+    locale: 'fr-FR',
+    brandSub: 'Station météo personnelle · IRFALE2',
+    loading: 'Chargement…',
+    loadingStation: 'Chargement des données de la station…',
+    refresh: '↻ Actualiser',
+    live: 'EN DIRECT',
+    webcamTitle: '📷 Webcam de Ràfels',
+    conditionsTitle: '📍 Conditions actuelles',
+    evoTitle: '📊 Évolution',
+    temp: '🌡 Température', humidity: '💧 Humidité', pressure: '🔵 Pression',
+    wind: '💨 Vent', precip: '🌧 Précipitations', uv: '☀️ Indice UV', solar: '⚡ Rayonnement solaire',
+    feelsLike: 'Ressenti', dewPoint: 'Point de rosée', gust: 'Rafale', totalToday: "Total aujourd'hui",
+    metricTemp: 'Température', metricRain: 'Pluie', metricHumidity: 'Humidité',
+    periodDay: 'Jour', periodWeek: 'Semaine', periodMonth: 'Mois',
+    noData: 'Aucune donnée pour cette période',
+    dataSource: 'Données :',
+    webcamMsg: 'La webcam sera configurée prochainement.',
+    obsLabel: 'Dernière observation',
+    agoFmt: m => `il y a ${m} min`,
+    errorPrefix: 'Erreur : ',
+    compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
+    dayAbbr: ['Di','Lu','Ma','Me','Je','Ve','Sa'],
+    west: 'O',
+  },
+}
+
+let currentLang = localStorage.getItem('meteorafels_lang') || 'ca'
+if (!LANG[currentLang]) currentLang = 'ca'
+
+function applyLang(lang) {
+  currentLang = LANG[lang] ? lang : 'ca'
+  localStorage.setItem('meteorafels_lang', currentLang)
+  document.documentElement.lang = currentLang
+  const t = LANG[currentLang]
+
+  setTxt('brandSub', t.brandSub)
+  setTxt('stateLabel', t.loadingStation)
+  setTxt('refreshBtn', t.refresh)
+  setTxt('liveLabel', t.live)
+  setTxt('webcamSectionTitle', t.webcamTitle)
+  setTxt('conditionsSectionTitle', t.conditionsTitle)
+  setTxt('evoSectionTitle', t.evoTitle)
+  setTxt('lblTemp', t.temp)
+  setTxt('lblHumidity', t.humidity)
+  setTxt('lblPressure', t.pressure)
+  setTxt('lblWind', t.wind)
+  setTxt('lblPrecip', t.precip)
+  setTxt('lblUv', t.uv)
+  setTxt('lblSolar', t.solar)
+  setTxt('lblFeelsLike', t.feelsLike)
+  setTxt('lblDewPoint', t.dewPoint)
+  setTxt('lblGust', t.gust)
+  setTxt('lblTotalToday', t.totalToday)
+  setTxt('footerLabel', t.dataSource)
+  setTxt('compassW', t.west)
+  setTxt('evoEmpty', t.noData)
+
+  const metricBtn = document.querySelector('[data-metric="temp"]')
+  if (metricBtn) {
+    document.querySelector('[data-metric="temp"]').textContent     = t.metricTemp
+    document.querySelector('[data-metric="rain"]').textContent     = t.metricRain
+    document.querySelector('[data-metric="humidity"]').textContent = t.metricHumidity
+    document.querySelector('[data-period="day"]').textContent      = t.periodDay
+    document.querySelector('[data-period="week"]').textContent     = t.periodWeek
+    document.querySelector('[data-period="month"]').textContent    = t.periodMonth
+  }
+
+  if (!dataCache['day']) setTxt('obsTime', t.loading)
+
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang))
+
+  if (dataCache['day']) renderCards(dataCache['day'])
+  const periodData = dataCache[activePeriod]
+  if (periodData) requestAnimationFrame(() => drawEvoChart(periodData.history))
+  if (webcamState === 'placeholder') showWebcamPlaceholder($('webcamContent'))
+}
 
 /* ══════════════════════════════════════════════
    Helpers
@@ -436,16 +603,15 @@ function fmt(v, dec = 1) {
 }
 
 function degToCompass(deg) {
-  const d = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO']
-  return d[Math.round(deg / 22.5) % 16]
+  return LANG[currentLang].compass[Math.round(deg / 22.5) % 16]
 }
 
 function obsTimeLabel(iso) {
   if (!iso) return ''
   const d = new Date(iso)
-  const hm  = d.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })
+  const hm  = d.toLocaleTimeString(LANG[currentLang].locale, { hour: '2-digit', minute: '2-digit', hour12: false })
   const ago = Math.round((Date.now() - d.getTime()) / 60_000)
-  return `${hm} · fa ${ago} min`
+  return `${hm} · ${LANG[currentLang].agoFmt(ago)}`
 }
 
 /* ══════════════════════════════════════════════
@@ -466,25 +632,12 @@ setInterval(() => {
 let webcamTimer = null
 
 function showWebcamPlaceholder(el) {
+  webcamState = 'placeholder'
+  const t = LANG[currentLang]
   el.innerHTML = `
     <div class="webcam-placeholder">
       <div class="webcam-icon">📷</div>
-      <div class="webcam-msg">
-        La webcam es configurarà properament.<br>
-        Cal configurar <code>WEBCAM_STREAM_URL</code> a Vercel.
-      </div>
-    </div>
-    <div class="webcam-setup">
-      <strong>Com activar el streaming:</strong><br>
-      1. Instal·la <a href="https://github.com/AlexxIT/go2rtc" target="_blank" rel="noopener">go2rtc</a>
-         a la xarxa local — llegeix el flux RTSP del NVR i exposa HLS/MJPEG.<br>
-      2. Exposa el port 1984 de go2rtc via
-         <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank" rel="noopener">Cloudflare Tunnel</a>
-         (gratuït, sense obrir ports al router).<br>
-      3. Afegeix <code>WEBCAM_STREAM_URL</code> a Vercel → Settings → Environment Variables
-         amb la URL pública del flux HLS, p. ex.
-         <code>https://xxx.cfargotunnel.com/stream.m3u8</code><br>
-      4. Torna a desplegar. El vídeo en directe apareixerà aquí.
+      <div class="webcam-msg">${t.webcamMsg}</div>
     </div>`
 }
 
@@ -500,6 +653,8 @@ function loadHlsJs() {
 }
 
 async function mountStream(el, url) {
+  webcamState = 'stream'
+  el.innerHTML = ''
   const isMjpeg = /mjpe?g/i.test(url)
   const isHls   = !isMjpeg && /\.m3u8(\?|$)/i.test(url)
 
@@ -547,13 +702,15 @@ async function mountStream(el, url) {
 
   // Update clock while playing
   function tick() {
-    $('webcamTime').textContent = new Date().toLocaleTimeString('ca-ES', { hour:'2-digit', minute:'2-digit' })
+    $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
   }
   tick()
   webcamTimer = setInterval(tick, 30_000)
 }
 
 function mountSnapshot(el) {
+  webcamState = 'snapshot'
+  el.innerHTML = ''
   const img = document.createElement('img')
   img.className = 'webcam-img'
   img.alt = 'Webcam Ràfels'
@@ -563,7 +720,7 @@ function mountSnapshot(el) {
 
   function refresh() {
     img.src = '/api/webcam-rafels?t=' + Date.now()
-    $('webcamTime').textContent = new Date().toLocaleTimeString('ca-ES', { hour:'2-digit', minute:'2-digit' })
+    $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
   }
   refresh()
   webcamTimer = setInterval(refresh, 30_000)
@@ -620,7 +777,7 @@ function renderCards(d) {
   const arrow = $('compassArrow')
   if (arrow && d.windDir != null) arrow.setAttribute('transform', `rotate(${d.windDir},30,30)`)
 
-  setTxt('obsTime', 'Última observació ' + obsTimeLabel(d.obsTimeUtc))
+  setTxt('obsTime', LANG[currentLang].obsLabel + ' ' + obsTimeLabel(d.obsTimeUtc))
 }
 
 /* ══════════════════════════════════════════════
@@ -640,9 +797,6 @@ function sizeCanvas(canvas, wrapId) {
   ctx.scale(dpr, dpr)
   return { W, H, ctx }
 }
-
-// Day-label abbrev in Catalan
-const DAY_ABBR = ['Dg','Dl','Dm','Dc','Dj','Dv','Ds']
 
 function drawGrid(ctx, pad, cw, ch, yMin, yMax, steps = 4) {
   ctx.strokeStyle = 'rgba(255,255,255,.04)'
@@ -790,7 +944,7 @@ function drawEvoChart(history) {
       xLabel(ctx, history, pad, cw, H, h => {
         const d = new Date(h.date + 'T12:00:00')
         return activePeriod === 'week'
-          ? DAY_ABBR[d.getDay()]
+          ? LANG[currentLang].dayAbbr[d.getDay()]
           : String(d.getDate())
       })
     }
@@ -804,7 +958,7 @@ function drawEvoChart(history) {
     xLabel(ctx, history, pad, cw, H, (h, i) => {
       if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
       const d = new Date(h.date + 'T12:00:00')
-      return activePeriod === 'week' ? DAY_ABBR[d.getDay()] : String(d.getDate())
+      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
     })
 
   } else { // humidity
@@ -817,7 +971,7 @@ function drawEvoChart(history) {
     xLabel(ctx, history, pad, cw, H, (h, i) => {
       if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
       const d = new Date(h.date + 'T12:00:00')
-      return activePeriod === 'week' ? DAY_ABBR[d.getDay()] : String(d.getDate())
+      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
     })
   }
 }
@@ -896,9 +1050,14 @@ document.querySelectorAll('[data-period]').forEach(btn => {
   })
 })
 
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => applyLang(btn.dataset.lang))
+})
+
 /* ══════════════════════════════════════════════
    Init
 ══════════════════════════════════════════════ */
+applyLang(currentLang)
 initWebcam()
 loadDay()
 
