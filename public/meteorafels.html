@@ -471,6 +471,7 @@ const LANG = {
     loading: 'Carregant…',
     loadingStation: "Carregant dades de l'estació…",
     refresh: '↻ Actualitzar',
+    pullDown: '↓ Actualitzar', pullRelease: '↑ Soltar per actualitzar',
     live: 'EN DIRECTE',
     webcamTitle: '📷 Webcam Ràfels',
     conditionsTitle: '📍 Condicions actuals',
@@ -496,6 +497,7 @@ const LANG = {
     loading: 'Cargando…',
     loadingStation: 'Cargando datos de la estación…',
     refresh: '↻ Actualizar',
+    pullDown: '↓ Actualizar', pullRelease: '↑ Soltar para actualizar',
     live: 'EN DIRECTO',
     webcamTitle: '📷 Webcam de Ràfels',
     conditionsTitle: '📍 Condiciones actuales',
@@ -521,6 +523,7 @@ const LANG = {
     loading: 'Loading…',
     loadingStation: 'Loading station data…',
     refresh: '↻ Refresh',
+    pullDown: '↓ Pull to refresh', pullRelease: '↑ Release to refresh',
     live: 'LIVE',
     webcamTitle: '📷 Ràfels Webcam',
     conditionsTitle: '📍 Current conditions',
@@ -546,6 +549,7 @@ const LANG = {
     loading: 'Chargement…',
     loadingStation: 'Chargement des données de la station…',
     refresh: '↻ Actualiser',
+    pullDown: '↓ Tirer pour actualiser', pullRelease: '↑ Relâcher pour actualiser',
     live: 'EN DIRECT',
     webcamTitle: '📷 Webcam de Ràfels',
     conditionsTitle: '📍 Conditions actuelles',
@@ -1298,6 +1302,67 @@ window.addEventListener('resize', () => {
     if (data) drawEvoChart(data.history)
   }, 200)
 })
+
+/* ── Pull-to-refresh (mobile) ── */
+;(function(){
+  const THRESHOLD = 72
+  let startY = 0, pulling = false, refreshing = false
+  let ind = null
+
+  function getInd() {
+    if (ind) return ind
+    ind = document.createElement('div')
+    ind.style.cssText = [
+      'position:fixed','top:-48px','left:50%','transform:translateX(-50%)',
+      'background:rgba(0,210,230,.13)','border:1px solid rgba(0,210,230,.28)',
+      'color:#00d2e6','border-radius:20px','padding:7px 18px',
+      'font-family:var(--font-ui)','font-size:.74rem','font-weight:600',
+      'transition:top .2s ease','z-index:300','pointer-events:none','white-space:nowrap',
+    ].join(';')
+    document.body.appendChild(ind)
+    return ind
+  }
+
+  function hide() { if (ind) ind.style.top = '-48px' }
+
+  function doRefresh() {
+    if (refreshing) return
+    refreshing = true
+    Object.keys(dataCache).forEach(k => delete dataCache[k])
+    const p = loadDay()
+    if (activePeriod !== 'day') p.then(() => switchPeriod(activePeriod))
+    p.finally(() => { refreshing = false })
+  }
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0 && !refreshing) {
+      startY = e.touches[0].clientY
+      pulling = true
+    }
+  }, { passive: true })
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling) return
+    const dy = e.touches[0].clientY - startY
+    if (dy < 8) return
+    const el = getInd()
+    const travel = Math.min(dy - 8, THRESHOLD + 16)
+    el.style.top = (travel * 0.5 - 44) + 'px'
+    const t = LANG[currentLang]
+    el.textContent = dy >= THRESHOLD ? (t.pullRelease ?? '↑ Soltar') : (t.pullDown ?? '↓ Actualitzar')
+    el.style.background = dy >= THRESHOLD ? 'rgba(0,210,230,.25)' : 'rgba(0,210,230,.13)'
+  }, { passive: true })
+
+  document.addEventListener('touchend', e => {
+    if (!pulling) return
+    pulling = false
+    const dy = e.changedTouches[0].clientY - startY
+    hide()
+    if (dy >= THRESHOLD) doRefresh()
+  }, { passive: true })
+
+  document.addEventListener('touchcancel', () => { pulling = false; hide() }, { passive: true })
+})()
 </script>
 </body>
 </html>
