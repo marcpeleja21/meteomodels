@@ -1314,6 +1314,9 @@ footer {
   .header{
     flex-wrap:wrap;
     padding:10px 14px 0;
+    padding-top:max(10px, env(safe-area-inset-top));
+    padding-left:max(14px, env(safe-area-inset-left));
+    padding-right:max(14px, env(safe-area-inset-right));
     gap:8px;
     row-gap:0;
     /* No overflow:hidden — it would clip the dropdown menus */
@@ -1366,7 +1369,7 @@ footer {
 }
 
 @media(max-width:480px){
-  .header{gap:6px;padding:8px 10px 0}
+  .header{gap:6px;padding:8px 10px 0;padding-top:max(8px, env(safe-area-inset-top));padding-left:max(10px, env(safe-area-inset-left));padding-right:max(10px, env(safe-area-inset-right))}
   .brand-title{font-size:1rem}
   .model-grid{grid-template-columns:1fr 1fr}
   .strip-day{padding:8px 2px}

@@ -10,6 +10,16 @@ const CHART_H = H - PAD.top  - PAD.bottom
 const DAYS = 5   // show 5 days in the chart
 const TOP_N = 5  // default number of pre-selected models
 
+// Preferred model families in priority order — one is picked per family.
+// Satisfies the user's request: GFS, ECMWF, AROME, HARMONIE, ICON by default.
+const PREFERRED_FAMILIES = [
+  ['gfs'],
+  ['ecmwf'],
+  ['arome_hd', 'arome'],
+  ['knmi_harmonie', 'dmi_harmonie'],
+  ['icon_eu', 'icon'],
+]
+
 type MetricKey = 'temp' | 'precip' | 'rain' | 'wind' | 'hum' | 'pres'
 
 function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
@@ -27,18 +37,35 @@ function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
   }
 }
 
-/** Seed chartSelectedModels with the top-N models by computed weight. */
+/** Seed chartSelectedModels using preferred families (GFS, ECMWF, AROME, HARMONIE, ICON). */
 function seedTopModels(loadedKeys: string[]) {
-  const loc = state.currentLoc
-  if (!loc || !loadedKeys.length) return
+  if (!loadedKeys.length) return
 
-  const obs     = state.currentObs
-  const weights = computeModelWeights(
-    loadedKeys, loc.latitude, loc.longitude, loc.elevation ?? 0,
-    state.wxData, obs?.temp, obs?.time,
-  )
-  const sorted  = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
-  state.chartSelectedModels = new Set(sorted.slice(0, TOP_N))
+  const sel = new Set<string>()
+
+  // Pick one model per preferred family (first available key wins)
+  for (const family of PREFERRED_FAMILIES) {
+    if (sel.size >= TOP_N) break
+    const match = family.find(k => loadedKeys.includes(k))
+    if (match) sel.add(match)
+  }
+
+  // If preferred families didn't fill TOP_N slots, pad with weight-sorted remaining
+  if (sel.size < TOP_N) {
+    const loc = state.currentLoc
+    const obs = state.currentObs
+    const weights = computeModelWeights(
+      loadedKeys, loc?.latitude ?? 0, loc?.longitude ?? 0, loc?.elevation ?? 0,
+      state.wxData, obs?.temp, obs?.time,
+    )
+    const sorted = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
+    for (const k of sorted) {
+      if (sel.size >= TOP_N) break
+      if (!sel.has(k)) sel.add(k)
+    }
+  }
+
+  state.chartSelectedModels = sel
 }
 
 export function renderChart(onMetricChange?: (key: string) => void) {

@@ -58,9 +58,19 @@ export default async function handler(request) {
   }
 
   if (period === 'day') {
-    // all/1day gives 5-min readings for the last 24h — bucket into hourly averages
+    // all/1day gives 5-min readings for the last 24h — keep only today's calendar
+    // date (station-local), then bucket into hourly averages
+    const allObs = histJson?.observations ?? []
+    const todayDate = (allObs[allObs.length - 1]?.obsTimeLocal ?? obs.obsTimeLocal ?? '').slice(0, 10)
+    const todayObs = todayDate ? allObs.filter(o => (o.obsTimeLocal ?? '').slice(0, 10) === todayDate) : allObs
+
+    const tempHighs = todayObs.map(o => o.metric?.tempHigh).filter(v => v != null)
+    const tempLows  = todayObs.map(o => o.metric?.tempLow).filter(v => v != null)
+    result.tempHighToday = tempHighs.length ? Math.max(...tempHighs) : null
+    result.tempLowToday  = tempLows.length  ? Math.min(...tempLows)  : null
+
     const buckets = new Map()
-    for (const o of histJson?.observations ?? []) {
+    for (const o of todayObs) {
       const hourKey = (o.obsTimeLocal ?? '').slice(0, 13) // 'YYYY-MM-DD HH'
       if (!hourKey) continue
       if (!buckets.has(hourKey)) buckets.set(hourKey, { temps: [], humids: [], precipCum: 0 })
