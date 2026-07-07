@@ -1039,6 +1039,7 @@ function handleChartHover(clientX) {
 
   // Tooltip label + value
   let label = '', value = '', valColor = '#00d2e6'
+  let hiText = null, loText = null  // only set for temp week/month
   const dayStr = activePeriod !== 'day' ? (() => {
     const d = new Date((pt.date ?? '') + 'T12:00:00')
     return LANG[currentLang].dayAbbr[d.getDay()] + ' ' + d.getDate()
@@ -1051,9 +1052,8 @@ function handleChartHover(clientX) {
       value = pt.temp != null ? fmt(pt.temp) + '°C' : '—'
     } else {
       label = dayStr
-      const hi = pt.tempHigh != null ? '↑' + fmt(pt.tempHigh) + '°' : ''
-      const lo = pt.tempLow  != null ? '↓' + fmt(pt.tempLow)  + '°' : ''
-      value = hi + (hi && lo ? '  ' : '') + lo
+      hiText = pt.tempHigh != null ? '↑ ' + fmt(pt.tempHigh) + '°' : null
+      loText = pt.tempLow  != null ? '↓ ' + fmt(pt.tempLow)  + '°' : null
     }
   } else if (activeMetric === 'rain') {
     valColor = 'rgb(79,195,247)'
@@ -1067,12 +1067,15 @@ function handleChartHover(clientX) {
 
   // Bubble
   ctx.save()
+  const isRangeTemp = hiText != null || loText != null
   ctx.font = 'bold 12px sans-serif'
-  const vw = ctx.measureText(value).width
+  let valueW = isRangeTemp
+    ? Math.max(hiText ? ctx.measureText(hiText).width : 0, loText ? ctx.measureText(loText).width : 0)
+    : ctx.measureText(value).width
   ctx.font = '10px sans-serif'
   const lw = ctx.measureText(label).width
-  const bw = Math.max(vw, lw) + 20
-  const bh = 36
+  const bw = Math.max(valueW, lw) + 20
+  const bh = isRangeTemp ? 50 : 36
   let bx = px + 10
   if (bx + bw > W - 4) bx = px - bw - 10
   const by = pad.t + 4
@@ -1088,9 +1091,16 @@ function handleChartHover(clientX) {
   ctx.fillStyle = '#6e8caa'
   ctx.font = '10px sans-serif'
   ctx.fillText(label, bx + 8, by + 13)
-  ctx.fillStyle = valColor
-  ctx.font = 'bold 12px sans-serif'
-  ctx.fillText(value, bx + 8, by + 28)
+
+  if (isRangeTemp) {
+    ctx.font = 'bold 12px sans-serif'
+    if (hiText) { ctx.fillStyle = '#ff9100'; ctx.fillText(hiText, bx + 8, by + 29) }
+    if (loText) { ctx.fillStyle = '#4fc3f7'; ctx.fillText(loText, bx + 8, by + 44) }
+  } else {
+    ctx.fillStyle = valColor
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillText(value, bx + 8, by + 28)
+  }
   ctx.restore()
 }
 

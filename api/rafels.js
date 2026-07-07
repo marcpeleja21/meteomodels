@@ -31,16 +31,22 @@ export default async function handler(request) {
   let histJson = histRes.status === 'fulfilled' && histRes.value.ok
     ? await histRes.value.json() : null
 
-  // For month: supplement with a second 7day fetch offset by one week
+  // For month: 3 parallel extra 7day fetches at -7, -14, -21 day offsets → ~28 days total
   // (free-tier WU API doesn't support >7day daily summary endpoints)
-  let extraHistJson = null
+  let extraHistJsons = []
   if (period === 'month') {
     try {
-      const d7 = new Date()
-      d7.setDate(d7.getDate() - 7)
-      const dateStr = d7.toISOString().slice(0, 10).replace(/-/g, '')
-      const r = await fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&date=${dateStr}&apiKey=${WU_KEY}`)
-      if (r.ok) extraHistJson = await r.json()
+      const extras = await Promise.allSettled([7, 14, 21].map(offset => {
+        const d = new Date()
+        d.setDate(d.getDate() - offset)
+        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '')
+        return fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&date=${dateStr}&apiKey=${WU_KEY}`)
+      }))
+      for (const r of extras) {
+        if (r.status === 'fulfilled' && r.value.ok) {
+          try { extraHistJsons.push(await r.value.json()) } catch (_) {}
+        }
+      }
     } catch (_) {}
   }
 
@@ -107,10 +113,13 @@ export default async function handler(request) {
   } else {
     // Daily summaries (week / month) — WU returns key 'summaries'
     let rows = histJson?.summaries ?? histJson?.observations ?? []
-    if (period === 'month' && extraHistJson) {
-      const extra = extraHistJson?.summaries ?? extraHistJson?.observations ?? []
+    if (period === 'month' && extraHistJsons.length > 0) {
+      for (const extraJson of extraHistJsons) {
+        const extra = extraJson?.summaries ?? extraJson?.observations ?? []
+        rows = [...extra, ...rows]
+      }
       const seen = new Set()
-      rows = [...extra, ...rows].filter(r => {
+      rows = rows.filter(r => {
         const d = (r.obsTimeLocal ?? '').slice(0, 10)
         return d && !seen.has(d) && seen.add(d)
       }).sort((a, b) => (a.obsTimeLocal ?? '').localeCompare(b.obsTimeLocal ?? ''))
