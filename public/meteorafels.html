@@ -228,6 +228,24 @@
       font-size: .8rem; color: var(--text-dim);
     }
 
+    /* ── Today high/low badge on temperature card ── */
+    .card-hilo {
+      position: absolute; top: 12px; right: 14px;
+      font-family: var(--font-data); font-size: .70rem; line-height: 1;
+      display: flex; gap: 6px;
+    }
+    .card-hilo .hi { color: var(--orange) }
+    .card-hilo .lo { color: var(--accent2) }
+
+    /* ── Evolution chart stats row ── */
+    .evo-stats {
+      display: flex; gap: 16px; margin-bottom: 8px;
+      font-size: .77rem; align-items: center;
+    }
+    .evo-stat-hi { color: var(--orange) }
+    .evo-stat-lo { color: var(--accent2) }
+    .evo-stat-hi b, .evo-stat-lo b { font-family: var(--font-data) }
+
     /* ── Page loading / error ── */
     .state-wrap {
       display: flex; flex-direction: column;
@@ -317,12 +335,16 @@
     <div class="grid">
 
       <!-- Temperature (wide) -->
-      <div class="card card-temp card-wide">
+      <div class="card card-temp card-wide" style="position:relative">
         <div class="card-label" id="lblTemp">🌡 Temperatura</div>
         <div class="card-value"><span id="valTemp">—</span><span class="unit">°C</span></div>
         <div class="card-sub">
           <span id="lblFeelsLike">Sensació tèrmica</span> <b id="valFeels">—</b>°C
           &nbsp;·&nbsp; <span id="lblDewPoint">Punt de rosada</span> <b id="valDew">—</b>°C
+        </div>
+        <div class="card-hilo hidden" id="tempHiLo">
+          <span class="hi">↑ <span id="valTempHigh">—</span>°</span>
+          <span class="lo">↓ <span id="valTempLow">—</span>°</span>
         </div>
       </div>
 
@@ -406,6 +428,10 @@
         <button class="tab-btn" data-period="week">Setmana</button>
         <button class="tab-btn" data-period="month">Mes</button>
       </div>
+    </div>
+    <div id="evoStats" class="evo-stats hidden">
+      <span class="evo-stat-hi">↑ <b id="evoStatHi">—</b>°C</span>
+      <span class="evo-stat-lo">↓ <b id="evoStatLo">—</b>°C</span>
     </div>
     <div class="evo-wrap" id="evoWrap">
       <canvas id="evoChart" class="evo-chart" height="200"></canvas>
@@ -778,6 +804,17 @@ function renderCards(d) {
   if (arrow && d.windDir != null) arrow.setAttribute('transform', `rotate(${d.windDir},30,30)`)
 
   setTxt('obsTime', LANG[currentLang].obsLabel + ' ' + obsTimeLabel(d.obsTimeUtc))
+
+  const hiLo = $('tempHiLo')
+  if (hiLo) {
+    if (d.tempHighToday != null || d.tempLowToday != null) {
+      setTxt('valTempHigh', d.tempHighToday != null ? fmt(d.tempHighToday) : '—')
+      setTxt('valTempLow',  d.tempLowToday  != null ? fmt(d.tempLowToday)  : '—')
+      hiLo.classList.remove('hidden')
+    } else {
+      hiLo.classList.add('hidden')
+    }
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -899,12 +936,45 @@ function drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax) {
     pad, cw, ch, yMin, yMax, '#00d2e6')
 }
 
+/* ── Evolution stats row ── */
+function updateEvoStats(history) {
+  const stats = $('evoStats')
+  if (!stats) return
+
+  if (activeMetric !== 'temp') {
+    stats.classList.add('hidden')
+    return
+  }
+
+  let hi, lo
+  if (activePeriod === 'day') {
+    const dayData = dataCache['day']
+    hi = dayData?.tempHighToday ?? null
+    lo = dayData?.tempLowToday  ?? null
+  } else {
+    const highs = (history ?? []).map(h => h.tempHigh).filter(v => v != null)
+    const lows  = (history ?? []).map(h => h.tempLow).filter(v => v != null)
+    hi = highs.length ? Math.max(...highs) : null
+    lo = lows.length  ? Math.min(...lows)  : null
+  }
+
+  if (hi != null || lo != null) {
+    setTxt('evoStatHi', hi != null ? fmt(hi) : '—')
+    setTxt('evoStatLo', lo != null ? fmt(lo) : '—')
+    stats.classList.remove('hidden')
+  } else {
+    stats.classList.add('hidden')
+  }
+}
+
 /* ── Main chart draw ── */
 function drawEvoChart(history) {
   const canvas = $('evoChart')
   if (!canvas) return
   const { W, H, ctx } = sizeCanvas(canvas, 'evoWrap')
   if (!W) return
+
+  updateEvoStats(history)
 
   const empty = $('evoEmpty')
 
@@ -1038,7 +1108,10 @@ document.querySelectorAll('[data-metric]').forEach(btn => {
     document.querySelectorAll('[data-metric]').forEach(b => b.className = 'tab-btn')
     btn.className = 'tab-btn ' + (ACTIVE_CLASS[activeMetric] ?? 'active')
     const data = dataCache[activePeriod]
-    if (data) requestAnimationFrame(() => drawEvoChart(data.history))
+    if (data) {
+      updateEvoStats(data.history)
+      requestAnimationFrame(() => drawEvoChart(data.history))
+    }
   })
 })
 
