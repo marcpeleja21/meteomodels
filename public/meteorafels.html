@@ -458,6 +458,7 @@ const REFRESH_MS = 5 * 60 * 1000
 let activeMetric = 'temp'   // 'temp' | 'rain' | 'humidity'
 let activePeriod = 'day'    // 'day'  | 'week' | 'month'
 const dataCache  = {}       // { day:{}, week:{}, month:{} }
+const chartHover = { canvas: null, image: null, history: null, pad: null, cw: 0, ch: 0, W: 0, H: 0 }
 let webcamState = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
 
 /* ══════════════════════════════════════════════
@@ -967,6 +968,132 @@ function updateEvoStats(history) {
   }
 }
 
+/* ── Chart hover tooltip ── */
+function setupChartHover(canvas, history, pad, cw, ch, W, H) {
+  const ctx = canvas.getContext('2d')
+  chartHover.canvas  = canvas
+  chartHover.image   = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  chartHover.history = history
+  chartHover.pad = pad; chartHover.cw = cw; chartHover.ch = ch
+  chartHover.W = W;   chartHover.H = H
+  canvas.onmousemove  = e => handleChartHover(e.clientX)
+  canvas.onmouseleave = clearChartHover
+  canvas.ontouchstart = e => { e.preventDefault(); if (e.touches.length) handleChartHover(e.touches[0].clientX) }
+  canvas.ontouchmove  = e => { e.preventDefault(); if (e.touches.length) handleChartHover(e.touches[0].clientX) }
+  canvas.ontouchend   = () => clearChartHover()
+}
+
+function clearChartHover() {
+  const { canvas, image } = chartHover
+  if (canvas && image) canvas.getContext('2d').putImageData(image, 0, 0)
+}
+
+function handleChartHover(clientX) {
+  const { canvas, image, history, pad, cw, ch, W, H } = chartHover
+  if (!canvas || !image || !history || history.length < 2) return
+  const rect = canvas.getBoundingClientRect()
+  const mx   = clientX - rect.left
+  const ctx  = canvas.getContext('2d')
+  ctx.putImageData(image, 0, 0)
+  if (mx < pad.l - 4 || mx > pad.l + cw + 4) return
+
+  const n  = history.length
+  const i  = Math.max(0, Math.min(n - 1, Math.round((mx - pad.l) / cw * (n - 1))))
+  const px = pad.l + (i / (n - 1)) * cw
+  const pt = history[i]
+
+  // Vertical crosshair line
+  ctx.save()
+  ctx.setLineDash([4, 4])
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke()
+  ctx.setLineDash([])
+
+  // Dot on the data line
+  let dotY = null, dotColor = '#00d2e6'
+  if (activeMetric === 'temp') {
+    const allV = activePeriod === 'day'
+      ? history.map(h => h.temp).filter(v => v != null)
+      : [...history.map(h => h.tempHigh ?? h.tempAvg), ...history.map(h => h.tempLow ?? h.tempAvg)].filter(v => v != null)
+    const yMin = allV.length ? Math.min(...allV) - 1 : 0
+    const yMax = allV.length ? Math.max(...allV) + 1 : 1
+    const v = activePeriod === 'day' ? pt.temp : (pt.tempAvg ?? pt.temp)
+    if (v != null) dotY = pad.t + ch - ((v - yMin) / (yMax - yMin || 1)) * ch
+    dotColor = '#00d2e6'
+  } else if (activeMetric === 'humidity') {
+    const vals = history.map(h => h.humidity).filter(v => v != null)
+    if (vals.length >= 2 && pt.humidity != null) {
+      const yMin = Math.max(0, Math.min(...vals) - 5)
+      const yMax = Math.min(100, Math.max(...vals) + 5)
+      dotY = pad.t + ch - ((pt.humidity - yMin) / (yMax - yMin || 1)) * ch
+    }
+    dotColor = '#00e676'
+  }
+  if (dotY != null) {
+    ctx.beginPath(); ctx.arc(px, dotY, 4, 0, Math.PI * 2)
+    ctx.fillStyle = dotColor; ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5; ctx.stroke()
+  }
+  ctx.restore()
+
+  // Tooltip label + value
+  let label = '', value = '', valColor = '#00d2e6'
+  const dayStr = activePeriod !== 'day' ? (() => {
+    const d = new Date((pt.date ?? '') + 'T12:00:00')
+    return LANG[currentLang].dayAbbr[d.getDay()] + ' ' + d.getDate()
+  })() : ''
+
+  if (activeMetric === 'temp') {
+    valColor = '#00d2e6'
+    if (activePeriod === 'day') {
+      label = (pt.time ?? '').slice(11, 16)
+      value = pt.temp != null ? fmt(pt.temp) + '°C' : '—'
+    } else {
+      label = dayStr
+      const hi = pt.tempHigh != null ? '↑' + fmt(pt.tempHigh) + '°' : ''
+      const lo = pt.tempLow  != null ? '↓' + fmt(pt.tempLow)  + '°' : ''
+      value = hi + (hi && lo ? '  ' : '') + lo
+    }
+  } else if (activeMetric === 'rain') {
+    valColor = 'rgb(79,195,247)'
+    label = activePeriod === 'day' ? (pt.time ?? '').slice(11, 16) : dayStr
+    value = fmt(pt.precip ?? 0) + ' mm'
+  } else {
+    valColor = '#00e676'
+    label = activePeriod === 'day' ? (pt.time ?? '').slice(11, 16) : dayStr
+    value = pt.humidity != null ? Math.round(pt.humidity) + '%' : '—'
+  }
+
+  // Bubble
+  ctx.save()
+  ctx.font = 'bold 12px sans-serif'
+  const vw = ctx.measureText(value).width
+  ctx.font = '10px sans-serif'
+  const lw = ctx.measureText(label).width
+  const bw = Math.max(vw, lw) + 20
+  const bh = 36
+  let bx = px + 10
+  if (bx + bw > W - 4) bx = px - bw - 10
+  const by = pad.t + 4
+
+  ctx.fillStyle   = 'rgba(8,18,32,.92)'
+  ctx.strokeStyle = 'rgba(0,210,230,.35)'
+  ctx.lineWidth   = 1
+  ctx.beginPath()
+  ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 5) : ctx.rect(bx, by, bw, bh)
+  ctx.fill(); ctx.stroke()
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = '#6e8caa'
+  ctx.font = '10px sans-serif'
+  ctx.fillText(label, bx + 8, by + 13)
+  ctx.fillStyle = valColor
+  ctx.font = 'bold 12px sans-serif'
+  ctx.fillText(value, bx + 8, by + 28)
+  ctx.restore()
+}
+
 /* ── Main chart draw ── */
 function drawEvoChart(history) {
   const canvas = $('evoChart')
@@ -1044,6 +1171,8 @@ function drawEvoChart(history) {
       return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
     })
   }
+
+  setupChartHover(canvas, history, pad, cw, ch, W, H)
 }
 
 /* ══════════════════════════════════════════════
