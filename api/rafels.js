@@ -2,7 +2,7 @@
  * Vercel Edge Function — Weather Underground PWS proxy for Ràfels (IRFALE2)
  * ?period=day   → current obs + today's hourly history (default)
  * ?period=week  → current obs + 7-day daily summaries
- * ?period=month → current obs + 28-day daily summaries
+ * ?period=month → current obs + 30-day daily summaries (Open-Meteo ERA5)
  */
 export const config = { runtime: 'edge' }
 
@@ -15,40 +15,22 @@ export default async function handler(request) {
 
   // Note: observations/hourly?date=... is blocked by WU's CDN (Akamai 403),
   // so 'day' uses all/1day (5-min readings, last 24h) and is bucketed by hour below.
+  // month uses Open-Meteo historical archive (free, ERA5-based); no WU hist fetch needed
   const histUrl = period === 'day'
     ? `${BASE}/v2/pws/observations/all/1day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
     : period === 'week'
     ? `${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
-    : `${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
+    : null
 
   const [currentRes, histRes] = await Promise.allSettled([
     fetch(`${BASE}/v2/pws/observations/current?stationId=${STATION}&format=json&units=m&apiKey=${WU_KEY}`),
-    fetch(histUrl),
+    histUrl ? fetch(histUrl) : Promise.resolve(new Response('{}', { status: 200 })),
   ])
 
   const currentJson = currentRes.status === 'fulfilled' && currentRes.value.ok
     ? await currentRes.value.json() : null
-  let histJson = histRes.status === 'fulfilled' && histRes.value.ok
+  const histJson = histRes.status === 'fulfilled' && histRes.value.ok
     ? await histRes.value.json() : null
-
-  // For month: 3 parallel extra 7day fetches at -7, -14, -21 day offsets → ~28 days total
-  // (free-tier WU API doesn't support >7day daily summary endpoints)
-  let extraHistJsons = []
-  if (period === 'month') {
-    try {
-      const extras = await Promise.allSettled([7, 14, 21].map(offset => {
-        const d = new Date()
-        d.setDate(d.getDate() - offset)
-        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '')
-        return fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&date=${dateStr}&apiKey=${WU_KEY}`)
-      }))
-      for (const r of extras) {
-        if (r.status === 'fulfilled' && r.value.ok) {
-          try { extraHistJsons.push(await r.value.json()) } catch (_) {}
-        }
-      }
-    } catch (_) {}
-  }
 
   const obs = currentJson?.observations?.[0]
   if (!obs) {
@@ -110,27 +92,43 @@ export default async function handler(request) {
       humidity: h.humidity,
       precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - hours[i - 1].precipCum),
     }))
-  } else {
-    // Daily summaries (week / month) — WU returns key 'summaries'
-    let rows = histJson?.summaries ?? histJson?.observations ?? []
-    if (period === 'month' && extraHistJsons.length > 0) {
-      for (const extraJson of extraHistJsons) {
-        const extra = extraJson?.summaries ?? extraJson?.observations ?? []
-        rows = [...extra, ...rows]
+  } else if (period === 'month') {
+    // 30-day history from Open-Meteo historical archive (ERA5, free, no auth)
+    const lat = obs.lat ?? 38.73
+    const lon = obs.lon ?? -0.63
+    const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
+    const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 29)
+    const fmtDate = d => d.toISOString().slice(0, 10)
+    try {
+      const omRes = await fetch(
+        `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+        `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
+        `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean` +
+        `&timezone=Europe%2FMadrid`
+      )
+      if (omRes.ok) {
+        const { daily } = await omRes.json()
+        result.history = (daily?.time ?? []).map((date, i) => ({
+          date,
+          tempHigh: daily.temperature_2m_max?.[i]        ?? null,
+          tempLow:  daily.temperature_2m_min?.[i]        ?? null,
+          tempAvg:  daily.temperature_2m_mean?.[i]       ?? null,
+          humidity: daily.relative_humidity_2m_mean?.[i] ?? null,
+          precip:   daily.precipitation_sum?.[i]         ?? null,
+        }))
       }
-      const seen = new Set()
-      rows = rows.filter(r => {
-        const d = (r.obsTimeLocal ?? '').slice(0, 10)
-        return d && !seen.has(d) && seen.add(d)
-      }).sort((a, b) => (a.obsTimeLocal ?? '').localeCompare(b.obsTimeLocal ?? ''))
-    }
+    } catch (_) {}
+    if (!result.history) result.history = []
+  } else {
+    // Week: WU 7-day daily summaries
+    const rows = histJson?.summaries ?? histJson?.observations ?? []
     result.history = rows.map(s => ({
-      date:       (s.obsTimeLocal ?? '').slice(0, 10),
-      tempHigh:   s.metric?.tempHigh   ?? null,
-      tempLow:    s.metric?.tempLow    ?? null,
-      tempAvg:    s.metric?.tempAvg    ?? null,
-      humidity:   s.humidityAvg        ?? null,
-      precip:     s.metric?.precipTotal ?? null,
+      date:     (s.obsTimeLocal ?? '').slice(0, 10),
+      tempHigh: s.metric?.tempHigh    ?? null,
+      tempLow:  s.metric?.tempLow     ?? null,
+      tempAvg:  s.metric?.tempAvg     ?? null,
+      humidity: s.humidityAvg         ?? null,
+      precip:   s.metric?.precipTotal ?? null,
     }))
   }
 

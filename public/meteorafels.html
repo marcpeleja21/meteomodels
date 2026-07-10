@@ -444,13 +444,6 @@
         <div class="card-sub"><span id="lblTotalToday">Total avui</span> <b id="valPrecipTotal">—</b> mm</div>
       </div>
 
-      <!-- UV -->
-      <div class="card">
-        <div class="card-label" id="lblUv">☀️ Índex UV</div>
-        <div class="card-value" style="font-size:1.70rem"><span id="valUv">—</span></div>
-        <div class="uv-bar"><div class="uv-marker" id="uvMarker" style="left:0%"></div></div>
-      </div>
-
       <!-- Solar radiation -->
       <div class="card">
         <div class="card-label" id="lblSolar">⚡ Radiació solar</div>
@@ -637,7 +630,6 @@ function applyLang(lang) {
   setTxt('lblPressure', t.pressure)
   setTxt('lblWind', t.wind)
   setTxt('lblPrecip', t.precip)
-  setTxt('lblUv', t.uv)
   setTxt('lblSolar', t.solar)
   setTxt('lblFeelsLike', t.feelsLike)
   setTxt('lblDewPoint', t.dewPoint)
@@ -821,7 +813,6 @@ function renderCards(d) {
   setTxt('valWindDir',      d.windDir != null ? degToCompass(d.windDir) : '—')
   setTxt('valPressure',     fmt(d.pressure))
   setTxt('valPrecipTotal',  fmt(d.precipTotal))
-  setTxt('valUv',           d.uv != null ? Math.round(d.uv) : '—')
   setTxt('valSolar',        fmt(d.solarRadiation, 0))
 
   const rEl = $('valPrecipRate')
@@ -829,8 +820,6 @@ function renderCards(d) {
     rEl.textContent = fmt(d.precipRate)
     rEl.className = (d.precipRate ?? 0) > 0 ? 'rain-active' : 'rain-none'
   }
-  const uvM = $('uvMarker')
-  if (uvM && d.uv != null) uvM.style.left = Math.min(100, (d.uv / 12) * 100) + '%'
 
   const arrow = $('compassArrow')
   if (arrow && d.windDir != null) arrow.setAttribute('transform', `rotate(${d.windDir},30,30)`)
@@ -946,21 +935,45 @@ function drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax) {
   const px = (i) => pad.l + (i / (n - 1)) * cw
   const py = (v)  => pad.t + ch - ((v - yMin) / range) * ch
 
+  // Subtle fill between high and low
   ctx.beginPath()
   history.forEach((d, i) => {
     const x = px(i); const y = py(d.tempHigh ?? d.tempAvg)
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
   })
   for (let i = history.length - 1; i >= 0; i--) {
-    const x = px(i); const y = py(history[i].tempLow ?? history[i].tempAvg)
-    ctx.lineTo(x, y)
+    ctx.lineTo(px(i), py(history[i].tempLow ?? history[i].tempAvg))
   }
   ctx.closePath()
-  ctx.fillStyle = 'rgba(0,210,230,.1)'; ctx.fill()
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fill()
 
-  drawAreaLine(ctx,
-    history.map(d => d.tempAvg ?? d.temp).filter(v => v != null),
-    pad, cw, ch, yMin, yMax, '#00d2e6')
+  // High line — orange
+  ctx.beginPath(); ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
+  history.forEach((d, i) => {
+    const v = d.tempHigh ?? d.tempAvg; if (v == null) return
+    i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v))
+  })
+  ctx.stroke()
+  const lastH = history[n - 1].tempHigh ?? history[n - 1].tempAvg
+  if (lastH != null) {
+    ctx.beginPath(); ctx.arc(px(n - 1), py(lastH), 4, 0, Math.PI * 2)
+    ctx.fillStyle = '#ff9100'; ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
+  }
+
+  // Low line — blue
+  ctx.beginPath(); ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
+  history.forEach((d, i) => {
+    const v = d.tempLow ?? d.tempAvg; if (v == null) return
+    i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v))
+  })
+  ctx.stroke()
+  const lastL = history[n - 1].tempLow ?? history[n - 1].tempAvg
+  if (lastL != null) {
+    ctx.beginPath(); ctx.arc(px(n - 1), py(lastL), 4, 0, Math.PI * 2)
+    ctx.fillStyle = '#4fc3f7'; ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
+  }
 }
 
 /* ── Evolution stats row ── */
