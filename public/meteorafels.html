@@ -206,6 +206,25 @@
       transform: translateX(-50%); transition: left .6s ease;
     }
 
+    /* ── Forecast strip ── */
+    .forecast-strip {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding: 0 0 4px;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .forecast-strip::-webkit-scrollbar { display: none }
+    .fc-day {
+      flex: 0 0 72px; text-align: center;
+      background: var(--card); border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm); padding: 10px 6px 9px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .fc-day-name { font-size: .68rem; color: var(--text-muted); font-weight: 600; letter-spacing: .4px; text-transform: uppercase }
+    .fc-icon     { font-size: 1.55rem; line-height: 1.2 }
+    .fc-hi       { font-size: .82rem; font-weight: 700; color: var(--orange) }
+    .fc-lo       { font-size: .82rem; color: var(--accent2) }
+    .fc-rain     { font-size: .68rem; color: var(--accent2); opacity: .8; margin-top: 1px }
+
     /* ── Evolution chart section ── */
     .evo-controls {
       display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
@@ -454,7 +473,11 @@
 
     </div><!-- /grid -->
 
-    <!-- ③  Evolution charts -->
+    <!-- ③  7-day forecast -->
+    <div class="section-title" id="forecastSectionTitle">📅 Previsió</div>
+    <div class="forecast-strip" id="forecastStrip"></div>
+
+    <!-- ④  Evolution charts -->
     <div class="section-title" id="evoSectionTitle">📊 Evolució</div>
     <div class="evo-controls">
       <div class="tab-group" role="group" aria-label="Mètrica">
@@ -498,7 +521,8 @@ let activeMetric = 'temp'   // 'temp' | 'rain' | 'humidity'
 let activePeriod = 'day'    // 'day'  | 'week' | 'month'
 const dataCache  = {}       // { day:{}, week:{}, month:{} }
 const chartHover = { canvas: null, image: null, history: null, pad: null, cw: 0, ch: 0, W: 0, H: 0 }
-let webcamState = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
+let webcamState  = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
+let forecastDaily = null    // blended multi-model daily forecast: [{date,hi,lo,prob,code}]
 
 /* ══════════════════════════════════════════════
    i18n
@@ -514,6 +538,7 @@ const LANG = {
     live: 'EN DIRECTE',
     webcamTitle: '📷 Webcam Ràfels',
     conditionsTitle: '📍 Condicions actuals',
+    forecastTitle: '📅 Previsió', todayLabel: 'Avui',
     evoTitle: '📊 Evolució',
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
     wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV', solar: '⚡ Radiació solar',
@@ -540,6 +565,7 @@ const LANG = {
     live: 'EN DIRECTO',
     webcamTitle: '📷 Webcam de Ràfels',
     conditionsTitle: '📍 Condiciones actuales',
+    forecastTitle: '📅 Previsión', todayLabel: 'Hoy',
     evoTitle: '📊 Evolución',
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
     wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV', solar: '⚡ Radiación solar',
@@ -566,6 +592,7 @@ const LANG = {
     live: 'LIVE',
     webcamTitle: '📷 Ràfels Webcam',
     conditionsTitle: '📍 Current conditions',
+    forecastTitle: '📅 Forecast', todayLabel: 'Today',
     evoTitle: '📊 Evolution',
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
     wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index', solar: '⚡ Solar radiation',
@@ -592,6 +619,7 @@ const LANG = {
     live: 'EN DIRECT',
     webcamTitle: '📷 Webcam de Ràfels',
     conditionsTitle: '📍 Conditions actuelles',
+    forecastTitle: '📅 Prévisions', todayLabel: "Aujourd'hui",
     evoTitle: '📊 Évolution',
     temp: '🌡 Température', humidity: '💧 Humidité', pressure: '🔵 Pression',
     wind: '💨 Vent', precip: '🌧 Précipitations', uv: '☀️ Indice UV', solar: '⚡ Rayonnement solaire',
@@ -653,10 +681,12 @@ function applyLang(lang) {
 
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang))
 
+  setTxt('forecastSectionTitle', t.forecastTitle)
   if (dataCache['day']) renderCards(dataCache['day'])
   const periodData = dataCache[activePeriod]
   if (periodData) requestAnimationFrame(() => drawEvoChart(periodData.history))
   if (webcamState === 'placeholder') showWebcamPlaceholder($('webcamContent'))
+  renderForecastStrip()
 }
 
 /* ══════════════════════════════════════════════
@@ -798,6 +828,119 @@ async function initWebcam() {
   } catch {
     showWebcamPlaceholder(el)
   }
+}
+
+/* ══════════════════════════════════════════════
+   Forecast strip — multi-model ensemble
+   Same model set MeteoModels uses for this location:
+     7-day: ECMWF IFS, ICON EU, ARPEGE EU, UKMO, GFS, GEM
+     2-day: AROME HD (1.5 km), AROME (2.5 km), HARMONIE EU, HARMONIE DMI
+   Per-day blend: simple average hi/lo/rain across valid models,
+   modal WMO code — mirrors getEnsembleForecast() in data.ts.
+══════════════════════════════════════════════ */
+function fcAvg(vals) {
+  const v = vals.filter(x => x != null)
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
+}
+function fcModal(vals) {
+  const v = vals.filter(x => x != null)
+  if (!v.length) return null
+  const f = {}
+  for (const x of v) f[x] = (f[x] ?? 0) + 1
+  return +Object.entries(f).sort((a, b) => b[1] - a[1])[0][0]
+}
+
+function wmoEmoji(code) {
+  if (code == null) return '—'
+  if (code === 0)   return '☀️'
+  if (code <= 2)    return '🌤️'
+  if (code === 3)   return '☁️'
+  if (code <= 49)   return '🌫️'
+  if (code <= 55)   return '🌦️'
+  if (code <= 65)   return '🌧️'
+  if (code <= 77)   return '❄️'
+  if (code <= 82)   return '🌦️'
+  if (code <= 86)   return '🌨️'
+  return '⛈️'
+}
+
+function renderForecastStrip() {
+  const strip = $('forecastStrip')
+  if (!strip || !forecastDaily?.length) return
+  const t = LANG[currentLang]
+  strip.innerHTML = forecastDaily.map((day, i) => {
+    const dt   = new Date(day.date + 'T12:00:00')
+    const name = i === 0 ? t.todayLabel : t.dayAbbr[dt.getDay()]
+    const icon = wmoEmoji(day.code)
+    const hi   = day.hi != null ? Math.round(day.hi) + '°' : '—'
+    const lo   = day.lo != null ? Math.round(day.lo) + '°' : '—'
+    const prob = day.prob ?? 0
+    const rain = prob >= 10 ? `<div class="fc-rain">💧 ${Math.round(prob)}%</div>` : ''
+    return `<div class="fc-day">
+      <div class="fc-day-name">${name}</div>
+      <div class="fc-icon">${icon}</div>
+      <div class="fc-hi">${hi}</div>
+      <div class="fc-lo">${lo}</div>
+      ${rain}
+    </div>`
+  }).join('')
+}
+
+async function loadForecast() {
+  const LAT = '38.73', LON = '-0.63'
+  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code'
+  const TZ    = 'Europe/Madrid'
+
+  // Models and their max forecast days (mirrors getActiveModels for this location)
+  const MODELS = [
+    { id: 'ecmwf_ifs025',                  days: 7 },
+    { id: 'icon_eu',                        days: 7 },
+    { id: 'meteofrance_arpege_europe',      days: 7 },
+    { id: 'ukmo_seamless',                  days: 7 },
+    { id: 'gfs_seamless',                   days: 7 },
+    { id: 'gem_seamless',                   days: 7 },
+    { id: 'meteofrance_arome_france_hd',    days: 2 },
+    { id: 'meteofrance_arome_france',       days: 2 },
+    { id: 'knmi_harmonie_arome_europe',     days: 2 },
+    { id: 'dmi_harmonie_arome_europe',      days: 2 },
+  ]
+
+  const makeUrl = (id, days) => {
+    const p = new URLSearchParams({ latitude: LAT, longitude: LON, daily: DAILY, models: id, forecast_days: String(days), timezone: TZ })
+    return `https://api.open-meteo.com/v1/forecast?${p}`
+  }
+
+  const settled = await Promise.allSettled(
+    MODELS.map(({ id, days }) =>
+      fetch(makeUrl(id, days))
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    )
+  )
+
+  // Collect valid daily arrays paired with their maxDays
+  const valid = settled
+    .map((r, i) => ({ maxDays: MODELS[i].days, daily: r.status === 'fulfilled' ? r.value?.daily : null }))
+    .filter(x => x.daily?.time?.length)
+
+  if (!valid.length) return
+
+  // Use the longest-range model as reference for dates (avoids 2-day truncation)
+  const ref = valid.reduce((a, b) => a.daily.time.length > b.daily.time.length ? a : b)
+
+  forecastDaily = ref.daily.time.slice(0, 7).map((date, i) => {
+    // For day i, only include models whose range covers it
+    const sources = valid.filter(x => i < x.maxDays).map(x => x.daily)
+    return {
+      date,
+      hi:   fcAvg(sources.map(d => d.temperature_2m_max?.[i] ?? null)),
+      lo:   fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
+      prob: fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
+      code: fcModal(sources.map(d => d.weather_code?.[i] ?? null)),
+    }
+  })
+
+  renderForecastStrip()
 }
 
 /* ══════════════════════════════════════════════
@@ -1307,6 +1450,7 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
 applyLang(currentLang)
 initWebcam()
 loadDay()
+loadForecast()
 
 setInterval(() => {
   delete dataCache['day']
