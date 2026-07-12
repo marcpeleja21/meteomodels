@@ -93,22 +93,29 @@ export default async function handler(request) {
       precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - hours[i - 1].precipCum),
     }))
   } else if (period === 'month') {
-    // 30-day history from Open-Meteo historical archive (ERA5, free, no auth)
+    // 30-day history: ERA5 reanalysis as baseline, overlaid with WU station data
+    // for the last 7 days — station readings capture local peaks ERA5 grid misses
     const lat = obs.lat ?? 38.73
     const lon = obs.lon ?? -0.63
     const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
     const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 29)
     const fmtDate = d => d.toISOString().slice(0, 10)
     try {
-      const omRes = await fetch(
-        `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
-        `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
-        `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean` +
-        `&timezone=Europe%2FMadrid`
-      )
-      if (omRes.ok) {
-        const { daily } = await omRes.json()
-        result.history = (daily?.time ?? []).map((date, i) => ({
+      const [omRes, wuRes] = await Promise.allSettled([
+        fetch(
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+          `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
+          `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean` +
+          `&timezone=Europe%2FMadrid`
+        ),
+        fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
+      ])
+
+      let history = []
+
+      if (omRes.status === 'fulfilled' && omRes.value.ok) {
+        const { daily } = await omRes.value.json()
+        history = (daily?.time ?? []).map((date, i) => ({
           date,
           tempHigh: daily.temperature_2m_max?.[i]        ?? null,
           tempLow:  daily.temperature_2m_min?.[i]        ?? null,
@@ -117,6 +124,25 @@ export default async function handler(request) {
           precip:   daily.precipitation_sum?.[i]         ?? null,
         }))
       }
+
+      if (wuRes.status === 'fulfilled' && wuRes.value.ok) {
+        const wuJson = await wuRes.value.json()
+        const rows = wuJson?.summaries ?? wuJson?.observations ?? []
+        const wuByDate = {}
+        for (const s of rows) {
+          const date = (s.obsTimeLocal ?? '').slice(0, 10)
+          if (date) wuByDate[date] = {
+            tempHigh: s.metric?.tempHigh    ?? null,
+            tempLow:  s.metric?.tempLow     ?? null,
+            tempAvg:  s.metric?.tempAvg     ?? null,
+            humidity: s.humidityAvg         ?? null,
+            precip:   s.metric?.precipTotal ?? null,
+          }
+        }
+        history = history.map(h => wuByDate[h.date] ? { date: h.date, ...wuByDate[h.date] } : h)
+      }
+
+      result.history = history
     } catch (_) {}
     if (!result.history) result.history = []
   } else {

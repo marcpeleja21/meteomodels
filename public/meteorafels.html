@@ -463,14 +463,6 @@
         <div class="card-sub"><span id="lblTotalToday">Total avui</span> <b id="valPrecipTotal">—</b> mm</div>
       </div>
 
-      <!-- Solar radiation -->
-      <div class="card">
-        <div class="card-label" id="lblSolar">⚡ Radiació solar</div>
-        <div class="card-value" style="font-size:1.40rem">
-          <span id="valSolar">—</span><span class="unit">W/m²</span>
-        </div>
-      </div>
-
     </div><!-- /grid -->
 
     <!-- ③  7-day forecast -->
@@ -541,7 +533,7 @@ const LANG = {
     forecastTitle: '📅 Previsió', todayLabel: 'Avui',
     evoTitle: '📊 Evolució',
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
-    wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV', solar: '⚡ Radiació solar',
+    wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV',
     feelsLike: 'Sensació tèrmica', dewPoint: 'Punt de rosada', gust: 'Ratxa', totalToday: 'Total avui',
     metricTemp: 'Temperatura', metricRain: 'Pluja', metricHumidity: 'Humitat',
     periodDay: 'Dia', periodWeek: 'Setmana', periodMonth: 'Mes',
@@ -568,7 +560,7 @@ const LANG = {
     forecastTitle: '📅 Previsión', todayLabel: 'Hoy',
     evoTitle: '📊 Evolución',
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
-    wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV', solar: '⚡ Radiación solar',
+    wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV',
     feelsLike: 'Sensación térmica', dewPoint: 'Punto de rocío', gust: 'Racha', totalToday: 'Total hoy',
     metricTemp: 'Temperatura', metricRain: 'Lluvia', metricHumidity: 'Humedad',
     periodDay: 'Día', periodWeek: 'Semana', periodMonth: 'Mes',
@@ -595,7 +587,7 @@ const LANG = {
     forecastTitle: '📅 Forecast', todayLabel: 'Today',
     evoTitle: '📊 Evolution',
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
-    wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index', solar: '⚡ Solar radiation',
+    wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index',
     feelsLike: 'Feels like', dewPoint: 'Dew point', gust: 'Gust', totalToday: 'Total today',
     metricTemp: 'Temperature', metricRain: 'Rain', metricHumidity: 'Humidity',
     periodDay: 'Day', periodWeek: 'Week', periodMonth: 'Month',
@@ -622,7 +614,7 @@ const LANG = {
     forecastTitle: '📅 Prévisions', todayLabel: "Aujourd'hui",
     evoTitle: '📊 Évolution',
     temp: '🌡 Température', humidity: '💧 Humidité', pressure: '🔵 Pression',
-    wind: '💨 Vent', precip: '🌧 Précipitations', uv: '☀️ Indice UV', solar: '⚡ Rayonnement solaire',
+    wind: '💨 Vent', precip: '🌧 Précipitations', uv: '☀️ Indice UV',
     feelsLike: 'Ressenti', dewPoint: 'Point de rosée', gust: 'Rafale', totalToday: "Total aujourd'hui",
     metricTemp: 'Température', metricRain: 'Pluie', metricHumidity: 'Humidité',
     periodDay: 'Jour', periodWeek: 'Semaine', periodMonth: 'Mois',
@@ -658,7 +650,6 @@ function applyLang(lang) {
   setTxt('lblPressure', t.pressure)
   setTxt('lblWind', t.wind)
   setTxt('lblPrecip', t.precip)
-  setTxt('lblSolar', t.solar)
   setTxt('lblFeelsLike', t.feelsLike)
   setTxt('lblDewPoint', t.dewPoint)
   setTxt('lblGust', t.gust)
@@ -956,7 +947,6 @@ function renderCards(d) {
   setTxt('valWindDir',      d.windDir != null ? degToCompass(d.windDir) : '—')
   setTxt('valPressure',     fmt(d.pressure))
   setTxt('valPrecipTotal',  fmt(d.precipTotal))
-  setTxt('valSolar',        fmt(d.solarRadiation, 0))
 
   const rEl = $('valPrecipRate')
   if (rEl) {
