@@ -109,7 +109,7 @@ export default async function handler(request) {
         fetch(
           `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
           `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
-          `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean,windspeed_10m_max` +
+          `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max` +
           `&timezone=Europe%2FMadrid`
         ),
         fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
@@ -126,7 +126,7 @@ export default async function handler(request) {
           tempAvg:  daily.temperature_2m_mean?.[i]       ?? null,
           humidity: daily.relative_humidity_2m_mean?.[i] ?? null,
           precip:   daily.precipitation_sum?.[i]         ?? null,
-          windHigh: daily.windspeed_10m_max?.[i]         ?? null,
+          windHigh: daily.wind_speed_10m_max?.[i]         ?? null,
         }))
       }
 
