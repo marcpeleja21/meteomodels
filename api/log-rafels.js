@@ -24,7 +24,7 @@ export default async function handler() {
   const json = await res.json()
   const rows = (json?.summaries ?? json?.observations ?? [])
     .map(s => ({
-      date:      (s.obsTimeLocal ?? '').slice(0, 10),
+      obs_date:  (s.obsTimeLocal ?? '').slice(0, 10),
       temp_high: s.metric?.tempHigh    ?? null,
       temp_low:  s.metric?.tempLow     ?? null,
       temp_avg:  s.metric?.tempAvg     ?? null,
