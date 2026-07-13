@@ -3,8 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MeteoRàfels — Estació meteorològica personal</title>
-  <meta name="description" content="Dades meteorològiques en temps real de l'estació personal IRFALE2 a Ràfels.">
+  <title>MeteoRàfels — Meteorologia en temps real a Ràfels (Ráfales)</title>
+  <meta name="description" content="Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales): temperatura, humitat, precipitació, vent i pronòstic de 7 dies.">
+  <meta name="keywords" content="Ràfels, Ráfales, meteorologia, temps real, temperatura, humitat, precipitació, estació meteorològica, Valencia, meteo">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://meteorafels.meteomodels.app">
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website">
+  <meta property="og:url"         content="https://meteorafels.meteomodels.app">
+  <meta property="og:title"       content="MeteoRàfels — Meteorologia en temps real a Ràfels (Ráfales)">
+  <meta property="og:description" content="Temperatura, humitat, precipitació, vent i pronòstic de 7 dies per a Ràfels (Ráfales). Dades en temps real.">
+  <meta property="og:locale"      content="ca_ES">
+  <meta property="og:locale:alternate" content="es_ES">
+  <meta property="og:site_name"   content="MeteoRàfels">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary">
+  <meta name="twitter:title"       content="MeteoRàfels — Meteorologia en temps real a Ràfels (Ráfales)">
+  <meta name="twitter:description" content="Temperatura, humitat, precipitació i pronòstic de 7 dies per a Ràfels (Ráfales).">
+
+  <!-- Theme / PWA -->
+  <meta name="theme-color" content="#071629">
+  <meta name="application-name" content="MeteoRàfels">
+  <meta name="apple-mobile-web-app-title" content="MeteoRàfels">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "MeteoRàfels",
+    "url": "https://meteorafels.meteomodels.app",
+    "description": "Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales, Valencia, Espanya): temperatura, humitat, precipitació, vent i pronòstic.",
+    "applicationCategory": "WeatherApplication",
+    "operatingSystem": "Web",
+    "inLanguage": ["ca", "es", "en", "fr"],
+    "about": {
+      "@type": "Place",
+      "name": "Ràfels (Ráfales)",
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 38.73,
+        "longitude": -0.63
+      },
+      "containedInPlace": {
+        "@type": "Place",
+        "name": "Valencia, Espanya"
+      }
+    }
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;600;700;800&family=DM+Mono:wght@400;500&display=optional" rel="stylesheet">
@@ -354,7 +405,7 @@
     </svg>
     <div>
       <div class="brand-title">meteo<strong>ràfels</strong></div>
-      <div class="brand-sub" id="brandSub">Estació meteorològica personal · IRFALE2</div>
+      <div class="brand-sub" id="brandSub">Estació meteorològica de Ràfels · IRFALE2</div>
     </div>
   </div>
   <div class="header-right">
@@ -524,7 +575,7 @@ let forecastDaily = null    // blended multi-model daily forecast: [{date,hi,lo,
 const LANG = {
   ca: {
     locale: 'ca-ES',
-    brandSub: "Estació meteorològica personal · IRFALE2",
+    brandSub: "Estació meteorològica de Ràfels · IRFALE2",
     loading: 'Carregant…',
     loadingStation: "Carregant dades de l'estació…",
     refresh: '↻ Actualitzar',
@@ -551,7 +602,7 @@ const LANG = {
   },
   es: {
     locale: 'es-ES',
-    brandSub: 'Estación meteorológica personal · IRFALE2',
+    brandSub: 'Estación meteorológica de Ráfales · IRFALE2',
     loading: 'Cargando…',
     loadingStation: 'Cargando datos de la estación…',
     refresh: '↻ Actualizar',
@@ -578,7 +629,7 @@ const LANG = {
   },
   en: {
     locale: 'en-GB',
-    brandSub: 'Personal weather station · IRFALE2',
+    brandSub: 'Weather station in Ràfels · IRFALE2',
     loading: 'Loading…',
     loadingStation: 'Loading station data…',
     refresh: '↻ Refresh',
@@ -605,7 +656,7 @@ const LANG = {
   },
   fr: {
     locale: 'fr-FR',
-    brandSub: 'Station météo personnelle · IRFALE2',
+    brandSub: 'Station météo de Ràfels · IRFALE2',
     loading: 'Chargement…',
     loadingStation: 'Chargement des données de la station…',
     refresh: '↻ Actualiser',
