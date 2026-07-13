@@ -1416,14 +1416,23 @@ function drawEvoChart(history) {
 
   } else if (activeMetric === 'wind') {
     const field = activePeriod === 'day' ? 'wind' : 'windHigh'
-    const vals = history.map(h => h[field] ?? 0)
+    const rawVals = history.map(h => h[field] ?? null)
+    const hasWind = rawVals.some(v => v != null)
+    if (!hasWind) {
+      canvas.style.opacity = '0'
+      if (empty) empty.style.display = 'flex'
+      return
+    }
+    const vals = rawVals.map(v => v ?? 0)
     const yMax = Math.max(...vals, 1)
     const yMaxRounded = Math.ceil(yMax * 1.2)
     drawGrid(ctx, pad, cw, ch, 0, yMaxRounded)
-    const barW = Math.max(2, cw / vals.length - 2)
+    const n = vals.length
+    const barW = Math.max(2, cw / n - 2)
     vals.forEach((v, i) => {
-      const x    = pad.l + (i / (vals.length - 1 || 1)) * cw - barW / 2
+      if (rawVals[i] == null || v <= 0) return
       const barH = (v / yMaxRounded) * ch
+      const x    = pad.l + (i / n) * cw + (cw / n - barW) / 2
       const y    = pad.t + ch - barH
       ctx.fillStyle = windColor(v)
       ctx.beginPath()
