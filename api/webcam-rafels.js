@@ -30,7 +30,11 @@ export default async function handler() {
   if (!snapshotUrl) return new Response(null, { status: 404 })
 
   try {
-    const res = await fetch(snapshotUrl, { signal: AbortSignal.timeout(8000) })
+    const upstreamUrl = snapshotUrl + '?t=' + Date.now()
+    const res = await fetch(upstreamUrl, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+    })
     if (!res.ok) return new Response(null, { status: 502 })
     const data = await res.arrayBuffer()
     return new Response(data, {
