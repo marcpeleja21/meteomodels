@@ -20,10 +20,11 @@ jobs:
 
       - name: Upload to Supabase Storage
         run: |
-          curl -s -X PUT \
+          curl -sf -X PUT \
             "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
             -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
             -H "Content-Type: image/jpeg" \
             -H "x-upsert: true" \
-            --data-binary @snap.jpg
+            --data-binary @snap.jpg \
+          && echo "Upload OK" || { echo "Upload failed"; exit 1; }
