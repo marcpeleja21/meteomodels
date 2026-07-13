@@ -60,6 +60,10 @@
     }
   ],
 
+  "crons": [
+    { "path": "/api/log-rafels", "schedule": "*/10 * * * *" }
+  ],
+
   "rewrites": [
     { "source": "/meteorafels", "destination": "/meteorafels.html" },
     { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html|meteorafels.html).*)", "destination": "/index.html" }
