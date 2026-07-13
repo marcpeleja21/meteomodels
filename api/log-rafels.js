@@ -34,7 +34,9 @@ export default async function handler() {
     .filter(r => r.date)
 
   if (!rows.length) {
-    return new Response('No rows to upsert', { status: 204 })
+    return new Response(JSON.stringify({ upserted: 0 }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const upsertRes = await fetch(`${supabaseUrl}/rest/v1/observations`, {
