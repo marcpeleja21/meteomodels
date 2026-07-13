@@ -306,6 +306,12 @@
       border-color: rgba(0,230,118,.38);
       color: var(--green);
     }
+    .tab-btn.active-wind {
+      background: rgba(174,213,129,.12);
+      border-color: rgba(174,213,129,.40);
+      color: #aed581;
+    }
+    .fc-wind { font-size: .72rem; margin-top: 2px }
     .evo-wrap {
       background: var(--card);
       backdrop-filter: blur(16px) saturate(1.4);
@@ -526,6 +532,7 @@
         <button class="tab-btn active" data-metric="temp">Temperatura</button>
         <button class="tab-btn" data-metric="rain">Pluja</button>
         <button class="tab-btn" data-metric="humidity">Humitat</button>
+        <button class="tab-btn" data-metric="wind">Vent</button>
       </div>
       <div class="tab-group right" role="group" aria-label="Període">
         <button class="tab-btn active" data-period="day">Dia</button>
@@ -558,6 +565,32 @@
 
 <script>
 /* ══════════════════════════════════════════════
+   Colour scales (ported from src/utils/colors.ts)
+══════════════════════════════════════════════ */
+function lerpHex(a, b, t) {
+  t = Math.max(0, Math.min(1, t))
+  const ai = parseInt(a.slice(1), 16), bi = parseInt(b.slice(1), 16)
+  const r  = Math.round(((ai>>16)&0xff) + (((bi>>16)&0xff)-((ai>>16)&0xff))*t)
+  const g  = Math.round(((ai>>8) &0xff) + (((bi>>8) &0xff)-((ai>>8) &0xff))*t)
+  const bl = Math.round(( ai     &0xff) + (( bi     &0xff)-( ai     &0xff))*t)
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bl.toString(16).padStart(2,'0')}`
+}
+function colorScale(stops, v) {
+  if (v <= stops[0][0]) return stops[0][1]
+  if (v >= stops[stops.length-1][0]) return stops[stops.length-1][1]
+  for (let i = 0; i < stops.length-1; i++) {
+    if (v <= stops[i+1][0]) return lerpHex(stops[i][1], stops[i+1][1], (v - stops[i][0]) / (stops[i+1][0] - stops[i][0]))
+  }
+  return stops[stops.length-1][1]
+}
+const TEMP_MAX_STOPS = [[-5,'#b39ddb'],[0,'#89c4f4'],[5,'#64b5f6'],[12,'#81c784'],[20,'#ffd54f'],[30,'#ff8a65'],[40,'#f44336']]
+const TEMP_MIN_STOPS = [[-12,'#b39ddb'],[-5,'#89c4f4'],[0,'#64b5f6'],[8,'#81c784'],[15,'#ffd54f'],[23,'#ff8a65'],[30,'#f44336']]
+const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
+function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
+function tempMinColor(v) { return v == null ? '#888' : colorScale(TEMP_MIN_STOPS, v) }
+function windColor(v)    { return v == null || v < 20 ? '#aed581' : colorScale(WIND_STOPS, v) }
+
+/* ══════════════════════════════════════════════
    State
 ══════════════════════════════════════════════ */
 const REFRESH_MS = 5 * 60 * 1000
@@ -587,7 +620,7 @@ const LANG = {
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
     wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV',
     feelsLike: 'Sensació tèrmica', dewPoint: 'Punt de rosada', gust: 'Ratxa', totalToday: 'Total avui',
-    metricTemp: 'Temperatura', metricRain: 'Pluja', metricHumidity: 'Humitat',
+    metricTemp: 'Temperatura', metricRain: 'Pluja', metricHumidity: 'Humitat', metricWind: 'Vent',
     periodDay: 'Dia', periodWeek: 'Setmana', periodMonth: 'Mes',
     noData: 'Sense dades per aquest període',
     dataSource: 'Dades:',
@@ -614,7 +647,7 @@ const LANG = {
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
     wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV',
     feelsLike: 'Sensación térmica', dewPoint: 'Punto de rocío', gust: 'Racha', totalToday: 'Total hoy',
-    metricTemp: 'Temperatura', metricRain: 'Lluvia', metricHumidity: 'Humedad',
+    metricTemp: 'Temperatura', metricRain: 'Lluvia', metricHumidity: 'Humedad', metricWind: 'Viento',
     periodDay: 'Día', periodWeek: 'Semana', periodMonth: 'Mes',
     noData: 'Sin datos para este periodo',
     dataSource: 'Datos:',
@@ -641,7 +674,7 @@ const LANG = {
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
     wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index',
     feelsLike: 'Feels like', dewPoint: 'Dew point', gust: 'Gust', totalToday: 'Total today',
-    metricTemp: 'Temperature', metricRain: 'Rain', metricHumidity: 'Humidity',
+    metricTemp: 'Temperature', metricRain: 'Rain', metricHumidity: 'Humidity', metricWind: 'Wind',
     periodDay: 'Day', periodWeek: 'Week', periodMonth: 'Month',
     noData: 'No data for this period',
     dataSource: 'Data:',
@@ -688,6 +721,7 @@ function applyLang(lang) {
     document.querySelector('[data-metric="temp"]').textContent     = t.metricTemp
     document.querySelector('[data-metric="rain"]').textContent     = t.metricRain
     document.querySelector('[data-metric="humidity"]').textContent = t.metricHumidity
+    document.querySelector('[data-metric="wind"]').textContent     = t.metricWind
     document.querySelector('[data-period="day"]').textContent      = t.periodDay
     document.querySelector('[data-period="week"]').textContent     = t.periodWeek
     document.querySelector('[data-period="month"]').textContent    = t.periodMonth
@@ -886,26 +920,31 @@ function renderForecastStrip() {
   if (!strip || !forecastDaily?.length) return
   const t = LANG[currentLang]
   strip.innerHTML = forecastDaily.map((day, i) => {
-    const dt   = new Date(day.date + 'T12:00:00')
-    const name = i === 0 ? t.todayLabel : t.dayAbbr[dt.getDay()]
-    const icon = wmoEmoji(day.code)
-    const hi   = day.hi != null ? Math.round(day.hi) + '°' : '—'
-    const lo   = day.lo != null ? Math.round(day.lo) + '°' : '—'
-    const prob = day.prob ?? 0
-    const rain = prob >= 10 ? `<div class="fc-rain">💧 ${Math.round(prob)}%</div>` : ''
+    const dt      = new Date(day.date + 'T12:00:00')
+    const name    = i === 0 ? t.todayLabel : t.dayAbbr[dt.getDay()]
+    const icon    = wmoEmoji(day.code)
+    const hi      = day.hi != null ? Math.round(day.hi) + '°' : '—'
+    const lo      = day.lo != null ? Math.round(day.lo) + '°' : '—'
+    const hiColor = tempMaxColor(day.hi)
+    const loColor = tempMinColor(day.lo)
+    const prob    = day.prob ?? 0
+    const rain    = prob >= 10 ? `<div class="fc-rain">💧 ${Math.round(prob)}%</div>` : ''
+    const wind    = day.wind != null && day.wind >= 10
+      ? `<div class="fc-wind" style="color:${windColor(day.wind)}">💨 ${Math.round(day.wind)}km/h</div>`
+      : ''
     return `<div class="fc-day">
       <div class="fc-day-name">${name}</div>
       <div class="fc-icon">${icon}</div>
-      <div class="fc-hi">${hi}</div>
-      <div class="fc-lo">${lo}</div>
-      ${rain}
+      <div class="fc-hi" style="color:${hiColor}">${hi}</div>
+      <div class="fc-lo" style="color:${loColor}">${lo}</div>
+      ${rain}${wind}
     </div>`
   }).join('')
 }
 
 async function loadForecast() {
   const LAT = '38.73', LON = '-0.63'
-  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code'
+  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max'
   const TZ    = 'Europe/Madrid'
 
   // Models and their max forecast days (mirrors getActiveModels for this location)
@@ -954,6 +993,7 @@ async function loadForecast() {
       lo:   fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
       prob: fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
       code: fcModal(sources.map(d => d.weather_code?.[i] ?? null)),
+      wind: fcAvg(sources.map(d => d.wind_speed_10m_max?.[i] ?? null)),
     }
   })
 
@@ -1106,31 +1146,39 @@ function drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax) {
   ctx.closePath()
   ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fill()
 
-  // High line — orange
-  ctx.beginPath(); ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
-  history.forEach((d, i) => {
-    const v = d.tempHigh ?? d.tempAvg; if (v == null) return
-    i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v))
-  })
-  ctx.stroke()
+  // High line — dynamic color per segment
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'
+  for (let i = 0; i < n - 1; i++) {
+    const v0 = history[i].tempHigh ?? history[i].tempAvg
+    const v1 = history[i + 1].tempHigh ?? history[i + 1].tempAvg
+    if (v0 == null || v1 == null) continue
+    ctx.beginPath()
+    ctx.strokeStyle = tempMaxColor((v0 + v1) / 2)
+    ctx.moveTo(px(i), py(v0)); ctx.lineTo(px(i + 1), py(v1))
+    ctx.stroke()
+  }
   const lastH = history[n - 1].tempHigh ?? history[n - 1].tempAvg
   if (lastH != null) {
     ctx.beginPath(); ctx.arc(px(n - 1), py(lastH), 4, 0, Math.PI * 2)
-    ctx.fillStyle = '#ff9100'; ctx.fill()
+    ctx.fillStyle = tempMaxColor(lastH); ctx.fill()
     ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
   }
 
-  // Low line — blue
-  ctx.beginPath(); ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
-  history.forEach((d, i) => {
-    const v = d.tempLow ?? d.tempAvg; if (v == null) return
-    i === 0 ? ctx.moveTo(px(i), py(v)) : ctx.lineTo(px(i), py(v))
-  })
-  ctx.stroke()
+  // Low line — dynamic color per segment
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'
+  for (let i = 0; i < n - 1; i++) {
+    const v0 = history[i].tempLow ?? history[i].tempAvg
+    const v1 = history[i + 1].tempLow ?? history[i + 1].tempAvg
+    if (v0 == null || v1 == null) continue
+    ctx.beginPath()
+    ctx.strokeStyle = tempMinColor((v0 + v1) / 2)
+    ctx.moveTo(px(i), py(v0)); ctx.lineTo(px(i + 1), py(v1))
+    ctx.stroke()
+  }
   const lastL = history[n - 1].tempLow ?? history[n - 1].tempAvg
   if (lastL != null) {
     ctx.beginPath(); ctx.arc(px(n - 1), py(lastL), 4, 0, Math.PI * 2)
-    ctx.fillStyle = '#4fc3f7'; ctx.fill()
+    ctx.fillStyle = tempMinColor(lastL); ctx.fill()
     ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
   }
 }
@@ -1254,6 +1302,11 @@ function handleChartHover(clientX) {
     valColor = 'rgb(79,195,247)'
     label = activePeriod === 'day' ? (pt.time ?? '').slice(11, 16) : dayStr
     value = fmt(pt.precip ?? 0) + ' mm'
+  } else if (activeMetric === 'wind') {
+    const wv = activePeriod === 'day' ? pt.wind : pt.windHigh
+    valColor = windColor(wv)
+    label = activePeriod === 'day' ? (pt.time ?? '').slice(11, 16) : dayStr
+    value = wv != null ? Math.round(wv) + ' km/h' : '—'
   } else {
     valColor = '#00e676'
     label = activePeriod === 'day' ? (pt.time ?? '').slice(11, 16) : dayStr
@@ -1288,8 +1341,8 @@ function handleChartHover(clientX) {
 
   if (isRangeTemp) {
     ctx.font = 'bold 12px sans-serif'
-    if (hiText) { ctx.fillStyle = '#ff9100'; ctx.fillText(hiText, bx + 8, by + 29) }
-    if (loText) { ctx.fillStyle = '#4fc3f7'; ctx.fillText(loText, bx + 8, by + 44) }
+    if (hiText) { ctx.fillStyle = tempMaxColor(pt.tempHigh); ctx.fillText(hiText, bx + 8, by + 29) }
+    if (loText) { ctx.fillStyle = tempMinColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
   } else {
     ctx.fillStyle = valColor
     ctx.font = 'bold 12px sans-serif'
@@ -1361,6 +1414,27 @@ function drawEvoChart(history) {
       return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
     })
 
+  } else if (activeMetric === 'wind') {
+    const field = activePeriod === 'day' ? 'wind' : 'windHigh'
+    const vals = history.map(h => h[field] ?? 0)
+    const yMax = Math.max(...vals, 1)
+    const yMaxRounded = Math.ceil(yMax * 1.2)
+    drawGrid(ctx, pad, cw, ch, 0, yMaxRounded)
+    const barW = Math.max(2, cw / vals.length - 2)
+    vals.forEach((v, i) => {
+      const x    = pad.l + (i / (vals.length - 1 || 1)) * cw - barW / 2
+      const barH = (v / yMaxRounded) * ch
+      const y    = pad.t + ch - barH
+      ctx.fillStyle = windColor(v)
+      ctx.beginPath()
+      ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [3,3,0,0]) : ctx.rect(x, y, barW, barH)
+      ctx.fill()
+    })
+    xLabel(ctx, history, pad, cw, H, (h) => {
+      if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
+      const d = new Date(h.date + 'T12:00:00')
+      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
+    })
   } else {
     const vals = history.map(h => h.humidity).filter(v => v != null)
     if (vals.length < 2) { canvas.style.opacity='0'; if(empty) empty.style.display='flex'; return }
@@ -1433,7 +1507,7 @@ async function switchPeriod(period, force = false) {
 /* ══════════════════════════════════════════════
    Tab interactions
 ══════════════════════════════════════════════ */
-const ACTIVE_CLASS = { temp: 'active', rain: 'active-rain', humidity: 'active-humidity' }
+const ACTIVE_CLASS = { temp: 'active', rain: 'active-rain', humidity: 'active-humidity', wind: 'active-wind' }
 
 document.querySelectorAll('[data-metric]').forEach(btn => {
   btn.addEventListener('click', () => {

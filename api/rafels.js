@@ -74,23 +74,27 @@ export default async function handler(request) {
     for (const o of todayObs) {
       const hourKey = (o.obsTimeLocal ?? '').slice(0, 13) // 'YYYY-MM-DD HH'
       if (!hourKey) continue
-      if (!buckets.has(hourKey)) buckets.set(hourKey, { temps: [], humids: [], precipCum: 0 })
+      if (!buckets.has(hourKey)) buckets.set(hourKey, { temps: [], humids: [], precipCum: 0, winds: [] })
       const b = buckets.get(hourKey)
       if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
       if (o.humidityAvg != null) b.humids.push(o.humidityAvg)
       if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal // last reading wins (cumulative)
+      const ws = o.metric?.windSpeedAvg ?? o.metric?.windSpeed
+      if (ws != null) b.winds.push(ws)
     }
     const hours = [...buckets.entries()].map(([hourKey, b]) => ({
       time:      hourKey + ':00:00',
       temp:      b.temps.length  ? b.temps.reduce((a, c) => a + c, 0) / b.temps.length   : null,
       humidity:  b.humids.length ? b.humids.reduce((a, c) => a + c, 0) / b.humids.length : null,
       precipCum: b.precipCum,
+      wind:      b.winds.length  ? b.winds.reduce((a, c) => a + c, 0) / b.winds.length   : null,
     }))
     result.history = hours.map((h, i) => ({
       time:     h.time,
       temp:     h.temp,
       humidity: h.humidity,
       precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - hours[i - 1].precipCum),
+      wind:     h.wind,
     }))
   } else if (period === 'month') {
     // 30-day history: ERA5 reanalysis as baseline, overlaid with WU station data
@@ -105,7 +109,7 @@ export default async function handler(request) {
         fetch(
           `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
           `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
-          `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean` +
+          `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean,windspeed_10m_max` +
           `&timezone=Europe%2FMadrid`
         ),
         fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
@@ -122,6 +126,7 @@ export default async function handler(request) {
           tempAvg:  daily.temperature_2m_mean?.[i]       ?? null,
           humidity: daily.relative_humidity_2m_mean?.[i] ?? null,
           precip:   daily.precipitation_sum?.[i]         ?? null,
+          windHigh: daily.windspeed_10m_max?.[i]         ?? null,
         }))
       }
 
@@ -132,11 +137,12 @@ export default async function handler(request) {
         for (const s of rows) {
           const date = (s.obsTimeLocal ?? '').slice(0, 10)
           if (date) wuByDate[date] = {
-            tempHigh: s.metric?.tempHigh    ?? null,
-            tempLow:  s.metric?.tempLow     ?? null,
-            tempAvg:  s.metric?.tempAvg     ?? null,
-            humidity: s.humidityAvg         ?? null,
-            precip:   s.metric?.precipTotal ?? null,
+            tempHigh: s.metric?.tempHigh       ?? null,
+            tempLow:  s.metric?.tempLow        ?? null,
+            tempAvg:  s.metric?.tempAvg        ?? null,
+            humidity: s.humidityAvg            ?? null,
+            precip:   s.metric?.precipTotal    ?? null,
+            windHigh: s.metric?.windSpeedHigh  ?? null,
           }
         }
         history = history.map(h => wuByDate[h.date] ? { date: h.date, ...wuByDate[h.date] } : h)
@@ -150,11 +156,12 @@ export default async function handler(request) {
     const rows = histJson?.summaries ?? histJson?.observations ?? []
     result.history = rows.map(s => ({
       date:     (s.obsTimeLocal ?? '').slice(0, 10),
-      tempHigh: s.metric?.tempHigh    ?? null,
-      tempLow:  s.metric?.tempLow     ?? null,
-      tempAvg:  s.metric?.tempAvg     ?? null,
-      humidity: s.humidityAvg         ?? null,
-      precip:   s.metric?.precipTotal ?? null,
+      tempHigh: s.metric?.tempHigh       ?? null,
+      tempLow:  s.metric?.tempLow        ?? null,
+      tempAvg:  s.metric?.tempAvg        ?? null,
+      humidity: s.humidityAvg            ?? null,
+      precip:   s.metric?.precipTotal    ?? null,
+      windHigh: s.metric?.windSpeedHigh  ?? null,
     }))
   }
 
