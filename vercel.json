@@ -61,7 +61,7 @@
   ],
 
   "crons": [
-    { "path": "/api/log-rafels", "schedule": "*/10 * * * *" }
+    { "path": "/api/log-rafels", "schedule": "0 2 * * *" }
   ],
 
   "rewrites": [
