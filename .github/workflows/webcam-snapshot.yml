@@ -2,7 +2,7 @@ name: Webcam Snapshot
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'   # every 5 min (GitHub minimum); loop inside captures every 30s
   workflow_dispatch:
 
 jobs:
@@ -12,19 +12,24 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get install -y ffmpeg
 
-      - name: Grab snapshot from RTSP
+      - name: Capture and upload every 30s for ~4.5 min
         run: |
-          ffmpeg -rtsp_transport tcp \
-            -i "${{ secrets.WEBCAM_RTSP_URL }}" \
-            -vf scale=1280:-1 -frames:v 1 -q:v 3 -y snap.jpg
-
-      - name: Upload to Supabase Storage
-        run: |
-          curl -sf -X PUT \
-            "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
-            -H "Content-Type: image/jpeg" \
-            -H "x-upsert: true" \
-            --data-binary @snap.jpg \
-          && echo "Upload OK" || { echo "Upload failed"; exit 1; }
+          for i in $(seq 1 9); do
+            echo "=== Snapshot $i/9 ==="
+            if ffmpeg -rtsp_transport tcp \
+                 -i "${{ secrets.WEBCAM_RTSP_URL }}" \
+                 -vf scale=1280:-1 -frames:v 1 -q:v 3 -y snap.jpg 2>&1 | tail -3; then
+              curl -sf -X PUT \
+                "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
+                -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+                -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+                -H "Content-Type: image/jpeg" \
+                -H "Cache-Control: no-store" \
+                -H "x-upsert: true" \
+                --data-binary @snap.jpg \
+              && echo "Snapshot $i uploaded OK" || echo "Snapshot $i upload failed"
+            else
+              echo "Snapshot $i capture failed, skipping upload"
+            fi
+            [ $i -lt 9 ] && sleep 30
+          done
