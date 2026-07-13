@@ -79,7 +79,7 @@ export default async function handler(request) {
       if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
       if (o.humidityAvg != null) b.humids.push(o.humidityAvg)
       if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal // last reading wins (cumulative)
-      const ws = o.metric?.windSpeedAvg ?? o.metric?.windSpeed
+      const ws = o.metric?.windSpeedAvg ?? o.metric?.windspeedAvg ?? o.metric?.windSpeed ?? o.metric?.windspeed
       if (ws != null) b.winds.push(ws)
     }
     const hours = [...buckets.entries()].map(([hourKey, b]) => ({
@@ -142,7 +142,7 @@ export default async function handler(request) {
             tempAvg:  s.metric?.tempAvg        ?? null,
             humidity: s.humidityAvg            ?? null,
             precip:   s.metric?.precipTotal    ?? null,
-            windHigh: s.metric?.windSpeedHigh  ?? null,
+            windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
           }
         }
         history = history.map(h => wuByDate[h.date] ? { date: h.date, ...wuByDate[h.date] } : h)
@@ -161,7 +161,7 @@ export default async function handler(request) {
       tempAvg:  s.metric?.tempAvg        ?? null,
       humidity: s.humidityAvg            ?? null,
       precip:   s.metric?.precipTotal    ?? null,
-      windHigh: s.metric?.windSpeedHigh  ?? null,
+      windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
     }))
   }
 
