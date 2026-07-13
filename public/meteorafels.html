@@ -39,7 +39,7 @@
     "description": "Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales, Valencia, Espanya): temperatura, humitat, precipitació, vent i pronòstic.",
     "applicationCategory": "WeatherApplication",
     "operatingSystem": "Web",
-    "inLanguage": ["ca", "es", "en", "fr"],
+    "inLanguage": ["ca", "es", "en"],
     "about": {
       "@type": "Place",
       "name": "Ràfels (Ráfales)",
@@ -413,7 +413,6 @@
       <button class="lang-btn" data-lang="ca">CA</button>
       <button class="lang-btn" data-lang="es">ES</button>
       <button class="lang-btn" data-lang="en">EN</button>
-      <button class="lang-btn" data-lang="fr">FR</button>
     </div>
     <button class="refresh-btn" id="refreshBtn" aria-label="Actualitzar dades">↻</button>
     <a href="/" class="back-link">← MeteoModels</a>
@@ -653,33 +652,6 @@ const LANG = {
     compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],
     dayAbbr: ['Su','Mo','Tu','We','Th','Fr','Sa'],
     west: 'W',
-  },
-  fr: {
-    locale: 'fr-FR',
-    brandSub: 'Station météo de Ràfels · IRFALE2',
-    loading: 'Chargement…',
-    loadingStation: 'Chargement des données de la station…',
-    refresh: '↻ Actualiser',
-    pullDown: '↓ Tirer pour actualiser', pullRelease: '↑ Relâcher pour actualiser',
-    live: 'EN DIRECT',
-    webcamTitle: '📷 Webcam de Ràfels',
-    conditionsTitle: '📍 Conditions actuelles',
-    forecastTitle: '📅 Prévisions', todayLabel: "Aujourd'hui",
-    evoTitle: '📊 Évolution',
-    temp: '🌡 Température', humidity: '💧 Humidité', pressure: '🔵 Pression',
-    wind: '💨 Vent', precip: '🌧 Précipitations', uv: '☀️ Indice UV',
-    feelsLike: 'Ressenti', dewPoint: 'Point de rosée', gust: 'Rafale', totalToday: "Total aujourd'hui",
-    metricTemp: 'Température', metricRain: 'Pluie', metricHumidity: 'Humidité',
-    periodDay: 'Jour', periodWeek: 'Semaine', periodMonth: 'Mois',
-    noData: 'Aucune donnée pour cette période',
-    dataSource: 'Données :',
-    webcamMsg: 'La webcam sera configurée prochainement.',
-    obsLabel: 'Dernière observation',
-    agoFmt: m => `il y a ${m} min`,
-    errorPrefix: 'Erreur : ',
-    compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
-    dayAbbr: ['Di','Lu','Ma','Me','Je','Ve','Sa'],
-    west: 'O',
   },
 }
 
