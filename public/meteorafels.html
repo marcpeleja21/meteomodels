@@ -821,6 +821,7 @@ function mountSnapshot(el) {
   }
   refresh()
   webcamTimer = setInterval(refresh, 30_000)
+  window._refreshWebcam = refresh
 }
 
 async function initWebcam() {
@@ -1478,6 +1479,7 @@ $('refreshBtn')?.addEventListener('click', async () => {
   btn.disabled = true
   btn.style.opacity = '0.5'
   try {
+    window._refreshWebcam?.()
     delete dataCache['day']
     delete dataCache[activePeriod]
     if (activePeriod === 'day') {
