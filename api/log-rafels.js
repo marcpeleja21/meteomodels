@@ -28,7 +28,7 @@ export default async function handler() {
       temp_high: s.metric?.tempHigh    ?? null,
       temp_low:  s.metric?.tempLow     ?? null,
       temp_avg:  s.metric?.tempAvg     ?? null,
-      humidity:  s.humidityAvg         ?? null,
+      humidity:  s.humidityAvg != null ? Math.round(s.humidityAvg) : null,
       precip:    s.metric?.precipTotal ?? null,
     }))
     .filter(r => r.obs_date)
