@@ -16,7 +16,7 @@ jobs:
         run: |
           ffmpeg -rtsp_transport tcp \
             -i "${{ secrets.WEBCAM_RTSP_URL }}" \
-            -frames:v 1 -q:v 2 -y snap.jpg
+            -vf scale=1280:-1 -frames:v 1 -q:v 3 -y snap.jpg
 
       - name: Upload to Supabase Storage
         run: |
