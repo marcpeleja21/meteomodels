@@ -23,7 +23,7 @@ export default async function handler(request) {
     : null
 
   const [currentRes, histRes] = await Promise.allSettled([
-    fetch(`${BASE}/v2/pws/observations/current?stationId=${STATION}&format=json&units=m&apiKey=${WU_KEY}`),
+    fetch(`${BASE}/v2/pws/observations/current?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
     histUrl ? fetch(histUrl) : Promise.resolve(new Response('{}', { status: 200 })),
   ])
 
