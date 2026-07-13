@@ -30,17 +30,18 @@ export default async function handler() {
   if (!snapshotUrl) return new Response(null, { status: 404 })
 
   try {
-    const upstreamUrl = snapshotUrl + '?t=' + Date.now()
-    const res = await fetch(upstreamUrl, {
+    const res = await fetch(snapshotUrl, {
+      cache: 'no-store',
       signal: AbortSignal.timeout(8000),
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
     })
     if (!res.ok) return new Response(null, { status: 502 })
     const data = await res.arrayBuffer()
     return new Response(data, {
       headers: {
-        'Content-Type':  res.headers.get('Content-Type') ?? 'image/jpeg',
-        'Cache-Control': 'no-store',
+        'Content-Type':             res.headers.get('Content-Type') ?? 'image/jpeg',
+        'Cache-Control':            'no-store',
+        'CDN-Cache-Control':        'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
       },
     })
   } catch {

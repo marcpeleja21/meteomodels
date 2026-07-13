@@ -16,20 +16,19 @@ jobs:
         run: |
           for i in $(seq 1 9); do
             echo "=== Snapshot $i/9 ==="
-            if ffmpeg -rtsp_transport tcp \
-                 -i "${{ secrets.WEBCAM_RTSP_URL }}" \
-                 -vf scale=1280:-1 -frames:v 1 -q:v 3 -y snap.jpg 2>&1 | tail -3; then
-              curl -sf -X PUT \
-                "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
-                -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-                -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
-                -H "Content-Type: image/jpeg" \
-                -H "Cache-Control: no-store" \
-                -H "x-upsert: true" \
-                --data-binary @snap.jpg \
-              && echo "Snapshot $i uploaded OK" || echo "Snapshot $i upload failed"
-            else
-              echo "Snapshot $i capture failed, skipping upload"
-            fi
+            rm -f snap.jpg
+            ffmpeg -rtsp_transport tcp \
+              -i "${{ secrets.WEBCAM_RTSP_URL }}" \
+              -vf scale=1280:-1 -frames:v 1 -q:v 3 -y snap.jpg \
+            && curl -sf -X PUT \
+              "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
+              -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+              -H "Content-Type: image/jpeg" \
+              -H "Cache-Control: no-store" \
+              -H "x-upsert: true" \
+              --data-binary @snap.jpg \
+            && echo "Snapshot $i OK" \
+            || echo "Snapshot $i FAILED"
             [ $i -lt 9 ] && sleep 30
           done
