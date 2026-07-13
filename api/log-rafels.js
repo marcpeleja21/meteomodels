@@ -1,8 +1,5 @@
-/**
- * Vercel Edge Function — poll IRFALE2 every 10 min and upsert into Supabase
- * Triggered by Vercel Cron: "*/10 * * * *"
- * Requires env vars: SUPABASE_URL, SUPABASE_KEY, WU_KEY (optional override)
- */
+// Vercel Edge Function — poll IRFALE2 and upsert into Supabase
+// Triggered by Vercel Cron (vercel.json). Env: SUPABASE_URL, SUPABASE_KEY, WU_KEY
 export const config = { runtime: 'edge' }
 
 const WU_KEY  = process.env.WU_KEY  ?? '3b28991981854cdba8991981851cdbb8'
