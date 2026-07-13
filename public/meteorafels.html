@@ -1380,9 +1380,9 @@ function drawEvoChart(history) {
 /* ══════════════════════════════════════════════
    Data fetching
 ══════════════════════════════════════════════ */
-async function fetchPeriod(period) {
-  if (dataCache[period]) return dataCache[period]
-  const res = await fetch('/api/rafels?period=' + period)
+async function fetchPeriod(period, force = false) {
+  if (!force && dataCache[period]) return dataCache[period]
+  const res = await fetch('/api/rafels?period=' + period, force ? { cache: 'reload' } : {})
   if (!res.ok) throw new Error('HTTP ' + res.status)
   const data = await res.json()
   if (data.error) throw new Error(data.error)
@@ -1390,9 +1390,9 @@ async function fetchPeriod(period) {
   return data
 }
 
-async function loadDay() {
+async function loadDay(force = false) {
   try {
-    const data = await fetchPeriod('day')
+    const data = await fetchPeriod('day', force)
 
     $('stateWrap').classList.add('hidden')
     $('dataWrap').classList.remove('hidden')
@@ -1408,18 +1408,18 @@ async function loadDay() {
   }
 }
 
-async function switchPeriod(period) {
+async function switchPeriod(period, force = false) {
   activePeriod = period
   const evoLoading = $('evoLoading')
 
-  if (!dataCache[period]) {
+  if (force || !dataCache[period]) {
     if (evoLoading) evoLoading.classList.remove('hidden')
     const canvas = $('evoChart')
     if (canvas) canvas.style.opacity = '0'
   }
 
   try {
-    const data = await fetchPeriod(period)
+    const data = await fetchPeriod(period, force)
     if (evoLoading) evoLoading.classList.add('hidden')
     requestAnimationFrame(() => drawEvoChart(data.history))
   } catch (err) {
@@ -1472,13 +1472,22 @@ setInterval(() => {
   loadDay()
 }, REFRESH_MS)
 
-$('refreshBtn')?.addEventListener('click', () => {
-  delete dataCache[activePeriod]
-  if (activePeriod === 'day') {
-    loadDay()
-  } else {
-    renderCards(dataCache['day'] ?? {})
-    switchPeriod(activePeriod)
+$('refreshBtn')?.addEventListener('click', async () => {
+  const btn = $('refreshBtn')
+  if (btn.disabled) return
+  btn.disabled = true
+  btn.style.opacity = '0.5'
+  try {
+    delete dataCache['day']
+    delete dataCache[activePeriod]
+    if (activePeriod === 'day') {
+      await loadDay(true)
+    } else {
+      await Promise.all([loadDay(true), switchPeriod(activePeriod, true)])
+    }
+  } finally {
+    btn.disabled = false
+    btn.style.opacity = ''
   }
 })
 
