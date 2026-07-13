@@ -49,6 +49,10 @@ export default async function handler() {
         'Cache-Control':            'no-store',
         'CDN-Cache-Control':        'no-store',
         'Vercel-CDN-Cache-Control': 'no-store',
+        'X-Webcam-Mode':            supabaseKey ? 'auth' : 'public',
+        'X-Supabase-Status':        String(res.status),
+        'Last-Modified':            res.headers.get('Last-Modified') ?? '',
+        'ETag':                     res.headers.get('ETag') ?? '',
       },
     })
   } catch {
