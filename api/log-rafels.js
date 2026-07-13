@@ -31,7 +31,7 @@ export default async function handler() {
       humidity:  s.humidityAvg         ?? null,
       precip:    s.metric?.precipTotal ?? null,
     }))
-    .filter(r => r.date)
+    .filter(r => r.obs_date)
 
   if (!rows.length) {
     return new Response(JSON.stringify({ upserted: 0 }), {
