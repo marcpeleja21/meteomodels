@@ -1,0 +1,26 @@
+name: Webcam Snapshot
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Grab snapshot from RTSP
+        run: |
+          ffmpeg -rtsp_transport tcp \
+            -i "${{ secrets.WEBCAM_RTSP_URL }}" \
+            -frames:v 1 -q:v 2 -y snap.jpg
+
+      - name: Upload to Supabase Storage
+        run: |
+          curl -s -X PUT \
+            "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            -H "Content-Type: image/jpeg" \
+            -H "x-upsert: true" \
+            --data-binary @snap.jpg
