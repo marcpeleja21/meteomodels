@@ -97,26 +97,34 @@ export default async function handler(request) {
       wind:     h.wind,
     }))
   } else if (period === 'month') {
-    // 30-day history: ERA5 reanalysis as baseline, overlaid with WU station data
-    // for the last 7 days — station readings capture local peaks ERA5 grid misses
+    // 30-day history: ERA5 baseline → Supabase station overlay → WU 7-day overlay (freshest)
     const lat = obs.lat ?? 38.73
     const lon = obs.lon ?? -0.63
     const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
     const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 29)
     const fmtDate = d => d.toISOString().slice(0, 10)
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_KEY
     try {
-      const [omRes, wuRes] = await Promise.allSettled([
+      const [omRes, sbRes, wuRes] = await Promise.allSettled([
         fetch(
           `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
           `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
           `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max` +
           `&timezone=Europe%2FMadrid`
         ),
+        supabaseUrl && supabaseKey
+          ? fetch(
+              `${supabaseUrl}/rest/v1/observations?obs_date=gte.${fmtDate(startDate)}&obs_date=lte.${fmtDate(endDate)}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date.asc`,
+              { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+            )
+          : Promise.resolve(new Response('[]', { status: 200 })),
         fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
       ])
 
       let history = []
 
+      // 1. ERA5 baseline
       if (omRes.status === 'fulfilled' && omRes.value.ok) {
         const { daily } = await omRes.value.json()
         history = (daily?.time ?? []).map((date, i) => ({
@@ -126,10 +134,28 @@ export default async function handler(request) {
           tempAvg:  daily.temperature_2m_mean?.[i]       ?? null,
           humidity: daily.relative_humidity_2m_mean?.[i] ?? null,
           precip:   daily.precipitation_sum?.[i]         ?? null,
-          windHigh: daily.wind_speed_10m_max?.[i]         ?? null,
+          windHigh: daily.wind_speed_10m_max?.[i]        ?? null,
         }))
       }
 
+      // 2. Supabase overlay — actual station readings for all stored dates
+      if (sbRes.status === 'fulfilled' && sbRes.value.ok) {
+        const sbRows = await sbRes.value.json()
+        const sbByDate = {}
+        for (const r of (Array.isArray(sbRows) ? sbRows : [])) {
+          if (r.obs_date) sbByDate[r.obs_date] = {
+            tempHigh: r.temp_high ?? null,
+            tempLow:  r.temp_low  ?? null,
+            tempAvg:  r.temp_avg  ?? null,
+            humidity: r.humidity  ?? null,
+            precip:   r.precip    ?? null,
+            windHigh: r.wind_high ?? null,
+          }
+        }
+        history = history.map(h => sbByDate[h.date] ? { date: h.date, ...sbByDate[h.date] } : h)
+      }
+
+      // 3. WU 7-day overlay — freshest station data takes priority
       if (wuRes.status === 'fulfilled' && wuRes.value.ok) {
         const wuJson = await wuRes.value.json()
         const rows = wuJson?.summaries ?? wuJson?.observations ?? []
@@ -137,11 +163,11 @@ export default async function handler(request) {
         for (const s of rows) {
           const date = (s.obsTimeLocal ?? '').slice(0, 10)
           if (date) wuByDate[date] = {
-            tempHigh: s.metric?.tempHigh       ?? null,
-            tempLow:  s.metric?.tempLow        ?? null,
-            tempAvg:  s.metric?.tempAvg        ?? null,
-            humidity: s.humidityAvg            ?? null,
-            precip:   s.metric?.precipTotal    ?? null,
+            tempHigh: s.metric?.tempHigh                             ?? null,
+            tempLow:  s.metric?.tempLow                             ?? null,
+            tempAvg:  s.metric?.tempAvg                             ?? null,
+            humidity: s.humidityAvg                                 ?? null,
+            precip:   s.metric?.precipTotal                         ?? null,
             windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
           }
         }
