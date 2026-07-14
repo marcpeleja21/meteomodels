@@ -72,28 +72,30 @@ export default async function handler(request) {
 
     const buckets = new Map()
     for (const o of todayObs) {
-      const hourKey = (o.obsTimeLocal ?? '').slice(0, 13) // 'YYYY-MM-DD HH'
-      if (!hourKey) continue
-      if (!buckets.has(hourKey)) buckets.set(hourKey, { temps: [], humids: [], precipCum: 0, winds: [] })
-      const b = buckets.get(hourKey)
+      const tStr = o.obsTimeLocal ?? ''
+      if (!tStr) continue
+      const min = parseInt(tStr.slice(14, 16) || '0', 10)
+      const slotKey = tStr.slice(0, 13) + ':' + (min < 30 ? '00' : '30') // 'YYYY-MM-DD HH:MM'
+      if (!buckets.has(slotKey)) buckets.set(slotKey, { temps: [], humids: [], precipCum: 0, winds: [] })
+      const b = buckets.get(slotKey)
       if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
       if (o.humidityAvg != null) b.humids.push(o.humidityAvg)
       if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal // last reading wins (cumulative)
       const ws = o.metric?.windSpeedAvg ?? o.metric?.windspeedAvg ?? o.metric?.windSpeed ?? o.metric?.windspeed
       if (ws != null) b.winds.push(ws)
     }
-    const hours = [...buckets.entries()].map(([hourKey, b]) => ({
-      time:      hourKey + ':00:00',
+    const slots = [...buckets.entries()].map(([slotKey, b]) => ({
+      time:      slotKey + ':00',
       temp:      b.temps.length  ? b.temps.reduce((a, c) => a + c, 0) / b.temps.length   : null,
       humidity:  b.humids.length ? b.humids.reduce((a, c) => a + c, 0) / b.humids.length : null,
       precipCum: b.precipCum,
       wind:      b.winds.length  ? b.winds.reduce((a, c) => a + c, 0) / b.winds.length   : null,
     }))
-    result.history = hours.map((h, i) => ({
+    result.history = slots.map((h, i) => ({
       time:     h.time,
       temp:     h.temp,
       humidity: h.humidity,
-      precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - hours[i - 1].precipCum),
+      precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - slots[i - 1].precipCum),
       wind:     h.wind,
     }))
   } else if (period === 'month') {

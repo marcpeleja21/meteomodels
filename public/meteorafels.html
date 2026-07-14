@@ -265,17 +265,35 @@
     }
     .forecast-strip::-webkit-scrollbar { display: none }
     .fc-day {
-      flex: 0 0 72px; text-align: center;
+      flex: 0 0 80px; text-align: center;
       background: var(--card); border: 1px solid var(--card-border);
       border-radius: var(--radius-sm); padding: 10px 6px 9px;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
-    .fc-day-name { font-size: .68rem; color: var(--text-muted); font-weight: 600; letter-spacing: .4px; text-transform: uppercase }
-    .fc-icon     { font-size: 1.55rem; line-height: 1.2 }
-    .fc-hi       { font-size: .82rem; font-weight: 700; color: var(--orange) }
-    .fc-lo       { font-size: .82rem; color: var(--accent2) }
-    .fc-rain     { font-size: .68rem; color: var(--accent2); opacity: .8; margin-top: 1px }
-    .fc-precip   { font-size: .68rem; opacity: .85; margin-top: 1px }
+    .fc-day-name { font-size: .64rem; color: var(--text-muted); font-weight: 600; letter-spacing: .4px; text-transform: uppercase }
+    .fc-icon     { font-size: 1.55rem; line-height: 1.2; margin: 2px 0 }
+    .fc-temps    { display: flex; align-items: baseline; justify-content: center; gap: 3px; margin-top: 2px }
+    .fc-hi       { font-size: .84rem; font-weight: 700 }
+    .fc-sep      { font-size: .7rem; color: var(--text-dim) }
+    .fc-lo       { font-size: .78rem }
+    .fc-conds    { display: flex; flex-direction: column; align-items: center; gap: 2px;
+                   margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,.08); width: 100% }
+    .fc-rain     { font-size: .68rem; color: var(--accent2); opacity: .8 }
+    .fc-precip   { font-size: .68rem; opacity: .85 }
+    .fc-expand   {
+      flex: 0 0 58px; cursor: pointer; align-self: stretch;
+      background: rgba(255,255,255,.03); border: 1px dashed rgba(255,255,255,.18);
+      border-radius: var(--radius-sm); padding: 8px 4px;
+      color: var(--text-muted); font-size: .68rem; font-family: var(--font-ui);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; transition: all .18s; line-height: 1.35; text-align: center;
+    }
+    .fc-expand:hover { border-color: rgba(255,255,255,.38); color: var(--text); background: rgba(255,255,255,.07) }
+    .fc-expand-icon  { font-size: 1.2rem }
+    .fc-accuracy-note {
+      font-size: .62rem; color: var(--text-muted); opacity: .7;
+      margin-top: 7px; text-align: center; line-height: 1.5;
+    }
 
     /* ── Evolution chart section ── */
     .evo-controls {
@@ -312,7 +330,7 @@
       border-color: rgba(174,213,129,.40);
       color: #aed581;
     }
-    .fc-wind { font-size: .72rem; margin-top: 2px }
+    .fc-wind { font-size: .68rem }
     .evo-wrap {
       background: var(--card);
       backdrop-filter: blur(16px) saturate(1.4);
@@ -525,6 +543,7 @@
     <!-- ③  7-day forecast -->
     <div class="section-title" id="forecastSectionTitle">📅 Previsió</div>
     <div class="forecast-strip" id="forecastStrip"></div>
+    <div id="fcAccuracyNote" class="fc-accuracy-note hidden"></div>
 
     <!-- ④  Evolution charts -->
     <div class="section-title" id="evoSectionTitle">📊 Evolució</div>
@@ -602,7 +621,8 @@ let activePeriod = 'day'    // 'day'  | 'week' | 'month'
 const dataCache  = {}       // { day:{}, week:{}, month:{} }
 const chartHover = { canvas: null, image: null, history: null, pad: null, cw: 0, ch: 0, W: 0, H: 0 }
 let webcamState  = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
-let forecastDaily = null    // blended multi-model daily forecast: [{date,hi,lo,prob,code}]
+let forecastDaily    = null  // blended multi-model daily forecast: [{date,hi,lo,prob,code}]
+let forecastExpanded = false // show all 7 days vs. initial 4
 
 /* ══════════════════════════════════════════════
    i18n
@@ -636,6 +656,8 @@ const LANG = {
     west: 'O',
     ttipHi: 'Temperatura màxima', ttipLo: 'Temperatura mínima',
     ttipRainProb: 'Probabilitat de pluja', ttipPrecipMm: 'Precipitació prevista', ttipWind: 'Vent màxim',
+    fcExpand: '+3 dies', fcExpandHint: 'Estimar llarg termini',
+    fcAccuracy: '⚠ La previsió a llarg termini pot ser menys precisa',
   },
   es: {
     locale: 'es-ES',
@@ -665,6 +687,8 @@ const LANG = {
     west: 'O',
     ttipHi: 'Temperatura máxima', ttipLo: 'Temperatura mínima',
     ttipRainProb: 'Probabilidad de lluvia', ttipPrecipMm: 'Precipitación prevista', ttipWind: 'Viento máximo',
+    fcExpand: '+3 días', fcExpandHint: 'Estimación largo plazo',
+    fcAccuracy: '⚠ La previsión a largo plazo puede ser menos precisa',
   },
   en: {
     locale: 'en-GB',
@@ -694,6 +718,8 @@ const LANG = {
     west: 'W',
     ttipHi: 'Max temperature', ttipLo: 'Min temperature',
     ttipRainProb: 'Rain probability', ttipPrecipMm: 'Expected precipitation', ttipWind: 'Max wind speed',
+    fcExpand: '+3 days', fcExpandHint: 'Long-range estimate',
+    fcAccuracy: '⚠ Long-range forecast — accuracy decreases beyond 3 days',
   },
 }
 
@@ -928,7 +954,8 @@ function renderForecastStrip() {
   const strip = $('forecastStrip')
   if (!strip || !forecastDaily?.length) return
   const t = LANG[currentLang]
-  strip.innerHTML = forecastDaily.map((day, i) => {
+  const days = forecastExpanded ? forecastDaily : forecastDaily.slice(0, 4)
+  strip.innerHTML = days.map((day, i) => {
     const dt      = new Date(day.date + 'T12:00:00')
     const name    = i === 0 ? t.todayLabel : t.dayAbbr[dt.getDay()]
     const icon    = wmoEmoji(day.code)
@@ -944,14 +971,39 @@ function renderForecastStrip() {
     const wind    = day.wind != null && day.wind >= 10
       ? `<div class="fc-wind" style="color:${windColor(day.wind)}" title="${t.ttipWind}">💨 ${Math.round(day.wind)}km/h</div>`
       : ''
+    const conds   = rain || precipMm || wind
+      ? `<div class="fc-conds">${rain}${precipMm}${wind}</div>`
+      : ''
     return `<div class="fc-day">
       <div class="fc-day-name">${name}</div>
       <div class="fc-icon">${icon}</div>
-      <div class="fc-hi" style="color:${hiColor}" title="${t.ttipHi}">${hi}</div>
-      <div class="fc-lo" style="color:${loColor}" title="${t.ttipLo}">${lo}</div>
-      ${rain}${precipMm}${wind}
+      <div class="fc-temps">
+        <span class="fc-hi" style="color:${hiColor}" title="${t.ttipHi}">${hi}</span>
+        <span class="fc-sep">/</span>
+        <span class="fc-lo" style="color:${loColor}" title="${t.ttipLo}">${lo}</span>
+      </div>
+      ${conds}
     </div>`
   }).join('')
+
+  if (!forecastExpanded && forecastDaily.length > 4) {
+    strip.innerHTML += `<button class="fc-expand" onclick="expandForecast()" title="${t.fcAccuracy}">
+      <span class="fc-expand-icon">›</span>
+      <span>${t.fcExpand}</span>
+      <span style="font-size:.6rem;opacity:.7">${t.fcExpandHint}</span>
+    </button>`
+  }
+
+  const note = document.getElementById('fcAccuracyNote')
+  if (note) {
+    note.textContent = forecastExpanded ? t.fcAccuracy : ''
+    note.classList.toggle('hidden', !forecastExpanded)
+  }
+}
+
+function expandForecast() {
+  forecastExpanded = true
+  renderForecastStrip()
 }
 
 async function loadForecast() {
