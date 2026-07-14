@@ -275,6 +275,7 @@
     .fc-hi       { font-size: .82rem; font-weight: 700; color: var(--orange) }
     .fc-lo       { font-size: .82rem; color: var(--accent2) }
     .fc-rain     { font-size: .68rem; color: var(--accent2); opacity: .8; margin-top: 1px }
+    .fc-precip   { font-size: .68rem; opacity: .85; margin-top: 1px }
 
     /* ── Evolution chart section ── */
     .evo-controls {
@@ -586,9 +587,11 @@ function colorScale(stops, v) {
 const TEMP_MAX_STOPS = [[-5,'#b39ddb'],[0,'#89c4f4'],[5,'#64b5f6'],[12,'#81c784'],[20,'#ffd54f'],[30,'#ff8a65'],[40,'#f44336']]
 const TEMP_MIN_STOPS = [[-12,'#b39ddb'],[-5,'#89c4f4'],[0,'#64b5f6'],[8,'#81c784'],[15,'#ffd54f'],[23,'#ff8a65'],[30,'#f44336']]
 const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
+const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f']]
 function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
 function tempMinColor(v) { return v == null ? '#888' : colorScale(TEMP_MIN_STOPS, v) }
 function windColor(v)    { return v == null || v < 20 ? '#aed581' : colorScale(WIND_STOPS, v) }
+function precipColor(v)  { return v == null || v === 0 ? '#666' : colorScale(PRECIP_STOPS, v) }
 
 /* ══════════════════════════════════════════════
    State
@@ -928,7 +931,10 @@ function renderForecastStrip() {
     const hiColor = tempMaxColor(day.hi)
     const loColor = tempMinColor(day.lo)
     const prob    = day.prob ?? 0
-    const rain    = prob >= 10 ? `<div class="fc-rain">💧 ${Math.round(prob)}%</div>` : ''
+    const rain    = prob >= 10 ? `<div class="fc-rain">💦 ${Math.round(prob)}%</div>` : ''
+    const precipMm = day.precip != null && day.precip > 0
+      ? `<div class="fc-precip" style="color:${precipColor(day.precip)}">🌧 ${day.precip.toFixed(1)} mm</div>`
+      : ''
     const wind    = day.wind != null && day.wind >= 10
       ? `<div class="fc-wind" style="color:${windColor(day.wind)}">💨 ${Math.round(day.wind)}km/h</div>`
       : ''
@@ -937,14 +943,14 @@ function renderForecastStrip() {
       <div class="fc-icon">${icon}</div>
       <div class="fc-hi" style="color:${hiColor}">${hi}</div>
       <div class="fc-lo" style="color:${loColor}">${lo}</div>
-      ${rain}${wind}
+      ${rain}${precipMm}${wind}
     </div>`
   }).join('')
 }
 
 async function loadForecast() {
   const LAT = '38.73', LON = '-0.63'
-  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max'
+  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max'
   const TZ    = 'Europe/Madrid'
 
   // Models and their max forecast days (mirrors getActiveModels for this location)
@@ -989,11 +995,12 @@ async function loadForecast() {
     const sources = valid.filter(x => i < x.maxDays).map(x => x.daily)
     return {
       date,
-      hi:   fcAvg(sources.map(d => d.temperature_2m_max?.[i] ?? null)),
-      lo:   fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
-      prob: fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
-      code: fcModal(sources.map(d => d.weather_code?.[i] ?? null)),
-      wind: fcAvg(sources.map(d => d.wind_speed_10m_max?.[i] ?? null)),
+      hi:     fcAvg(sources.map(d => d.temperature_2m_max?.[i] ?? null)),
+      lo:     fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
+      prob:   fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
+      precip: fcAvg(sources.map(d => d.precipitation_sum?.[i] ?? null)),
+      code:   fcModal(sources.map(d => d.weather_code?.[i] ?? null)),
+      wind:   fcAvg(sources.map(d => d.wind_speed_10m_max?.[i] ?? null)),
     }
   })
 
