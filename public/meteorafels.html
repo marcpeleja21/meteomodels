@@ -634,6 +634,8 @@ const LANG = {
     compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
     dayAbbr: ['Dg','Dl','Dm','Dc','Dj','Dv','Ds'],
     west: 'O',
+    ttipHi: 'Temperatura màxima', ttipLo: 'Temperatura mínima',
+    ttipRainProb: 'Probabilitat de pluja', ttipPrecipMm: 'Precipitació prevista', ttipWind: 'Vent màxim',
   },
   es: {
     locale: 'es-ES',
@@ -661,6 +663,8 @@ const LANG = {
     compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
     dayAbbr: ['Do','Lu','Ma','Mi','Ju','Vi','Sá'],
     west: 'O',
+    ttipHi: 'Temperatura máxima', ttipLo: 'Temperatura mínima',
+    ttipRainProb: 'Probabilidad de lluvia', ttipPrecipMm: 'Precipitación prevista', ttipWind: 'Viento máximo',
   },
   en: {
     locale: 'en-GB',
@@ -688,6 +692,8 @@ const LANG = {
     compass: ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],
     dayAbbr: ['Su','Mo','Tu','We','Th','Fr','Sa'],
     west: 'W',
+    ttipHi: 'Max temperature', ttipLo: 'Min temperature',
+    ttipRainProb: 'Rain probability', ttipPrecipMm: 'Expected precipitation', ttipWind: 'Max wind speed',
   },
 }
 
@@ -931,18 +937,18 @@ function renderForecastStrip() {
     const hiColor = tempMaxColor(day.hi)
     const loColor = tempMinColor(day.lo)
     const prob    = day.prob ?? 0
-    const rain    = prob >= 10 ? `<div class="fc-rain">💦 ${Math.round(prob)}%</div>` : ''
+    const rain    = prob >= 10 ? `<div class="fc-rain" title="${t.ttipRainProb}">💦 ${Math.round(prob)}%</div>` : ''
     const precipMm = day.precip != null && day.precip > 0
-      ? `<div class="fc-precip" style="color:${precipColor(day.precip)}">🌧 ${day.precip.toFixed(1)} mm</div>`
+      ? `<div class="fc-precip" style="color:${precipColor(day.precip)}" title="${t.ttipPrecipMm}">🌧 ${day.precip.toFixed(1)} mm</div>`
       : ''
     const wind    = day.wind != null && day.wind >= 10
-      ? `<div class="fc-wind" style="color:${windColor(day.wind)}">💨 ${Math.round(day.wind)}km/h</div>`
+      ? `<div class="fc-wind" style="color:${windColor(day.wind)}" title="${t.ttipWind}">💨 ${Math.round(day.wind)}km/h</div>`
       : ''
     return `<div class="fc-day">
       <div class="fc-day-name">${name}</div>
       <div class="fc-icon">${icon}</div>
-      <div class="fc-hi" style="color:${hiColor}">${hi}</div>
-      <div class="fc-lo" style="color:${loColor}">${lo}</div>
+      <div class="fc-hi" style="color:${hiColor}" title="${t.ttipHi}">${hi}</div>
+      <div class="fc-lo" style="color:${loColor}" title="${t.ttipLo}">${lo}</div>
       ${rain}${precipMm}${wind}
     </div>`
   }).join('')
