@@ -75,7 +75,7 @@ export default async function handler(request) {
       const tStr = o.obsTimeLocal ?? ''
       if (!tStr) continue
       const min = parseInt(tStr.slice(14, 16) || '0', 10)
-      const slotKey = tStr.slice(0, 13) + ':' + (min < 30 ? '00' : '30') // 'YYYY-MM-DD HH:MM'
+      const slotKey = tStr.slice(0, 13) + ':' + String(Math.floor(min / 15) * 15).padStart(2, '0') // 'YYYY-MM-DD HH:MM'
       if (!buckets.has(slotKey)) buckets.set(slotKey, { temps: [], humids: [], precipCum: 0, winds: [] })
       const b = buckets.get(slotKey)
       if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
