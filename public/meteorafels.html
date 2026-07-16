@@ -110,6 +110,14 @@
       border-radius: var(--radius-sm); transition: border-color .2s, color .2s;
     }
     .back-link:hover { border-color: rgba(255,255,255,0.3); color: var(--text) }
+    .x-link {
+      display: flex; align-items: center; gap: 5px;
+      font-size: .74rem; color: var(--text-muted); text-decoration: none;
+      padding: 5px 10px; border: 1px solid rgba(255,255,255,0.10);
+      border-radius: var(--radius-sm); transition: border-color .2s, color .2s;
+    }
+    .x-link:hover { border-color: rgba(255,255,255,0.3); color: var(--text) }
+    .x-link svg { width: 13px; height: 13px; fill: currentColor; flex-shrink: 0 }
     .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px }
     .lang-switch {
       display: flex; gap: 2px; background: rgba(255,255,255,.06);
@@ -440,6 +448,9 @@
       <button class="lang-btn" data-lang="en">EN</button>
     </div>
     <button class="refresh-btn" id="refreshBtn" aria-label="Actualitzar dades">↻</button>
+    <a href="https://x.com/MeteoRafels" target="_blank" rel="noopener" class="x-link" aria-label="MeteoRàfels a X">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+    </a>
     <a href="/" class="back-link">← MeteoModels</a>
   </div>
 </header>
