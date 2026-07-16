@@ -64,6 +64,14 @@ export default async function handler(req) {
 
   // Work in Madrid local time
   const nowLocal  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }))
+
+  // Two cron slots cover DST (7 UTC = 9 AM CEST, 8 UTC = 9 AM CET).
+  // Only the one that fires at 9 AM local should post.
+  if (nowLocal.getHours() !== 9) {
+    return new Response(JSON.stringify({ ok: true, skipped: true, localHour: nowLocal.getHours() }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
   const yesterLocal = new Date(nowLocal); yesterLocal.setDate(yesterLocal.getDate() - 1)
   const yStr = `${yesterLocal.getFullYear()}-${String(yesterLocal.getMonth()+1).padStart(2,'0')}-${String(yesterLocal.getDate()).padStart(2,'0')}`
 
