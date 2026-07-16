@@ -16,7 +16,6 @@ const LON     = '-0.63'
 const TZ      = 'Europe/Madrid'
 const DAILY   = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max'
 
-// Same 10-model ensemble as meteorafels.html
 const MODELS = [
   { id: 'ecmwf_ifs025',               days: 7 },
   { id: 'icon_eu',                     days: 7 },
@@ -33,8 +32,6 @@ const MODELS = [
 const CA_DAYS   = ['dg', 'dl', 'dm', 'dc', 'dj', 'dv', 'ds']
 const CA_MONTHS = ['gen', 'feb', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'des']
 
-// ── Forecast helpers (mirror meteorafels.html) ───────────────────────────────
-
 function fcAvg(vals) {
   const v = vals.filter(x => x != null)
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
@@ -49,17 +46,15 @@ function fcModal(vals) {
 }
 
 function wmoIcon(code) {
-  if (code === 0)              return '☀️'
-  if (code <= 2)               return '⛅'
-  if (code === 3)              return '☁️'
-  if (code >= 51 && code <= 67) return '🌧️'
-  if (code >= 71 && code <= 79) return '🌨️'
-  if (code >= 80 && code <= 82) return '🌦️'
-  if (code >= 95)              return '⛈️'
+  if (code === 0)                    return '☀️'
+  if (code <= 2)                     return '⛅'
+  if (code === 3)                    return '☁️'
+  if (code >= 51 && code <= 67)      return '🌧️'
+  if (code >= 71 && code <= 79)      return '🌨️'
+  if (code >= 80 && code <= 82)      return '🌦️'
+  if (code >= 95)                    return '⛈️'
   return '🌫️'
 }
-
-// ── OAuth 1.0a ───────────────────────────────────────────────────────────────
 
 function pct(s) { return encodeURIComponent(String(s)) }
 
@@ -84,9 +79,7 @@ function oauthHeader(method, url, creds) {
     .join(', ')
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   const creds = {
     consumerKey:    process.env.TW_CONSUMER_KEY,
     consumerSecret: process.env.TW_CONSUMER_SECRET,
@@ -94,25 +87,19 @@ export default async function handler(req) {
     accessSecret:   process.env.TW_ACCESS_SECRET,
   }
   if (!creds.consumerKey) {
-    return new Response('Missing Twitter env vars', { status: 500 })
+    return res.status(500).json({ error: 'Missing Twitter env vars' })
   }
 
-  const url    = new URL(req.url)
-  const force  = url.searchParams.get('force') === '1'
+  const force    = (req.url ?? '').includes('force=1')
   const nowLocal = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }))
 
-  // Two cron slots cover DST; only post at 9 AM Madrid unless ?force=1
   if (!force && nowLocal.getHours() !== 9) {
-    return new Response(JSON.stringify({ ok: true, skipped: true, localHour: nowLocal.getHours() }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return res.status(200).json({ ok: true, skipped: true, localHour: nowLocal.getHours() })
   }
 
   const yesterLocal = new Date(nowLocal)
   yesterLocal.setDate(yesterLocal.getDate() - 1)
   const yStr = `${yesterLocal.getFullYear()}-${String(yesterLocal.getMonth()+1).padStart(2,'0')}-${String(yesterLocal.getDate()).padStart(2,'0')}`
-
-  // ── Fetch in parallel: WU yesterday + 10 Open-Meteo models ─────────────
 
   const makeOmUrl = (id, days) => {
     const p = new URLSearchParams({ latitude: LAT, longitude: LON, daily: DAILY, models: id, forecast_days: String(days), timezone: TZ })
@@ -124,8 +111,7 @@ export default async function handler(req) {
     ...MODELS.map(({ id, days }) => fetch(makeOmUrl(id, days)).then(r => r.ok ? r.json() : null).catch(() => null)),
   ])
 
-  // ── Yesterday's actuals (WU station) ────────────────────────────────────
-
+  // Yesterday's actuals from WU station
   let yHi = null, yLo = null, yPrecip = null, yWind = null
   if (wuSettled.status === 'fulfilled' && wuSettled.value.ok) {
     const j    = await wuSettled.value.json()
@@ -139,8 +125,7 @@ export default async function handler(req) {
     }
   }
 
-  // ── Today's blended forecast (10-model average, mirrors meteorafels.html) ─
-
+  // Today's blended forecast — same 10-model average as meteorafels.html
   const valid = omSettled
     .map((r, i) => ({ maxDays: MODELS[i].days, daily: r.status === 'fulfilled' ? r.value?.daily : null }))
     .filter(x => x.daily?.time?.length)
@@ -148,15 +133,13 @@ export default async function handler(req) {
   let tIcon = '🌤️', tHi = null, tLo = null, tPrecip = null, tRainProb = null
   if (valid.length) {
     const sources = valid.filter(x => 0 < x.maxDays).map(x => x.daily)
-    const code    = fcModal(sources.map(d => d.weather_code?.[0] ?? null))
-    tIcon    = wmoIcon(code)
-    tHi      = Math.round(fcAvg(sources.map(d => d.temperature_2m_max?.[0]           ?? null)) ?? 0)
-    tLo      = Math.round(fcAvg(sources.map(d => d.temperature_2m_min?.[0]           ?? null)) ?? 0)
-    tPrecip  = +(fcAvg(sources.map(d => d.precipitation_sum?.[0]                     ?? null)) ?? 0)
+    const code    = fcModal(sources.map(d => d.weather_code?.[0]               ?? null))
+    tIcon     = wmoIcon(code)
+    tHi       = Math.round(fcAvg(sources.map(d => d.temperature_2m_max?.[0]           ?? null)) ?? 0)
+    tLo       = Math.round(fcAvg(sources.map(d => d.temperature_2m_min?.[0]           ?? null)) ?? 0)
+    tPrecip   = +(fcAvg(sources.map(d => d.precipitation_sum?.[0]                     ?? null)) ?? 0)
     tRainProb = Math.round(fcAvg(sources.map(d => d.precipitation_probability_max?.[0] ?? null)) ?? 0)
   }
-
-  // ── Build tweet ──────────────────────────────────────────────────────────
 
   const yDay  = CA_DAYS[yesterLocal.getDay()]
   const yDate = `${yesterLocal.getDate()} ${CA_MONTHS[yesterLocal.getMonth()]}`
@@ -184,8 +167,6 @@ export default async function handler(req) {
 
   const text = lines.join('\n')
 
-  // ── Post ────────────────────────────────────────────────────────────────
-
   const tweetUrl = 'https://api.twitter.com/2/tweets'
   const auth     = oauthHeader('POST', tweetUrl, creds)
   const tweetRes = await fetch(tweetUrl, {
@@ -196,11 +177,9 @@ export default async function handler(req) {
 
   if (!tweetRes.ok) {
     const err = await tweetRes.text()
-    return new Response(`Twitter error ${tweetRes.status}: ${err}`, { status: 502 })
+    return res.status(502).json({ error: `Twitter ${tweetRes.status}`, detail: err })
   }
 
   const data = await tweetRes.json()
-  return new Response(JSON.stringify({ ok: true, text, id: data?.data?.id }), {
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return res.status(200).json({ ok: true, text, id: data?.data?.id })
 }
