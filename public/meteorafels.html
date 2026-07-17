@@ -222,6 +222,17 @@
     }
     .webcam-icon { font-size: 3rem; opacity: .22 }
     .webcam-msg  { font-size: .82rem; color: var(--text-muted); text-align: center; max-width: 380px; line-height: 1.55 }
+    .webcam-lightbox {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.88); backdrop-filter: blur(8px) saturate(1.2);
+      -webkit-backdrop-filter: blur(8px) saturate(1.2);
+      align-items: center; justify-content: center; cursor: zoom-out;
+    }
+    .webcam-lightbox.open { display: flex }
+    .webcam-lightbox img {
+      max-width: 92vw; max-height: 92vh; border-radius: 8px;
+      object-fit: contain; box-shadow: 0 16px 60px rgba(0,0,0,.8);
+    }
 
     /* ── Metric cards grid ── */
     .grid {
@@ -845,7 +856,7 @@ async function mountStream(el, url) {
     img.className = 'webcam-img'
     img.alt = 'Webcam Ràfels'
     img.src = url
-    img.addEventListener('click', () => window.open(url, '_blank'))
+    img.addEventListener('click', () => openLightbox(url))
     el.appendChild(img)
     return
   }
@@ -892,7 +903,7 @@ function mountSnapshot(el) {
   img.className = 'webcam-img'
   img.alt = 'Webcam Ràfels'
   img.title = 'Clic per obrir en pantalla completa'
-  img.addEventListener('click', () => window.open('/api/webcam-rafels', '_blank'))
+  img.addEventListener('click', () => openLightbox('/api/webcam-rafels?t=' + Date.now()))
   el.appendChild(img)
 
   function refresh() {
@@ -1382,7 +1393,7 @@ function handleChartHover(clientX) {
     const yMax = allV.length ? Math.max(...allV) + 1 : 1
     const v = activePeriod === 'day' ? pt.temp : (pt.tempAvg ?? pt.temp)
     if (v != null) dotY = pad.t + ch - ((v - yMin) / (yMax - yMin || 1)) * ch
-    dotColor = '#00d2e6'
+    dotColor = v != null ? tempMaxColor(v) : '#00d2e6'
   } else if (activeMetric === 'humidity') {
     const vals = history.map(h => h.humidity).filter(v => v != null)
     if (vals.length >= 2 && pt.humidity != null) {
@@ -1407,7 +1418,8 @@ function handleChartHover(clientX) {
   })() : ''
 
   if (activeMetric === 'temp') {
-    valColor = '#00d2e6'
+    const tv = activePeriod === 'day' ? pt.temp : (pt.tempAvg ?? pt.temp)
+    valColor = tv != null ? tempMaxColor(tv) : '#00d2e6'
     if (activePeriod === 'day') {
       label = (pt.time ?? '').slice(11, 16)
       value = pt.temp != null ? fmt(pt.temp) + '°C' : '—'
@@ -1763,6 +1775,24 @@ window.addEventListener('resize', () => {
 
   document.addEventListener('touchcancel', () => { pulling = false; hide() }, { passive: true })
 })()
+
+/* ── Webcam lightbox ── */
+function openLightbox(src) {
+  const lb  = $('webcamLightbox')
+  const img = $('webcamLightboxImg')
+  if (!lb || !img) return
+  img.src = src
+  lb.classList.add('open')
+}
+function closeLightbox() {
+  const lb = $('webcamLightbox')
+  if (lb) lb.classList.remove('open')
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox() })
 </script>
+
+<div class="webcam-lightbox" id="webcamLightbox" onclick="closeLightbox()">
+  <img id="webcamLightboxImg" src="" alt="Webcam Ràfels">
+</div>
 </body>
 </html>
