@@ -179,23 +179,40 @@ export default async function handler(request) {
     if (!result.history) result.history = []
   } else {
     // Week: Open-Meteo historical hourly → 2 slots per day (AM 00-11h / PM 12-23h)
+    // Station accuracy applied via Supabase daily overlay (lower priority) then WU 7-day (higher priority):
+    //   AM slot ← station tempLow (morning minimum)
+    //   PM slot ← station tempHigh, windHigh, precip total
+    //   both   ← station humidity
     const lat = obs.lat ?? 38.73
     const lon = obs.lon ?? -0.63
     const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
     const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 6)
     const fmtDate = d => d.toISOString().slice(0, 10)
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_KEY
     try {
-      const omRes = await fetch(
-        `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
-        `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
-        `&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m` +
-        `&timezone=Europe%2FMadrid`
-      )
-      if (omRes.ok) {
-        const { hourly } = await omRes.json()
-        const slots = new Map()
+      const [omRes, sbRes, wuRes] = await Promise.allSettled([
+        fetch(
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+          `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
+          `&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m` +
+          `&timezone=Europe%2FMadrid`
+        ),
+        supabaseUrl && supabaseKey
+          ? fetch(
+              `${supabaseUrl}/rest/v1/observations?obs_date=gte.${fmtDate(startDate)}&obs_date=lte.${fmtDate(endDate)}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date.asc`,
+              { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+            )
+          : Promise.resolve(new Response('[]', { status: 200 })),
+        fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
+      ])
+
+      // Build AM/PM buckets from Open-Meteo hourly (shape baseline)
+      const slots = new Map()
+      if (omRes.status === 'fulfilled' && omRes.value.ok) {
+        const { hourly } = await omRes.value.json()
         for (let i = 0; i < hourly.time.length; i++) {
-          const dt   = hourly.time[i]              // "YYYY-MM-DDTHH:00"
+          const dt   = hourly.time[i]
           const date = dt.slice(0, 10)
           const hour = parseInt(dt.slice(11, 13), 10)
           const slot = hour < 12 ? 'AM' : 'PM'
@@ -207,17 +224,57 @@ export default async function handler(request) {
           const w = hourly.wind_speed_10m[i];       if (w != null) b.winds.push(w)
           const h = hourly.relative_humidity_2m[i]; if (h != null) b.humids.push(h)
         }
-        result.history = [...slots.values()].map(b => ({
+      }
+
+      // Station data map: Supabase first (lower priority), WU overwrites (higher priority)
+      const station = {}
+      if (sbRes.status === 'fulfilled' && sbRes.value.ok) {
+        const rows = await sbRes.value.json()
+        for (const r of (Array.isArray(rows) ? rows : [])) {
+          if (r.obs_date) station[r.obs_date] = {
+            tempHigh: r.temp_high ?? null,
+            tempLow:  r.temp_low  ?? null,
+            humidity: r.humidity  ?? null,
+            precip:   r.precip    ?? null,
+            windHigh: r.wind_high ?? null,
+          }
+        }
+      }
+      if (wuRes.status === 'fulfilled' && wuRes.value.ok) {
+        const wuJson = await wuRes.value.json()
+        for (const s of (wuJson?.summaries ?? wuJson?.observations ?? [])) {
+          const date = (s.obsTimeLocal ?? '').slice(0, 10)
+          if (date) station[date] = {
+            tempHigh: s.metric?.tempHigh                                  ?? null,
+            tempLow:  s.metric?.tempLow                                   ?? null,
+            humidity: s.humidityAvg                                       ?? null,
+            precip:   s.metric?.precipTotal                               ?? null,
+            windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh  ?? null,
+          }
+        }
+      }
+
+      result.history = [...slots.values()].map(b => {
+        const avg  = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
+        const tHi  = b.temps.length   ? Math.max(...b.temps)   : null
+        const tLo  = b.temps.length   ? Math.min(...b.temps)   : null
+        const tAvg = avg(b.temps)
+        const prec = b.precips.length ? b.precips.reduce((a, c) => a + c, 0) : null
+        const wHi  = b.winds.length   ? Math.max(...b.winds)   : null
+        const hum  = avg(b.humids)
+        const sb   = station[b.date]
+        return {
           date:     b.date,
           slot:     b.slot,
-          tempHigh: b.temps.length   ? Math.max(...b.temps)                                   : null,
-          tempLow:  b.temps.length   ? Math.min(...b.temps)                                   : null,
-          tempAvg:  b.temps.length   ? b.temps.reduce((a, c) => a + c, 0) / b.temps.length   : null,
-          precip:   b.precips.length ? b.precips.reduce((a, c) => a + c, 0)                  : null,
-          windHigh: b.winds.length   ? Math.max(...b.winds)                                   : null,
-          humidity: b.humids.length  ? b.humids.reduce((a, c) => a + c, 0) / b.humids.length : null,
-        }))
-      }
+          // AM slot carries station tempLow; PM slot carries tempHigh, windHigh, precip total
+          tempHigh: b.slot === 'PM' ? (sb?.tempHigh ?? tHi)  : tHi,
+          tempLow:  b.slot === 'AM' ? (sb?.tempLow  ?? tLo)  : tLo,
+          tempAvg:  tAvg,
+          precip:   b.slot === 'PM' ? (sb?.precip   ?? prec) : prec,
+          windHigh: b.slot === 'PM' ? (sb?.windHigh ?? wHi)  : wHi,
+          humidity: sb?.humidity ?? hum,
+        }
+      })
     } catch (_) {}
     if (!result.history) result.history = []
   }

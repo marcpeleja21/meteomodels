@@ -1197,6 +1197,40 @@ function drawAreaLine(ctx, pts, pad, cw, ch, yMin, yMax, color) {
   ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
 }
 
+// Like drawAreaLine but colours each segment using colorFn(midpoint value)
+function drawColoredLine(ctx, pts, pad, cw, ch, yMin, yMax, colorFn) {
+  const range = yMax - yMin || 1
+  const n  = pts.length
+  const px = (i) => n === 1 ? pad.l + cw / 2 : pad.l + (i / (n - 1)) * cw
+  const py = (v)  => pad.t + ch - ((v - yMin) / range) * ch
+
+  // Subtle area fill keyed to the average colour
+  const midColor = colorFn(pts.reduce((a, b) => a + b, 0) / n)
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch)
+  grad.addColorStop(0, hexAlpha(midColor, 0.18))
+  grad.addColorStop(1, hexAlpha(midColor, 0))
+  ctx.beginPath()
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(px(i), py(p)) : ctx.lineTo(px(i), py(p)))
+  ctx.lineTo(px(n - 1), pad.t + ch); ctx.lineTo(px(0), pad.t + ch)
+  ctx.closePath()
+  ctx.fillStyle = grad; ctx.fill()
+
+  // Per-segment coloured stroke
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'
+  for (let i = 0; i < n - 1; i++) {
+    ctx.beginPath()
+    ctx.strokeStyle = colorFn((pts[i] + pts[i + 1]) / 2)
+    ctx.moveTo(px(i), py(pts[i])); ctx.lineTo(px(i + 1), py(pts[i + 1]))
+    ctx.stroke()
+  }
+
+  // End dot
+  const lx = px(n - 1), ly = py(pts[n - 1])
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2)
+  ctx.fillStyle = colorFn(pts[n - 1]); ctx.fill()
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
+}
+
 function drawBars(ctx, vals, pad, cw, ch, yMax, color) {
   const n = vals.length
   const barW = Math.max(2, cw / n - 2)
@@ -1474,7 +1508,7 @@ function drawEvoChart(history) {
     drawGrid(ctx, pad, cw, ch, yMin, yMax)
 
     if (activePeriod === 'day') {
-      drawAreaLine(ctx, vals, pad, cw, ch, yMin, yMax, '#00d2e6')
+      drawColoredLine(ctx, vals, pad, cw, ch, yMin, yMax, tempMaxColor)
       xLabel(ctx, history, pad, cw, H, h => (h.time ?? '').slice(11, 16))
     } else {
       drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax)
