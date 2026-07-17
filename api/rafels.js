@@ -15,11 +15,9 @@ export default async function handler(request) {
 
   // Note: observations/hourly?date=... is blocked by WU's CDN (Akamai 403),
   // so 'day' uses all/1day (5-min readings, last 24h) and is bucketed by hour below.
-  // month uses Open-Meteo historical archive (free, ERA5-based); no WU hist fetch needed
+  // week and month use Open-Meteo historical archive (free, ERA5-based); no WU hist fetch needed
   const histUrl = period === 'day'
     ? `${BASE}/v2/pws/observations/all/1day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
-    : period === 'week'
-    ? `${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`
     : null
 
   const [currentRes, histRes] = await Promise.allSettled([
@@ -180,17 +178,48 @@ export default async function handler(request) {
     } catch (_) {}
     if (!result.history) result.history = []
   } else {
-    // Week: WU 7-day daily summaries
-    const rows = histJson?.summaries ?? histJson?.observations ?? []
-    result.history = rows.map(s => ({
-      date:     (s.obsTimeLocal ?? '').slice(0, 10),
-      tempHigh: s.metric?.tempHigh       ?? null,
-      tempLow:  s.metric?.tempLow        ?? null,
-      tempAvg:  s.metric?.tempAvg        ?? null,
-      humidity: s.humidityAvg            ?? null,
-      precip:   s.metric?.precipTotal    ?? null,
-      windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
-    }))
+    // Week: Open-Meteo historical hourly → 2 slots per day (AM 00-11h / PM 12-23h)
+    const lat = obs.lat ?? 38.73
+    const lon = obs.lon ?? -0.63
+    const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
+    const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 6)
+    const fmtDate = d => d.toISOString().slice(0, 10)
+    try {
+      const omRes = await fetch(
+        `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+        `&start_date=${fmtDate(startDate)}&end_date=${fmtDate(endDate)}` +
+        `&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m` +
+        `&timezone=Europe%2FMadrid`
+      )
+      if (omRes.ok) {
+        const { hourly } = await omRes.json()
+        const slots = new Map()
+        for (let i = 0; i < hourly.time.length; i++) {
+          const dt   = hourly.time[i]              // "YYYY-MM-DDTHH:00"
+          const date = dt.slice(0, 10)
+          const hour = parseInt(dt.slice(11, 13), 10)
+          const slot = hour < 12 ? 'AM' : 'PM'
+          const key  = date + '|' + slot
+          if (!slots.has(key)) slots.set(key, { date, slot, temps: [], precips: [], winds: [], humids: [] })
+          const b = slots.get(key)
+          const t = hourly.temperature_2m[i];       if (t != null) b.temps.push(t)
+          const p = hourly.precipitation[i];        if (p != null) b.precips.push(p)
+          const w = hourly.wind_speed_10m[i];       if (w != null) b.winds.push(w)
+          const h = hourly.relative_humidity_2m[i]; if (h != null) b.humids.push(h)
+        }
+        result.history = [...slots.values()].map(b => ({
+          date:     b.date,
+          slot:     b.slot,
+          tempHigh: b.temps.length   ? Math.max(...b.temps)                                   : null,
+          tempLow:  b.temps.length   ? Math.min(...b.temps)                                   : null,
+          tempAvg:  b.temps.length   ? b.temps.reduce((a, c) => a + c, 0) / b.temps.length   : null,
+          precip:   b.precips.length ? b.precips.reduce((a, c) => a + c, 0)                  : null,
+          windHigh: b.winds.length   ? Math.max(...b.winds)                                   : null,
+          humidity: b.humids.length  ? b.humids.reduce((a, c) => a + c, 0) / b.humids.length : null,
+        }))
+      }
+    } catch (_) {}
+    if (!result.history) result.history = []
   }
 
   const ttl = period === 'day' ? 120 : 3600

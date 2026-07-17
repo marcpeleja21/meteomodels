@@ -1018,9 +1018,10 @@ function expandForecast() {
 }
 
 async function loadForecast() {
-  const LAT = '38.73', LON = '-0.63'
-  const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max'
-  const TZ    = 'Europe/Madrid'
+  const LAT    = '38.73', LON = '-0.63'
+  // Exact same vars MeteoModels sends so both share the same Open-Meteo cache entry
+  const HOURLY = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,pressure_msl,cloud_cover,uv_index,snow_depth,snowfall'
+  const DAILY  = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max'
 
   // Models and their max forecast days (mirrors getActiveModels for this location)
   const MODELS = [
@@ -1037,7 +1038,7 @@ async function loadForecast() {
   ]
 
   const makeUrl = (id, days) => {
-    const p = new URLSearchParams({ latitude: LAT, longitude: LON, daily: DAILY, models: id, forecast_days: String(days), timezone: TZ })
+    const p = new URLSearchParams({ latitude: LAT, longitude: LON, hourly: HOURLY, daily: DAILY, models: id, forecast_days: String(days), timezone: 'auto' })
     return `https://api.open-meteo.com/v1/forecast?${p}`
   }
 
@@ -1062,13 +1063,20 @@ async function loadForecast() {
   forecastDaily = ref.daily.time.slice(0, 7).map((date, i) => {
     // For day i, only include models whose range covers it
     const sources = valid.filter(x => i < x.maxDays).map(x => x.daily)
+    // Mirror MeteoModels' inferCodeFromPrecip fallback when weather_code is null
+    const codes = sources.map(d => {
+      const c = d.weather_code?.[i] ?? null
+      if (c !== null) return c
+      const mm = d.precipitation_sum?.[i] ?? null
+      return (mm === null || mm === 0) ? null : (mm >= 2.5 ? 61 : 51)
+    })
     return {
       date,
       hi:     fcAvg(sources.map(d => d.temperature_2m_max?.[i] ?? null)),
       lo:     fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
       prob:   fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
       precip: fcAvg(sources.map(d => d.precipitation_sum?.[i] ?? null)),
-      code:   fcModal(sources.map(d => d.weather_code?.[i] ?? null)),
+      code:   fcModal(codes),
       wind:   fcAvg(sources.map(d => d.wind_speed_10m_max?.[i] ?? null)),
     }
   })
