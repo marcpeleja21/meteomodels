@@ -409,6 +409,37 @@
 
     .hidden { display: none !important }
 
+    /* ── Historical data section ── */
+    .hist-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px }
+    .hist-mode-tabs { display: flex; gap: 6px; flex-wrap: wrap }
+    .hist-pickers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+    .hist-select, .hist-date-input {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+      color: var(--text-main); border-radius: 8px; padding: 5px 10px;
+      font: .8rem var(--font-ui); cursor: pointer; outline: none;
+    }
+    .hist-select:focus, .hist-date-input:focus { border-color: rgba(0,210,230,.5) }
+    .hist-date-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.65) }
+    .hist-apply-btn {
+      background: rgba(0,210,230,.15); border: 1px solid rgba(0,210,230,.28);
+      color: #00d2e6; border-radius: 8px; padding: 5px 14px;
+      font: .8rem var(--font-ui); cursor: pointer; white-space: nowrap;
+    }
+    .hist-apply-btn:hover { background: rgba(0,210,230,.25) }
+    .hist-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px }
+    .hist-stat-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px; padding: 3px 10px; font-size: .75rem;
+    }
+    .hist-stat-badge .badge-label { color: var(--text-muted) }
+    .hist-stat-badge .badge-val { font-weight: 700 }
+    .hist-stat-badge .badge-date { color: var(--text-muted); font-size: .7rem }
+    .hist-wrap { position: relative; min-height: 200px }
+    .hist-chart { width: 100%; display: block }
+    .hist-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center }
+    .hist-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem }
+
     @media (max-width: 420px) {
       .header { padding: 8px 12px; gap: 8px }
       .brand-sub { display: none }
@@ -594,6 +625,45 @@
       <div class="evo-empty" id="evoEmpty">Sense dades per aquest període</div>
     </div>
 
+    <!-- ⑤ Historical data -->
+    <div class="section-title" id="histSectionTitle">📂 Dades Històriques</div>
+    <div class="hist-controls">
+      <div class="hist-mode-tabs">
+        <button class="tab-btn active" data-hist-mode="year"  id="histBtnYear">Any</button>
+        <button class="tab-btn" data-hist-mode="month" id="histBtnMonth">Mes</button>
+        <button class="tab-btn" data-hist-mode="day"   id="histBtnDay">Dia</button>
+        <button class="tab-btn" data-hist-mode="range" id="histBtnRange">Rang</button>
+      </div>
+      <div class="hist-pickers" id="histPickerYear">
+        <select class="hist-select" id="histSelYear"></select>
+      </div>
+      <div class="hist-pickers hidden" id="histPickerMonth">
+        <select class="hist-select" id="histSelMonthYear"></select>
+        <select class="hist-select" id="histSelMonth"></select>
+      </div>
+      <div class="hist-pickers hidden" id="histPickerDay">
+        <input type="date" class="hist-date-input" id="histSelDay">
+      </div>
+      <div class="hist-pickers hidden" id="histPickerRange">
+        <input type="date" class="hist-date-input" id="histSelFrom">
+        <span style="color:var(--text-muted);font-size:.8rem">→</span>
+        <input type="date" class="hist-date-input" id="histSelTo">
+      </div>
+      <button class="hist-apply-btn" id="histApply">Aplicar</button>
+    </div>
+    <div class="tab-group" role="group" style="margin-bottom:8px">
+      <button class="tab-btn active" data-hist-metric="temp"     id="histMetricTemp">Temperatura</button>
+      <button class="tab-btn"        data-hist-metric="rain"     id="histMetricRain">Pluja</button>
+      <button class="tab-btn"        data-hist-metric="humidity" id="histMetricHumidity">Humitat</button>
+      <button class="tab-btn"        data-hist-metric="wind"     id="histMetricWind">Vent</button>
+    </div>
+    <div class="hist-stats hidden" id="histStats"></div>
+    <div class="hist-wrap" id="histWrap">
+      <canvas id="histChart" class="hist-chart" height="200"></canvas>
+      <div class="hist-loading hidden" id="histLoading"><div class="mini-spinner"></div></div>
+      <div class="hist-empty hidden" id="histEmpty">Sense dades per al rang seleccionat</div>
+    </div>
+
   </div><!-- /dataWrap -->
 </main>
 
@@ -680,6 +750,12 @@ const LANG = {
     ttipRainProb: 'Probabilitat de pluja', ttipPrecipMm: 'Precipitació prevista', ttipWind: 'Vent màxim',
     fcExpand: '+3 dies', fcExpandHint: 'Estimar llarg termini',
     fcAccuracy: '⚠ La previsió a llarg termini pot ser menys precisa',
+    histTitle: '📂 Dades Històriques',
+    histYear: 'Any', histMonth: 'Mes', histDay: 'Dia', histRange: 'Rang', histApply: 'Aplicar',
+    histNoData: 'Sense dades per al rang seleccionat',
+    histMaxLbl: 'Màx', histMinLbl: 'Mín',
+    monthAbbr: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'],
+    monthFull: ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'],
   },
   es: {
     locale: 'es-ES',
@@ -711,6 +787,12 @@ const LANG = {
     ttipRainProb: 'Probabilidad de lluvia', ttipPrecipMm: 'Precipitación prevista', ttipWind: 'Viento máximo',
     fcExpand: '+3 días', fcExpandHint: 'Estimación largo plazo',
     fcAccuracy: '⚠ La previsión a largo plazo puede ser menos precisa',
+    histTitle: '📂 Datos Históricos',
+    histYear: 'Año', histMonth: 'Mes', histDay: 'Día', histRange: 'Rango', histApply: 'Aplicar',
+    histNoData: 'Sin datos para el rango seleccionado',
+    histMaxLbl: 'Máx', histMinLbl: 'Mín',
+    monthAbbr: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
+    monthFull: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   },
   en: {
     locale: 'en-GB',
@@ -742,6 +824,12 @@ const LANG = {
     ttipRainProb: 'Rain probability', ttipPrecipMm: 'Expected precipitation', ttipWind: 'Max wind speed',
     fcExpand: '+3 days', fcExpandHint: 'Long-range estimate',
     fcAccuracy: '⚠ Long-range forecast — accuracy decreases beyond 3 days',
+    histTitle: '📂 Historical Data',
+    histYear: 'Year', histMonth: 'Month', histDay: 'Day', histRange: 'Range', histApply: 'Apply',
+    histNoData: 'No data for the selected range',
+    histMaxLbl: 'Max', histMinLbl: 'Min',
+    monthAbbr: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    monthFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
   },
 }
 
@@ -772,6 +860,22 @@ function applyLang(lang) {
   setTxt('footerLabel', t.dataSource)
   setTxt('compassW', t.west)
   setTxt('evoEmpty', t.noData)
+
+  setTxt('histSectionTitle',   t.histTitle)
+  setTxt('histBtnYear',        t.histYear)
+  setTxt('histBtnMonth',       t.histMonth)
+  setTxt('histBtnDay',         t.histDay)
+  setTxt('histBtnRange',       t.histRange)
+  setTxt('histApply',          t.histApply)
+  setTxt('histEmpty',          t.histNoData)
+  setTxt('histMetricTemp',     t.metricTemp)
+  setTxt('histMetricRain',     t.metricRain)
+  setTxt('histMetricHumidity', t.metricHumidity)
+  setTxt('histMetricWind',     t.metricWind)
+  if (histRows) requestAnimationFrame(() => {
+    drawHistChart(histRows, histMonthly, histHourly)
+    updateHistStats(histRows, histMonthly, histHourly)
+  })
 
   const metricBtn = document.querySelector('[data-metric="temp"]')
   if (metricBtn) {
@@ -1592,6 +1696,306 @@ function drawEvoChart(history) {
 }
 
 /* ══════════════════════════════════════════════
+   Historical data section
+══════════════════════════════════════════════ */
+let histMode    = 'year'
+let histMetric  = 'temp'
+let histRows    = null
+let histMonthly = false
+let histHourly  = false
+
+function initHistPickers() {
+  const now      = new Date()
+  const thisYear = now.getFullYear()
+
+  const populateYears = id => {
+    const el = $(id); if (!el) return
+    for (let y = thisYear; y >= 2020; y--) {
+      const o = document.createElement('option'); o.value = y; o.textContent = y; el.appendChild(o)
+    }
+  }
+  populateYears('histSelYear')
+  populateYears('histSelMonthYear')
+
+  const mSel = $('histSelMonth')
+  if (mSel) {
+    LANG[currentLang].monthFull.forEach((name, i) => {
+      const o = document.createElement('option'); o.value = i + 1; o.textContent = name; mSel.appendChild(o)
+    })
+    mSel.value = now.getMonth() + 1
+  }
+
+  const dSel = $('histSelDay')
+  if (dSel) dSel.value = now.toISOString().slice(0, 10)
+
+  const fSel = $('histSelFrom'), tSel = $('histSelTo')
+  if (fSel && tSel) {
+    tSel.value = now.toISOString().slice(0, 10)
+    fSel.value = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10)
+  }
+
+  document.querySelectorAll('[data-hist-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      histMode = btn.dataset.histMode
+      document.querySelectorAll('[data-hist-mode]').forEach(b => b.className = 'tab-btn')
+      btn.className = 'tab-btn active'
+      ;['histPickerYear','histPickerMonth','histPickerDay','histPickerRange'].forEach(id => {
+        const el = $(id); if (el) el.classList.add('hidden')
+      })
+      const pickerMap = { year: 'histPickerYear', month: 'histPickerMonth', day: 'histPickerDay', range: 'histPickerRange' }
+      const p = $(pickerMap[histMode]); if (p) p.classList.remove('hidden')
+    })
+  })
+
+  document.querySelectorAll('[data-hist-metric]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      histMetric = btn.dataset.histMetric
+      document.querySelectorAll('[data-hist-metric]').forEach(b => b.className = 'tab-btn')
+      btn.className = 'tab-btn ' + (ACTIVE_CLASS[histMetric] ?? 'active')
+      if (histRows) {
+        drawHistChart(histRows, histMonthly, histHourly)
+        updateHistStats(histRows, histMonthly, histHourly)
+      }
+    })
+  })
+
+  $('histApply')?.addEventListener('click', loadHistData)
+}
+
+function histDateLabel(row, monthly, hourly) {
+  const t = LANG[currentLang]
+  if (hourly) return String(row.obs_hour ?? '').padStart(2, '0') + 'h'
+  if (monthly) {
+    const m = (row.obs_date ?? '').split('-')[1]
+    return m ? (t.monthAbbr[+m - 1] ?? m) : (row.obs_date ?? '')
+  }
+  const d = new Date((row.obs_date ?? '') + 'T12:00:00')
+  return isNaN(d) ? (row.obs_date ?? '') : d.getDate() + ' ' + (t.monthAbbr[d.getMonth()] ?? '')
+}
+
+function normalizeHistRows(rows) {
+  return rows.map(r => ({
+    obs_date: r.obs_date,
+    obs_hour: r.obs_hour ?? null,
+    tempHigh: r.temp_high != null ? +r.temp_high : null,
+    tempLow:  r.temp_low  != null ? +r.temp_low  : null,
+    tempAvg:  r.temp_avg  != null ? +r.temp_avg  : null,
+    humidity: r.humidity  != null ? +r.humidity  : null,
+    precip:   r.precip    != null ? +r.precip    : null,
+    windHigh: r.wind_high != null ? +r.wind_high : null,
+    windAvg:  r.wind_avg  != null ? +r.wind_avg  : null,
+  }))
+}
+
+function findHistExtremes(rows, field) {
+  let maxVal = null, maxIdx = -1, minVal = null, minIdx = -1
+  rows.forEach((r, i) => {
+    const v = r[field]; if (v == null) return
+    if (maxVal === null || v > maxVal) { maxVal = v; maxIdx = i }
+    if (minVal === null || v < minVal) { minVal = v; minIdx = i }
+  })
+  return { maxVal, maxIdx, minVal, minIdx }
+}
+
+function drawLineDiamond(ctx, cx, cy, color, isMax) {
+  const s = 5
+  ctx.save()
+  ctx.fillStyle = color; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s, cy)
+  ctx.closePath(); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = color; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'
+  ctx.fillText(isMax ? '▲' : '▼', cx, isMax ? cy - s - 3 : cy + s + 9)
+  ctx.restore()
+}
+
+function drawBarArrow(ctx, barCenterX, barTop, color) {
+  const s = 4
+  ctx.save(); ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.moveTo(barCenterX - s, barTop - 3)
+  ctx.lineTo(barCenterX + s, barTop - 3)
+  ctx.lineTo(barCenterX,     barTop - 3 - s * 2)
+  ctx.closePath(); ctx.fill(); ctx.restore()
+}
+
+function updateHistStats(rows, monthly, hourly) {
+  const stats = $('histStats')
+  if (!stats || !rows.length) { if (stats) stats.classList.add('hidden'); return }
+  const t = LANG[currentLang]
+  let badges = []
+
+  if (histMetric === 'temp') {
+    const hiF = hourly ? 'tempAvg' : 'tempHigh'
+    const loF = hourly ? 'tempAvg' : 'tempLow'
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, hiF)
+    const { minVal: nv, minIdx: ni } = findHistExtremes(rows, loF)
+    if (mv != null) badges.push({ label: t.histMaxLbl, val: fmt(mv) + '°C', date: histDateLabel(rows[mi], monthly, hourly), color: tempMaxColor(mv) })
+    if (nv != null) badges.push({ label: t.histMinLbl, val: fmt(nv) + '°C', date: histDateLabel(rows[ni], monthly, hourly), color: tempMinColor(nv) })
+  } else if (histMetric === 'rain') {
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, 'precip')
+    const total = rows.reduce((a, r) => a + (r.precip ?? 0), 0)
+    if (mv != null && mv > 0) badges.push({ label: t.histMaxLbl, val: fmt(mv) + ' mm', date: histDateLabel(rows[mi], monthly, hourly), color: 'rgb(79,195,247)' })
+    badges.push({ label: 'Total', val: fmt(total) + ' mm', date: '', color: 'rgba(79,195,247,.75)' })
+  } else if (histMetric === 'humidity') {
+    const { maxVal: mv, maxIdx: mi, minVal: nv, minIdx: ni } = findHistExtremes(rows, 'humidity')
+    if (mv != null) badges.push({ label: t.histMaxLbl, val: Math.round(mv) + '%', date: histDateLabel(rows[mi], monthly, hourly), color: '#00e676' })
+    if (nv != null) badges.push({ label: t.histMinLbl, val: Math.round(nv) + '%', date: histDateLabel(rows[ni], monthly, hourly), color: '#b9f6ca' })
+  } else {
+    const f = hourly ? 'windAvg' : 'windHigh'
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, f)
+    if (mv != null) badges.push({ label: t.histMaxLbl, val: Math.round(mv) + ' km/h', date: histDateLabel(rows[mi], monthly, hourly), color: windColor(mv) })
+  }
+
+  if (!badges.length) { stats.classList.add('hidden'); return }
+  stats.innerHTML = badges.map(b =>
+    `<span class="hist-stat-badge">
+      <span class="badge-label">${b.label}</span>
+      <span class="badge-val" style="color:${b.color}">${b.val}</span>
+      ${b.date ? `<span class="badge-date">${b.date}</span>` : ''}
+    </span>`).join('')
+  stats.classList.remove('hidden')
+}
+
+function drawHistChart(rows, monthly, hourly) {
+  const canvas = $('histChart'), empty = $('histEmpty')
+  if (!canvas) return
+  const { W, H, ctx } = sizeCanvas(canvas, 'histWrap')
+  if (!W) return
+  ctx.clearRect(0, 0, W, H)
+
+  const showEmpty = () => { canvas.style.opacity = '0'; if (empty) empty.classList.remove('hidden') }
+  if (!rows.length) { showEmpty(); return }
+  canvas.style.opacity = '1'
+  if (empty) empty.classList.add('hidden')
+
+  const pad = { t: 14, r: 12, b: 28, l: 44 }
+  const cw  = W - pad.l - pad.r
+  const ch  = H - pad.t - pad.b
+  const n   = rows.length
+  const px  = i => n === 1 ? pad.l + cw / 2 : pad.l + (i / (n - 1)) * cw
+  const labelFn = r => histDateLabel(r, monthly, hourly)
+
+  if (histMetric === 'temp') {
+    const hiF = hourly ? 'tempAvg' : 'tempHigh'
+    const loF = hourly ? 'tempAvg' : 'tempLow'
+    const allV = [...rows.map(r => r[hiF]), ...rows.map(r => r[loF])].filter(v => v != null)
+    if (!allV.length) { showEmpty(); return }
+    const yMin = Math.min(...allV) - 1, yMax = Math.max(...allV) + 1
+    const range = yMax - yMin || 1
+    const py = v => pad.t + ch - ((v - yMin) / range) * ch
+    drawGrid(ctx, pad, cw, ch, yMin, yMax)
+    if (hourly) {
+      drawColoredLine(ctx, rows.map(r => r.tempAvg), pad, cw, ch, yMin, yMax, tempMaxColor)
+    } else {
+      drawTempRangeBand(ctx, rows, pad, cw, ch, yMin, yMax)
+    }
+    xLabel(ctx, rows, pad, cw, H, labelFn)
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, hiF)
+    const { minVal: nv, minIdx: ni } = findHistExtremes(rows, loF)
+    if (mi >= 0 && mv != null) drawLineDiamond(ctx, px(mi), py(mv), tempMaxColor(mv), true)
+    if (ni >= 0 && nv != null) drawLineDiamond(ctx, px(ni), py(nv), tempMinColor(nv), false)
+
+  } else if (histMetric === 'rain') {
+    const vals = rows.map(r => r.precip ?? 0)
+    const yMaxR = Math.ceil(Math.max(...vals, 1) * 1.2)
+    drawGrid(ctx, pad, cw, ch, 0, yMaxR)
+    drawBars(ctx, vals, pad, cw, ch, yMaxR, 'rgba(79,195,247,.75)')
+    xLabel(ctx, rows, pad, cw, H, labelFn)
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, 'precip')
+    if (mi >= 0 && mv != null && mv > 0) {
+      const barW = Math.max(2, cw / n - 2)
+      const cx   = pad.l + (mi / n) * cw + (cw / n - barW) / 2 + barW / 2
+      drawBarArrow(ctx, cx, pad.t + ch - (mv / yMaxR) * ch, 'rgb(79,195,247)')
+    }
+
+  } else if (histMetric === 'humidity') {
+    const allH = rows.map(r => r.humidity).filter(v => v != null)
+    if (allH.length < 2) { showEmpty(); return }
+    const yMin = Math.max(0,   Math.min(...allH) - 5)
+    const yMax = Math.min(100, Math.max(...allH) + 5)
+    const range2 = yMax - yMin || 1
+    const py2 = v => pad.t + ch - ((v - yMin) / range2) * ch
+    drawGrid(ctx, pad, cw, ch, yMin, yMax)
+    drawAreaLine(ctx, rows.map(r => r.humidity), pad, cw, ch, yMin, yMax, '#00e676')
+    xLabel(ctx, rows, pad, cw, H, labelFn)
+    const { maxVal: mv, maxIdx: mi, minVal: nv, minIdx: ni } = findHistExtremes(rows, 'humidity')
+    if (mi >= 0 && mv != null) drawLineDiamond(ctx, px(mi), py2(mv), '#00e676', true)
+    if (ni >= 0 && nv != null) drawLineDiamond(ctx, px(ni), py2(nv), '#b9f6ca', false)
+
+  } else {
+    const f = hourly ? 'windAvg' : 'windHigh'
+    const rawVals = rows.map(r => r[f])
+    if (!rawVals.some(v => v != null)) { showEmpty(); return }
+    const vals = rawVals.map(v => v ?? 0)
+    const yMaxR = Math.ceil(Math.max(...vals, 1) * 1.2)
+    const barW  = Math.max(2, cw / n - 2)
+    drawGrid(ctx, pad, cw, ch, 0, yMaxR)
+    vals.forEach((v, i) => {
+      if (rawVals[i] == null || v <= 0) return
+      const barH = (v / yMaxR) * ch
+      const x = pad.l + (i / n) * cw + (cw / n - barW) / 2
+      ctx.fillStyle = windColor(v)
+      ctx.beginPath()
+      ctx.roundRect ? ctx.roundRect(x, pad.t + ch - barH, barW, barH, [3,3,0,0]) : ctx.rect(x, pad.t + ch - barH, barW, barH)
+      ctx.fill()
+    })
+    xLabel(ctx, rows, pad, cw, H, labelFn)
+    const { maxVal: mv, maxIdx: mi } = findHistExtremes(rows, f)
+    if (mi >= 0 && mv != null) {
+      const cx = pad.l + (mi / n) * cw + (cw / n - barW) / 2 + barW / 2
+      drawBarArrow(ctx, cx, pad.t + ch - (mv / yMaxR) * ch, windColor(mv))
+    }
+  }
+}
+
+async function loadHistData() {
+  const loading = $('histLoading'), empty = $('histEmpty')
+  const canvas  = $('histChart'),   stats = $('histStats')
+  if (loading) loading.classList.remove('hidden')
+  if (empty)   empty.classList.add('hidden')
+  if (canvas)  canvas.style.opacity = '0'
+  if (stats)   stats.classList.add('hidden')
+
+  try {
+    let qs = ''
+    if (histMode === 'year') {
+      qs = 'mode=year&year=' + ($('histSelYear')?.value ?? '')
+    } else if (histMode === 'month') {
+      qs = 'mode=month&year=' + ($('histSelMonthYear')?.value ?? '') + '&month=' + ($('histSelMonth')?.value ?? '')
+    } else if (histMode === 'day') {
+      qs = 'mode=day&date=' + ($('histSelDay')?.value ?? '')
+    } else {
+      qs = 'mode=range&from=' + ($('histSelFrom')?.value ?? '') + '&to=' + ($('histSelTo')?.value ?? '')
+    }
+
+    const res = await fetch('/api/rafels-history?' + qs)
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+
+    histMonthly = data.monthly ?? false
+    histHourly  = data.hourly  ?? false
+    histRows    = normalizeHistRows(data.rows ?? [])
+
+    if (loading) loading.classList.add('hidden')
+
+    if (!histRows.length) {
+      if (empty) { empty.textContent = LANG[currentLang].histNoData; empty.classList.remove('hidden') }
+      return
+    }
+    if (canvas) canvas.style.opacity = '1'
+    requestAnimationFrame(() => {
+      drawHistChart(histRows, histMonthly, histHourly)
+      updateHistStats(histRows, histMonthly, histHourly)
+    })
+  } catch (e) {
+    if (loading) loading.classList.add('hidden')
+    if (empty) { empty.textContent = (LANG[currentLang].errorPrefix ?? 'Error: ') + e.message; empty.classList.remove('hidden') }
+  }
+}
+
+/* ══════════════════════════════════════════════
    Data fetching
 ══════════════════════════════════════════════ */
 async function fetchPeriod(period, force = false) {
@@ -1680,6 +2084,7 @@ applyLang(currentLang)
 initWebcam()
 loadDay()
 loadForecast()
+initHistPickers()
 
 setInterval(() => {
   delete dataCache['day']
@@ -1712,6 +2117,7 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => {
     const data = dataCache[activePeriod]
     if (data) drawEvoChart(data.history)
+    if (histRows) drawHistChart(histRows, histMonthly, histHourly)
   }, 200)
 })
 
