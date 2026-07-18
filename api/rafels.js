@@ -26,9 +26,9 @@ export default async function handler(request) {
   ])
 
   const currentJson = currentRes.status === 'fulfilled' && currentRes.value.ok
-    ? await currentRes.value.json() : null
+    ? await currentRes.value.json().catch(() => null) : null
   const histJson = histRes.status === 'fulfilled' && histRes.value.ok
-    ? await histRes.value.json() : null
+    ? await histRes.value.json().catch(() => null) : null
 
   const obs = currentJson?.observations?.[0]
   if (!obs) {
