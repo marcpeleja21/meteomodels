@@ -1857,6 +1857,134 @@ function updateHistStats(rows, monthly, hourly) {
   stats.classList.remove('hidden')
 }
 
+/* ── Historical chart hover ── */
+const histHover = { canvas: null, image: null, rows: null, monthly: false, hourly: false, pad: null, cw: 0, ch: 0, W: 0, H: 0 }
+
+function setupHistHover(canvas, rows, monthly, hourly, pad, cw, ch, W, H) {
+  const ctx = canvas.getContext('2d')
+  histHover.canvas  = canvas
+  histHover.image   = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  histHover.rows    = rows
+  histHover.monthly = monthly; histHover.hourly = hourly
+  histHover.pad = pad; histHover.cw = cw; histHover.ch = ch
+  histHover.W = W;   histHover.H = H
+  canvas.onmousemove  = e => handleHistHover(e.clientX)
+  canvas.onmouseleave = clearHistHover
+  canvas.ontouchstart = e => { e.preventDefault(); if (e.touches.length) handleHistHover(e.touches[0].clientX) }
+  canvas.ontouchmove  = e => { e.preventDefault(); if (e.touches.length) handleHistHover(e.touches[0].clientX) }
+  canvas.ontouchend   = () => clearHistHover()
+}
+
+function clearHistHover() {
+  const { canvas, image } = histHover
+  if (canvas && image) canvas.getContext('2d').putImageData(image, 0, 0)
+}
+
+function handleHistHover(clientX) {
+  const { canvas, image, rows, monthly, hourly, pad, cw, ch, W, H } = histHover
+  if (!canvas || !image || !rows || !rows.length) return
+  const rect = canvas.getBoundingClientRect()
+  const mx   = clientX - rect.left
+  const ctx  = canvas.getContext('2d')
+  ctx.putImageData(image, 0, 0)
+  if (mx < pad.l - 4 || mx > pad.l + cw + 4) return
+
+  const n  = rows.length
+  const i  = n === 1 ? 0 : Math.max(0, Math.min(n - 1, Math.round((mx - pad.l) / cw * (n - 1))))
+  const px = n === 1 ? pad.l + cw / 2 : pad.l + (i / (n - 1)) * cw
+  const pt = rows[i]
+
+  ctx.save()
+  ctx.setLineDash([4, 4])
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke()
+  ctx.setLineDash([])
+
+  let dotY = null, dotColor = '#00d2e6'
+  let value = '', valColor = '#00d2e6'
+  let hiText = null, loText = null
+  const label = histDateLabel(pt, monthly, hourly)
+
+  if (histMetric === 'temp') {
+    const hiF = hourly ? 'tempAvg' : 'tempHigh'
+    const loF = hourly ? 'tempAvg' : 'tempLow'
+    const allV = [...rows.map(r => r[hiF]), ...rows.map(r => r[loF])].filter(v => v != null)
+    if (allV.length) {
+      const yMin = Math.min(...allV) - 1, yMax = Math.max(...allV) + 1, range = yMax - yMin || 1
+      const ref = hourly ? pt.tempAvg : (pt.tempAvg ?? pt.tempHigh)
+      if (ref != null) { dotY = pad.t + ch - ((ref - yMin) / range) * ch; dotColor = tempMaxColor(ref) }
+    }
+    if (hourly) {
+      value = pt.tempAvg != null ? fmt(pt.tempAvg) + '°C' : '—'
+      valColor = pt.tempAvg != null ? tempMaxColor(pt.tempAvg) : '#00d2e6'
+    } else {
+      hiText = pt.tempHigh != null ? '↑ ' + fmt(pt.tempHigh) + '°' : null
+      loText = pt.tempLow  != null ? '↓ ' + fmt(pt.tempLow)  + '°' : null
+    }
+  } else if (histMetric === 'humidity') {
+    const vals = rows.map(r => r.humidity).filter(v => v != null)
+    if (vals.length && pt.humidity != null) {
+      const yMin = Math.max(0, Math.min(...vals) - 5)
+      const yMax = Math.min(100, Math.max(...vals) + 5)
+      dotY = pad.t + ch - ((pt.humidity - yMin) / (yMax - yMin || 1)) * ch
+      dotColor = '#00e676'
+    }
+    value = pt.humidity != null ? Math.round(pt.humidity) + '%' : '—'
+    valColor = '#00e676'
+  } else if (histMetric === 'rain') {
+    value = fmt(pt.precip ?? 0) + ' mm'
+    valColor = 'rgb(79,195,247)'
+  } else {
+    const f = hourly ? 'windAvg' : 'windHigh'
+    const v = pt[f]
+    value = v != null ? Math.round(v) + ' km/h' : '—'
+    valColor = windColor(v ?? 0)
+  }
+
+  if (dotY != null) {
+    ctx.beginPath(); ctx.arc(px, dotY, 4, 0, Math.PI * 2)
+    ctx.fillStyle = dotColor; ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5; ctx.stroke()
+  }
+
+  const isRangeTemp = hiText != null || loText != null
+  ctx.font = 'bold 12px sans-serif'
+  const valueW = isRangeTemp
+    ? Math.max(hiText ? ctx.measureText(hiText).width : 0, loText ? ctx.measureText(loText).width : 0)
+    : ctx.measureText(value).width
+  ctx.font = '10px sans-serif'
+  const lw = ctx.measureText(label).width
+  const bw = Math.max(valueW, lw) + 20
+  const bh = isRangeTemp ? 50 : 36
+  let bx = px + 10
+  if (bx + bw > W - 4) bx = px - bw - 10
+  const by = pad.t + 4
+
+  ctx.fillStyle   = 'rgba(8,18,32,.92)'
+  ctx.strokeStyle = 'rgba(0,210,230,.35)'
+  ctx.lineWidth   = 1
+  ctx.beginPath()
+  ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 5) : ctx.rect(bx, by, bw, bh)
+  ctx.fill(); ctx.stroke()
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = '#6e8caa'
+  ctx.font = '10px sans-serif'
+  ctx.fillText(label, bx + 8, by + 13)
+
+  if (isRangeTemp) {
+    ctx.font = 'bold 12px sans-serif'
+    if (hiText) { ctx.fillStyle = tempMaxColor(pt.tempHigh); ctx.fillText(hiText, bx + 8, by + 29) }
+    if (loText) { ctx.fillStyle = tempMinColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
+  } else {
+    ctx.fillStyle = valColor
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillText(value, bx + 8, by + 28)
+  }
+  ctx.restore()
+}
+
 function drawHistChart(rows, monthly, hourly) {
   const canvas = $('histChart'), empty = $('histEmpty')
   if (!canvas) return
@@ -1947,6 +2075,8 @@ function drawHistChart(rows, monthly, hourly) {
       drawBarArrow(ctx, cx, pad.t + ch - (mv / yMaxR) * ch, windColor(mv))
     }
   }
+
+  setupHistHover(canvas, rows, monthly, hourly, pad, cw, ch, W, H)
 }
 
 async function loadHistData() {
