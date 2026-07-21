@@ -79,7 +79,7 @@ export default async function handler(req) {
     }
 
     const rows = await sb('observations',
-      `obs_date=gte.${from}&obs_date=lte.${to}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date`)
+      `obs_date=gte.${from}&obs_date=lte.${to}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date&limit=5000`)
 
     const daySpan  = (new Date(to) - new Date(from)) / 86400000
     const monthly  = mode === 'year' || daySpan > 90
