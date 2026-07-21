@@ -31,7 +31,56 @@ export default async function handler(request) {
     ? await histRes.value.json().catch(() => null) : null
 
   const obs = currentJson?.observations?.[0]
+
+  // ── Supabase helpers (used for fallbacks throughout) ──────────────────────
+  const sbUrl = process.env.SUPABASE_URL
+  const sbKey = process.env.SUPABASE_KEY
+  const sbH   = sbUrl && sbKey ? { apikey: sbKey, Authorization: `Bearer ${sbKey}` } : null
+  const sbGet = async q => {
+    if (!sbH) return []
+    const r = await fetch(`${sbUrl}/rest/v1/${q}`, { headers: sbH }).catch(() => null)
+    return r?.ok ? (await r.json().catch(() => [])) : []
+  }
+
+  // When WU current obs is unavailable try Supabase as fallback
   if (!obs) {
+    if (period === 'day') {
+      const today = new Date().toISOString().slice(0, 10)
+      const yday  = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      let rows = await sbGet(`observations_hourly?obs_date=eq.${today}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg&order=obs_hour`)
+      if (!rows.length) rows = await sbGet(`observations_hourly?obs_date=eq.${yday}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg&order=obs_hour`)
+      if (rows.length) {
+        const last = rows[rows.length - 1]
+        const tempHighs = rows.map(h => h.temp_high).filter(v => v != null)
+        const tempLows  = rows.map(h => h.temp_low).filter(v => v != null)
+        return new Response(JSON.stringify({
+          stationId: STATION, period,
+          obsTimeUtc:     null,
+          temp:           last.temp_avg    ?? null,
+          feelsLike:      null,
+          dewpt:          null,
+          humidity:       last.humidity    ?? null,
+          windspeed:      last.wind_avg    ?? null,
+          windGust:       null,
+          windDir:        null,
+          pressure:       null,
+          precipRate:     null,
+          precipTotal:    null,
+          uv:             null,
+          solarRadiation: null,
+          tempHighToday:  tempHighs.length ? Math.max(...tempHighs) : null,
+          tempLowToday:   tempLows.length  ? Math.min(...tempLows)  : null,
+          history: rows.map(h => ({
+            time:     `${h.obs_date} ${String(h.obs_hour).padStart(2, '0')}:00:00`,
+            temp:     h.temp_avg  ?? null,
+            humidity: h.humidity  ?? null,
+            precip:   h.precip    ?? 0,
+            wind:     h.wind_avg  ?? null,
+          })),
+          source: 'supabase',
+        }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+      }
+    }
     return new Response(JSON.stringify({ error: 'No data from station ' + STATION }), {
       status: 502,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -96,6 +145,28 @@ export default async function handler(request) {
       precip:   i === 0 ? h.precipCum : Math.max(0, h.precipCum - slots[i - 1].precipCum),
       wind:     h.wind,
     }))
+
+    // WU history was empty — fall back to Supabase hourly readings
+    if (!result.history.length) {
+      const sbToday = todayDate || new Date().toISOString().slice(0, 10)
+      const sbYday  = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      let sbRows = await sbGet(`observations_hourly?obs_date=eq.${sbToday}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg&order=obs_hour`)
+      if (!sbRows.length) sbRows = await sbGet(`observations_hourly?obs_date=eq.${sbYday}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg&order=obs_hour`)
+      if (sbRows.length) {
+        const sbTemps = sbRows.map(h => h.temp_high).filter(v => v != null)
+        const sbLows  = sbRows.map(h => h.temp_low).filter(v => v != null)
+        result.tempHighToday = sbTemps.length ? Math.max(...sbTemps) : result.tempHighToday
+        result.tempLowToday  = sbLows.length  ? Math.min(...sbLows)  : result.tempLowToday
+        result.history = sbRows.map(h => ({
+          time:     `${h.obs_date} ${String(h.obs_hour).padStart(2, '0')}:00:00`,
+          temp:     h.temp_avg  ?? null,
+          humidity: h.humidity  ?? null,
+          precip:   h.precip    ?? 0,
+          wind:     h.wind_avg  ?? null,
+        }))
+        result.source = 'supabase'
+      }
+    }
   } else if (period === 'month') {
     // 30-day history: ERA5 baseline → Supabase station overlay → WU 7-day overlay (freshest)
     const lat = obs.lat ?? 38.73
