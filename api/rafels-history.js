@@ -46,6 +46,18 @@ export default async function handler(req) {
     return r.json()
   }
 
+  async function sbAll(table, qs) {
+    const PAGE = 1000
+    let all = [], offset = 0
+    while (true) {
+      const batch = await sb(table, `${qs}&limit=${PAGE}&offset=${offset}`)
+      all = all.concat(batch)
+      if (batch.length < PAGE) break
+      offset += PAGE
+    }
+    return all
+  }
+
   try {
     // ── Day mode: hourly table ─────────────────────────────────────────────
     if (mode === 'day') {
@@ -78,8 +90,8 @@ export default async function handler(req) {
       return new Response('bad mode', { status: 400 })
     }
 
-    const rows = await sb('observations',
-      `obs_date=gte.${from}&obs_date=lte.${to}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date&limit=5000`)
+    const rows = await sbAll('observations',
+      `obs_date=gte.${from}&obs_date=lte.${to}&select=obs_date,temp_high,temp_low,temp_avg,humidity,precip,wind_high&order=obs_date`)
 
     const daySpan  = (new Date(to) - new Date(from)) / 86400000
     const monthly  = mode === 'year' || daySpan > 90
