@@ -1236,8 +1236,11 @@ function renderCards(d) {
   const hiLo = $('tempHiLo')
   if (hiLo) {
     if (d.tempHighToday != null || d.tempLowToday != null) {
-      setTxt('valTempHigh', d.tempHighToday != null ? fmt(d.tempHighToday) : '—')
-      setTxt('valTempLow',  d.tempLowToday  != null ? fmt(d.tempLowToday)  : '—')
+      const curTemp = d.temp ?? null
+      const hiVal = d.tempHighToday != null ? (curTemp != null ? Math.max(d.tempHighToday, curTemp) : d.tempHighToday) : null
+      const loVal = d.tempLowToday  != null ? (curTemp != null ? Math.min(d.tempLowToday,  curTemp) : d.tempLowToday)  : null
+      setTxt('valTempHigh', hiVal != null ? fmt(hiVal) : '—')
+      setTxt('valTempLow',  loVal != null ? fmt(loVal) : '—')
       hiLo.classList.remove('hidden')
     } else {
       hiLo.classList.add('hidden')
