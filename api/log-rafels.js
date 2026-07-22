@@ -31,9 +31,15 @@ export default async function handler(req) {
 
   // ── 1. Daily observations ──────────────────────────────────────────────────
   let dailyUpserted = 0
+  if (debug) {
+    const body = summaryRes.status === 'fulfilled'
+      ? await summaryRes.value.json().catch(e => ({ parseError: e.message, httpStatus: summaryRes.value.status }))
+      : { fetchError: String(summaryRes.reason) }
+    return new Response(JSON.stringify(body, null, 2), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+  }
+
   if (summaryRes.status === 'fulfilled' && summaryRes.value.ok) {
     const json = await summaryRes.value.json()
-    if (debug) return new Response(JSON.stringify(json, null, 2), { headers: { 'Content-Type': 'application/json' } })
     const rows = (json?.summaries ?? json?.observations ?? [])
       .map(s => ({
         obs_date:  (s.obsTimeLocal ?? '').slice(0, 10),
