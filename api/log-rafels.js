@@ -9,7 +9,8 @@ const BASE    = 'https://api.weather.com'
 const avg  = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
 const rnd1 = v   => v != null ? +v.toFixed(1) : null
 
-export default async function handler() {
+export default async function handler(req) {
+  const debug = new URL(req.url).searchParams.has('debug')
   const supabaseUrl = process.env.SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_KEY
   if (!supabaseUrl || !supabaseKey) return new Response('missing env', { status: 503 })
@@ -32,15 +33,16 @@ export default async function handler() {
   let dailyUpserted = 0
   if (summaryRes.status === 'fulfilled' && summaryRes.value.ok) {
     const json = await summaryRes.value.json()
+    if (debug) return new Response(JSON.stringify(json, null, 2), { headers: { 'Content-Type': 'application/json' } })
     const rows = (json?.summaries ?? json?.observations ?? [])
       .map(s => ({
         obs_date:  (s.obsTimeLocal ?? '').slice(0, 10),
         temp_high: s.metric?.tempHigh    ?? null,
         temp_low:  s.metric?.tempLow     ?? null,
         temp_avg:  s.metric?.tempAvg     ?? null,
-        humidity:  s.humidityAvg != null ? Math.round(s.humidityAvg) : null,
+        humidity:  s.humidityAvg ?? s.humidity ?? null,
         precip:    s.metric?.precipTotal ?? null,
-        wind_high: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
+        wind_high: s.metric?.windspeedHigh ?? s.metric?.windSpeedHigh ?? s.metric?.windGustHigh ?? s.windspeedHigh ?? s.windGustHigh ?? null,
       }))
       .filter(r => r.obs_date)
 
@@ -113,6 +115,6 @@ export default async function handler() {
   }
 
   return new Response(JSON.stringify({ daily: dailyUpserted, hourly: hourlyUpserted }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   })
 }
