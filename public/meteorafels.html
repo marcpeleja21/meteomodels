@@ -1441,8 +1441,13 @@ function updateEvoStats(history) {
   let hi, lo
   if (activePeriod === 'day') {
     const dayData = dataCache['day']
+    const curTemp = dayData?.temp ?? null
     hi = dayData?.tempHighToday ?? null
     lo = dayData?.tempLowToday  ?? null
+    if (curTemp != null) {
+      if (hi != null) hi = Math.max(hi, curTemp)
+      if (lo != null) lo = Math.min(lo, curTemp)
+    }
   } else {
     const highs = (history ?? []).map(h => h.tempHigh).filter(v => v != null)
     const lows  = (history ?? []).map(h => h.tempLow).filter(v => v != null)
