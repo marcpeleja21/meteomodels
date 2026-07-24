@@ -318,29 +318,54 @@ export default async function handler(request) {
         }
       }
 
-      // WU daily humidity: fill nulls in slots where obs_hourly humidity is missing
-      const dailyHumidity = {}
+      // WU daily summary: daily high/low anchors + humidity fallback
+      const dailyStation = {}
       if (wuRes.status === 'fulfilled' && wuRes.value.ok) {
         const wuJson = await wuRes.value.json()
         for (const s of (wuJson?.summaries ?? wuJson?.observations ?? [])) {
           const date = (s.obsTimeLocal ?? '').slice(0, 10)
-          if (date && s.humidityAvg != null) dailyHumidity[date] = s.humidityAvg
+          if (date) dailyStation[date] = {
+            tempHigh: s.metric?.tempHigh ?? null,
+            tempLow:  s.metric?.tempLow  ?? null,
+            humidity: s.humidityAvg      ?? null,
+          }
         }
       }
 
-      result.history = [...slots.values()].map(b => {
-        const avg = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
-        return {
-          date:     b.date,
-          slot:     b.slot,
-          tempHigh: b.tempsHi.length  ? Math.max(...b.tempsHi)  : null,
-          tempLow:  b.tempsLo.length  ? Math.min(...b.tempsLo)  : null,
-          tempAvg:  avg(b.tempsAvg),
-          precip:   b.precips.length  ? b.precips.reduce((a, c) => a + c, 0) : null,
-          windHigh: b.winds.length    ? Math.max(...b.winds)    : null,
-          humidity: avg(b.humids) ?? dailyHumidity[b.date] ?? null,
+      const avg = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
+      const slotList = [...slots.values()].map(b => ({
+        date:     b.date,
+        slot:     b.slot,
+        tempHigh: b.tempsHi.length ? Math.max(...b.tempsHi) : null,
+        tempLow:  b.tempsLo.length ? Math.min(...b.tempsLo) : null,
+        tempAvg:  avg(b.tempsAvg),
+        precip:   b.precips.length ? b.precips.reduce((a, c) => a + c, 0) : null,
+        windHigh: b.winds.length   ? Math.max(...b.winds)   : null,
+        humidity: avg(b.humids) ?? dailyStation[b.date]?.humidity ?? null,
+      }))
+
+      // Anchor peak/trough slot per day to station's verified daily high/low.
+      // observations_hourly stores max(5-min tempAvg) which can miss instantaneous peaks;
+      // WU dailysummary/7day captures the true station extreme.
+      const slotsByDate = {}
+      for (const s of slotList) {
+        if (!slotsByDate[s.date]) slotsByDate[s.date] = []
+        slotsByDate[s.date].push(s)
+      }
+      for (const daySlots of Object.values(slotsByDate)) {
+        const daily = dailyStation[daySlots[0].date]
+        if (!daily) continue
+        if (daily.tempHigh != null) {
+          const peak = daySlots.reduce((a, b) => ((b.tempHigh ?? -Infinity) > (a.tempHigh ?? -Infinity) ? b : a))
+          if ((peak.tempHigh ?? -Infinity) < daily.tempHigh) peak.tempHigh = daily.tempHigh
         }
-      })
+        if (daily.tempLow != null) {
+          const trough = daySlots.reduce((a, b) => ((b.tempLow ?? Infinity) < (a.tempLow ?? Infinity) ? b : a))
+          if ((trough.tempLow ?? Infinity) > daily.tempLow) trough.tempLow = daily.tempLow
+        }
+      }
+
+      result.history = slotList
     } catch (_) {}
     if (!result.history) result.history = []
   }
