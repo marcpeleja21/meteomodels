@@ -1409,21 +1409,21 @@ function drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax) {
     ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
   }
 
-  // Low line — dynamic color per segment
+  // Low line — same color scale as high so higher value = hotter color always
   ctx.lineWidth = 2; ctx.lineJoin = 'round'
   for (let i = 0; i < n - 1; i++) {
     const v0 = history[i].tempLow ?? history[i].tempAvg
     const v1 = history[i + 1].tempLow ?? history[i + 1].tempAvg
     if (v0 == null || v1 == null) continue
     ctx.beginPath()
-    ctx.strokeStyle = tempMinColor((v0 + v1) / 2)
+    ctx.strokeStyle = tempMaxColor((v0 + v1) / 2)
     ctx.moveTo(px(i), py(v0)); ctx.lineTo(px(i + 1), py(v1))
     ctx.stroke()
   }
   const lastL = history[n - 1].tempLow ?? history[n - 1].tempAvg
   if (lastL != null) {
     ctx.beginPath(); ctx.arc(px(n - 1), py(lastL), 4, 0, Math.PI * 2)
-    ctx.fillStyle = tempMinColor(lastL); ctx.fill()
+    ctx.fillStyle = tempMaxColor(lastL); ctx.fill()
     ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke()
   }
 }
@@ -1596,7 +1596,7 @@ function handleChartHover(clientX) {
   if (isRangeTemp) {
     ctx.font = 'bold 12px sans-serif'
     if (hiText) { ctx.fillStyle = tempMaxColor(pt.tempHigh); ctx.fillText(hiText, bx + 8, by + 29) }
-    if (loText) { ctx.fillStyle = tempMinColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
+    if (loText) { ctx.fillStyle = tempMaxColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
   } else {
     ctx.fillStyle = valColor
     ctx.font = 'bold 12px sans-serif'
@@ -2002,7 +2002,7 @@ function handleHistHover(clientX) {
   if (isRangeTemp) {
     ctx.font = 'bold 12px sans-serif'
     if (hiText) { ctx.fillStyle = tempMaxColor(pt.tempHigh); ctx.fillText(hiText, bx + 8, by + 29) }
-    if (loText) { ctx.fillStyle = tempMinColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
+    if (loText) { ctx.fillStyle = tempMaxColor(pt.tempLow);  ctx.fillText(loText, bx + 8, by + 44) }
   } else {
     ctx.fillStyle = valColor
     ctx.font = 'bold 12px sans-serif'
