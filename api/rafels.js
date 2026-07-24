@@ -278,17 +278,17 @@ export default async function handler(request) {
         fetch(`${BASE}/v2/pws/dailysummary/7day?stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${WU_KEY}`),
       ])
 
-      // Build AM/PM buckets from Open-Meteo hourly (shape baseline)
+      // Build 3h buckets from Open-Meteo hourly (shape baseline)
       const slots = new Map()
       if (omRes.status === 'fulfilled' && omRes.value.ok) {
         const { hourly } = await omRes.value.json()
         for (let i = 0; i < hourly.time.length; i++) {
-          const dt   = hourly.time[i]
-          const date = dt.slice(0, 10)
-          const hour = parseInt(dt.slice(11, 13), 10)
-          const slot = hour < 12 ? 'AM' : 'PM'
-          const key  = date + '|' + slot
-          if (!slots.has(key)) slots.set(key, { date, slot, temps: [], precips: [], winds: [], humids: [] })
+          const dt       = hourly.time[i]
+          const date     = dt.slice(0, 10)
+          const hour     = parseInt(dt.slice(11, 13), 10)
+          const slotHour = Math.floor(hour / 3) * 3
+          const key      = date + '|' + slotHour
+          if (!slots.has(key)) slots.set(key, { date, slot: slotHour, temps: [], precips: [], winds: [], humids: [] })
           const b = slots.get(key)
           const t = hourly.temperature_2m[i];       if (t != null) b.temps.push(t)
           const p = hourly.precipitation[i];        if (p != null) b.precips.push(p)
@@ -337,12 +337,11 @@ export default async function handler(request) {
         return {
           date:     b.date,
           slot:     b.slot,
-          // AM slot carries station tempLow; PM slot carries tempHigh, windHigh, precip total
-          tempHigh: b.slot === 'PM' ? (sb?.tempHigh ?? tHi)  : tHi,
-          tempLow:  b.slot === 'AM' ? (sb?.tempLow  ?? tLo)  : tLo,
+          tempHigh: tHi,
+          tempLow:  tLo,
           tempAvg:  tAvg,
-          precip:   b.slot === 'PM' ? (sb?.precip   ?? prec) : prec,
-          windHigh: b.slot === 'PM' ? (sb?.windHigh ?? wHi)  : wHi,
+          precip:   prec,
+          windHigh: wHi,
           humidity: sb?.humidity ?? hum,
         }
       })

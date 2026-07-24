@@ -1280,10 +1280,10 @@ function drawGrid(ctx, pad, cw, ch, yMin, yMax, steps = 4) {
   }
 }
 
-function xLabel(ctx, pts, pad, cw, H, labelFn) {
+function xLabel(ctx, pts, pad, cw, H, labelFn, maxLabels = 8) {
   ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.textAlign = 'center'; ctx.font = '10px sans-serif'
-  const maxLabels = Math.min(pts.length, 8)
-  const step = Math.max(1, Math.ceil(pts.length / maxLabels))
+  const cap  = Math.min(pts.length, maxLabels)
+  const step = Math.max(1, Math.ceil(pts.length / cap))
   pts.forEach((p, i) => {
     if (i % step !== 0) return
     const x = pts.length === 1 ? pad.l + cw / 2 : pad.l + (i / (pts.length - 1)) * cw
@@ -1535,7 +1535,10 @@ function handleChartHover(clientX) {
   let hiText = null, loText = null
   const dayStr = activePeriod !== 'day' ? (() => {
     const d = new Date((pt.date ?? '') + 'T12:00:00')
-    return LANG[currentLang].dayAbbr[d.getDay()] + ' ' + d.getDate()
+    const base = LANG[currentLang].dayAbbr[d.getDay()] + ' ' + d.getDate()
+    if (activePeriod === 'week' && pt.slot != null)
+      return base + ' · ' + String(pt.slot).padStart(2, '0') + 'h'
+    return base
   })() : ''
 
   if (activeMetric === 'temp') {
@@ -1647,10 +1650,9 @@ function drawEvoChart(history) {
       drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax)
       xLabel(ctx, history, pad, cw, H, h => {
         const d = new Date(h.date + 'T12:00:00')
-        return activePeriod === 'week'
-          ? LANG[currentLang].dayAbbr[d.getDay()]
-          : String(d.getDate())
-      })
+        if (activePeriod === 'week') return h.slot === 0 ? LANG[currentLang].dayAbbr[d.getDay()] : ''
+        return String(d.getDate())
+      }, activePeriod === 'week' ? history.length : 8)
     }
 
   } else if (activeMetric === 'rain') {
@@ -1662,8 +1664,9 @@ function drawEvoChart(history) {
     xLabel(ctx, history, pad, cw, H, (h, i) => {
       if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
       const d = new Date(h.date + 'T12:00:00')
-      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
-    })
+      if (activePeriod === 'week') return h.slot === 0 ? LANG[currentLang].dayAbbr[d.getDay()] : ''
+      return String(d.getDate())
+    }, activePeriod === 'week' ? history.length : 8)
 
   } else if (activeMetric === 'wind') {
     const field = activePeriod === 'day' ? 'wind' : 'windHigh'
@@ -1693,8 +1696,9 @@ function drawEvoChart(history) {
     xLabel(ctx, history, pad, cw, H, (h) => {
       if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
       const d = new Date(h.date + 'T12:00:00')
-      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
-    })
+      if (activePeriod === 'week') return h.slot === 0 ? LANG[currentLang].dayAbbr[d.getDay()] : ''
+      return String(d.getDate())
+    }, activePeriod === 'week' ? history.length : 8)
   } else {
     const vals = history.map(h => h.humidity).filter(v => v != null)
     if (vals.length < 2) { canvas.style.opacity='0'; if(empty) empty.style.display='flex'; return }
@@ -1705,8 +1709,9 @@ function drawEvoChart(history) {
     xLabel(ctx, history, pad, cw, H, (h, i) => {
       if (activePeriod === 'day') return (h.time ?? '').slice(11, 16)
       const d = new Date(h.date + 'T12:00:00')
-      return activePeriod === 'week' ? LANG[currentLang].dayAbbr[d.getDay()] : String(d.getDate())
-    })
+      if (activePeriod === 'week') return h.slot === 0 ? LANG[currentLang].dayAbbr[d.getDay()] : ''
+      return String(d.getDate())
+    }, activePeriod === 'week' ? history.length : 8)
   }
 
   setupChartHover(canvas, history, pad, cw, ch, W, H)
