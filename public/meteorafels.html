@@ -1129,7 +1129,7 @@ function computeWeights(wKeys,lat,lon,elevM){
     let r=resBonus(k)
     if(elevM>600&&r>0)r*=tmul
     let s=(_BASE[k]??6)+reg(k)+r
-    if(hasHR&&!_HI.has(k)&&(_RES[k]??25)>=10)s*=0.70
+    if(hasHR&&!_HI.has(k)&&(_RES[k]??25)>=10&&k!=='ecmwf'&&k!=='gfs')s*=0.70
     raw[k]=Math.max(s,0.1)
   }
   const tot=Object.values(raw).reduce((a,v)=>a+v,0)
