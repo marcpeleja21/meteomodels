@@ -29,10 +29,18 @@ export default async function handler() {
   const snapshotUrl = process.env.WEBCAM_SNAPSHOT_URL
   if (!snapshotUrl) return new Response(null, { status: 404 })
 
+  // Use authenticated Supabase Storage endpoint to bypass CDN cache.
+  // The anon key is enough for public buckets; service_role also works.
+  const sbKey = process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_KEY
+  const fetchUrl = sbKey
+    ? snapshotUrl.replace('/object/public/', '/object/')
+    : snapshotUrl
+
   try {
-    const res = await fetch(snapshotUrl, {
+    const res = await fetch(fetchUrl, {
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
+      ...(sbKey && { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }),
     })
     if (!res.ok) return new Response(null, { status: 502 })
     const data = await res.arrayBuffer()
