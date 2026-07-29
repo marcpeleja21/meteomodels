@@ -46,4 +46,5 @@ Allow: /
 # /llms.txt  — machine-readable site description for AI assistants
 # /about.html — human-readable about page
 
-Sitemap: https://meteomodels.vercel.app/sitemap.xml
+Sitemap: https://www.meteomodels.app/sitemap.xml
+Sitemap: https://meteorafels.meteomodels.app/sitemap.xml

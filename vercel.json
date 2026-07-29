@@ -56,7 +56,7 @@
       "source": "/",
       "has": [{ "type": "host", "value": "meteorafels.meteomodels.app" }],
       "destination": "/meteorafels.html",
-      "permanent": false
+      "permanent": true
     }
   ],
 
