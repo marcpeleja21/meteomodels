@@ -29,17 +29,10 @@ export default async function handler() {
   const snapshotUrl = process.env.WEBCAM_SNAPSHOT_URL
   if (!snapshotUrl) return new Response(null, { status: 404 })
 
-  const supabaseKey = process.env.SUPABASE_KEY
-  // Authenticated endpoint skips Supabase's Cloudflare CDN; public URL is cached
-  const fetchUrl = supabaseKey
-    ? snapshotUrl.replace('/object/public/', '/object/')
-    : snapshotUrl
-
   try {
-    const res = await fetch(fetchUrl, {
+    const res = await fetch(snapshotUrl, {
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
-      ...(supabaseKey && { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }),
     })
     if (!res.ok) return new Response(null, { status: 502 })
     const data = await res.arrayBuffer()
