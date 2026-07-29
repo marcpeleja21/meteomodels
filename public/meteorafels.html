@@ -1086,23 +1086,68 @@ async function initWebcam() {
 }
 
 /* ══════════════════════════════════════════════
-   Forecast strip — multi-model ensemble
-   Same model set MeteoModels uses for this location:
+   Forecast strip — multi-model ensemble (weighted)
+   Same model set and weight logic as MeteoModels for this location:
      7-day: ECMWF IFS, ICON EU, ARPEGE EU, UKMO, GFS, GEM
      2-day: AROME HD (1.5 km), AROME (2.5 km), HARMONIE EU, HARMONIE DMI
-   Per-day blend: simple average hi/lo/rain across valid models,
-   modal WMO code — mirrors getEnsembleForecast() in data.ts.
+   Weights mirror computeModelWeights() in src/utils/modelWeights.ts.
 ══════════════════════════════════════════════ */
-function fcAvg(vals) {
-  const v = vals.filter(x => x != null)
-  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
+const _BASE={ecmwf:9.0,gfs:7.2,hrrr:9.0,icon:7.0,icon_eu:8.0,icon_d2:8.5,arome_hd:9.5,arome:9.0,arpege:7.5,geosphere:8.2,knmi_harmonie:8.0,dmi_harmonie:7.8,ukmo:8.2,gem:6.5}
+const _RES={arome_hd:1.5,icon_d2:2.2,arome:2.5,geosphere:2.5,knmi_harmonie:2.5,dmi_harmonie:2.5,hrrr:3.0,icon_eu:7.0,arpege:10,ukmo:10,ecmwf:25,gfs:25,icon:13,gem:15}
+const _HI=new Set(['arome_hd','arome','icon_d2','geosphere','knmi_harmonie','dmi_harmonie','hrrr'])
+
+function computeWeights(wKeys,lat,lon,elevM){
+  const eu=lat>=27&&lat<=72&&lon>=-25&&lon<=45
+  const fr=lat>=35&&lat<=56&&lon>=-12&&lon<=17
+  const ce=lat>=43.5&&lat<=57.5&&lon>=-4&&lon<=20
+  const ib=lat>=36&&lat<=44&&lon>=-10&&lon<=4
+  const uk=lat>=49.5&&lat<=61.5&&lon>=-11&&lon<=2
+  const no=lat>=54&&lat<=72&&lon>=-25&&lon<=32
+  const ca=lat>=42&&lat<=84&&lon>=-141&&lon<=-52
+  const us=lat>=15&&lat<=72&&lon>=-170&&lon<=-52&&!ca
+  function reg(k){
+    if(k==='hrrr')         return(lat>=22&&lat<=52&&lon>=-134&&lon<=-61)?7:0
+    if(k==='arome_hd')     return fr?7:0
+    if(k==='arome')        return fr?5:0
+    if(k==='icon_d2')      return ce?3:0
+    if(k==='geosphere')    return ce?2.5:0
+    if(k==='knmi_harmonie')return eu?(ce?2:ib?2.5:no?1.5:1):0
+    if(k==='dmi_harmonie') return no?2.5:(eu?1:0)
+    if(k==='icon_eu')      return eu?2:0
+    if(k==='arpege')       return eu?(ib?2:1):0
+    if(k==='ukmo')         return uk?3:(eu?0.5:0.2)
+    if(k==='gem')          return ca?3.5:0
+    if(k==='ecmwf')        return eu?1:0.5
+    if(k==='gfs')          return us?2:(!eu?0.8:0)
+    return 0
+  }
+  function resBonus(k){const km=_RES[k]??25;return Math.max(0,Math.log(25/km)/Math.log(25/1.5))*3}
+  const hasHR=wKeys.some(k=>_HI.has(k))
+  const tmul=elevM>600?1+Math.min((elevM-600)/1000,1.5):1
+  const raw={}
+  for(const k of wKeys){
+    let r=resBonus(k)
+    if(elevM>600&&r>0)r*=tmul
+    let s=(_BASE[k]??6)+reg(k)+r
+    if(hasHR&&!_HI.has(k)&&(_RES[k]??25)>=10)s*=0.70
+    raw[k]=Math.max(s,0.1)
+  }
+  const tot=Object.values(raw).reduce((a,v)=>a+v,0)
+  const w={}
+  for(const k of wKeys)w[k]=raw[k]/tot
+  return w
 }
-function fcModal(vals) {
-  const v = vals.filter(x => x != null)
-  if (!v.length) return null
-  const f = {}
-  for (const x of v) f[x] = (f[x] ?? 0) + 1
-  return +Object.entries(f).sort((a, b) => b[1] - a[1])[0][0]
+
+function fcWAvg(entries){
+  let s=0,ws=0
+  for(const{v,w}of entries)if(v!=null){s+=v*w;ws+=w}
+  return ws>0?s/ws:null
+}
+function fcWModal(entries){
+  const freq={}
+  for(const{v,w}of entries)if(v!=null)freq[v]=(freq[v]??0)+w
+  const e=Object.entries(freq)
+  return e.length?+e.sort((a,b)=>b[1]-a[1])[0][0]:null
 }
 
 function wmoEmoji(code) {
@@ -1183,16 +1228,16 @@ async function loadForecast() {
 
   // Models and their max forecast days (mirrors getActiveModels for this location)
   const MODELS = [
-    { id: 'ecmwf_ifs025',                  days: 7 },
-    { id: 'icon_eu',                        days: 7 },
-    { id: 'meteofrance_arpege_europe',      days: 7 },
-    { id: 'ukmo_seamless',                  days: 7 },
-    { id: 'gfs_seamless',                   days: 7 },
-    { id: 'gem_seamless',                   days: 7 },
-    { id: 'meteofrance_arome_france_hd',    days: 2 },
-    { id: 'meteofrance_arome_france',       days: 2 },
-    { id: 'knmi_harmonie_arome_europe',     days: 2 },
-    { id: 'dmi_harmonie_arome_europe',      days: 2 },
+    { id: 'ecmwf_ifs025',               wKey: 'ecmwf',         days: 7 },
+    { id: 'icon_eu',                     wKey: 'icon_eu',       days: 7 },
+    { id: 'meteofrance_arpege_europe',   wKey: 'arpege',        days: 7 },
+    { id: 'ukmo_seamless',               wKey: 'ukmo',          days: 7 },
+    { id: 'gfs_seamless',                wKey: 'gfs',           days: 7 },
+    { id: 'gem_seamless',                wKey: 'gem',           days: 7 },
+    { id: 'meteofrance_arome_france_hd', wKey: 'arome_hd',      days: 2 },
+    { id: 'meteofrance_arome_france',    wKey: 'arome',         days: 2 },
+    { id: 'knmi_harmonie_arome_europe',  wKey: 'knmi_harmonie', days: 2 },
+    { id: 'dmi_harmonie_arome_europe',   wKey: 'dmi_harmonie',  days: 2 },
   ]
 
   const makeUrl = (id, days) => {
@@ -1208,9 +1253,9 @@ async function loadForecast() {
     )
   )
 
-  // Collect valid daily arrays paired with their maxDays
+  // Collect valid daily arrays paired with their maxDays and weight key
   const valid = settled
-    .map((r, i) => ({ maxDays: MODELS[i].days, daily: r.status === 'fulfilled' ? r.value?.daily : null }))
+    .map((r, i) => ({ maxDays: MODELS[i].days, wKey: MODELS[i].wKey, daily: r.status === 'fulfilled' ? r.value?.daily : null }))
     .filter(x => x.daily?.time?.length)
 
   if (!valid.length) return
@@ -1220,22 +1265,26 @@ async function loadForecast() {
 
   forecastDaily = ref.daily.time.slice(0, 7).map((date, i) => {
     // For day i, only include models whose range covers it
-    const sources = valid.filter(x => i < x.maxDays).map(x => x.daily)
+    const sources = valid.filter(x => i < x.maxDays)
+    // Compute weights for the subset of models active on this day
+    const W = computeWeights(sources.map(x => x.wKey), 38.73, -0.63, 630)
     // Mirror MeteoModels' inferCodeFromPrecip fallback when weather_code is null
-    const codes = sources.map(d => {
-      const c = d.weather_code?.[i] ?? null
-      if (c !== null) return c
-      const mm = d.precipitation_sum?.[i] ?? null
-      return (mm === null || mm === 0) ? null : (mm >= 2.5 ? 61 : 51)
+    const codeEntries = sources.map(s => {
+      const c = s.daily.weather_code?.[i] ?? null
+      const v = c !== null ? c : (() => {
+        const mm = s.daily.precipitation_sum?.[i] ?? null
+        return (mm === null || mm === 0) ? null : (mm >= 2.5 ? 61 : 51)
+      })()
+      return { v, w: W[s.wKey] }
     })
     return {
       date,
-      hi:     fcAvg(sources.map(d => d.temperature_2m_max?.[i] ?? null)),
-      lo:     fcAvg(sources.map(d => d.temperature_2m_min?.[i] ?? null)),
-      prob:   fcAvg(sources.map(d => d.precipitation_probability_max?.[i] ?? null)),
-      precip: fcAvg(sources.map(d => d.precipitation_sum?.[i] ?? null)),
-      code:   fcModal(codes),
-      wind:   fcAvg(sources.map(d => d.wind_speed_10m_max?.[i] ?? null)),
+      hi:     fcWAvg(sources.map(s => ({ v: s.daily.temperature_2m_max?.[i]            ?? null, w: W[s.wKey] }))),
+      lo:     fcWAvg(sources.map(s => ({ v: s.daily.temperature_2m_min?.[i]            ?? null, w: W[s.wKey] }))),
+      prob:   fcWAvg(sources.map(s => ({ v: s.daily.precipitation_probability_max?.[i] ?? null, w: W[s.wKey] }))),
+      precip: fcWAvg(sources.map(s => ({ v: s.daily.precipitation_sum?.[i]             ?? null, w: W[s.wKey] }))),
+      code:   fcWModal(codeEntries),
+      wind:   fcWAvg(sources.map(s => ({ v: s.daily.wind_speed_10m_max?.[i]            ?? null, w: W[s.wKey] }))),
     }
   })
 
