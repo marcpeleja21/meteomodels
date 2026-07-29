@@ -29,14 +29,14 @@
 
   <!-- ── MeteoRàfels ───────────────────────────────────────────────────────── -->
   <url>
-    <loc>https://meteorafels.meteomodels.app/</loc>
+    <loc>https://www.meteomodels.app/meteorafels</loc>
     <lastmod>2026-07-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="ca"        href="https://meteorafels.meteomodels.app/"/>
-    <xhtml:link rel="alternate" hreflang="es"        href="https://meteorafels.meteomodels.app/"/>
-    <xhtml:link rel="alternate" hreflang="en"        href="https://meteorafels.meteomodels.app/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://meteorafels.meteomodels.app/"/>
+    <xhtml:link rel="alternate" hreflang="ca"        href="https://www.meteomodels.app/meteorafels"/>
+    <xhtml:link rel="alternate" hreflang="es"        href="https://www.meteomodels.app/meteorafels"/>
+    <xhtml:link rel="alternate" hreflang="en"        href="https://www.meteomodels.app/meteorafels"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.meteomodels.app/meteorafels"/>
   </url>
 
   <!-- ── About page ────────────────────────────────────────────────────────── -->

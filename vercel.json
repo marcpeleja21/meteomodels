@@ -57,13 +57,17 @@
     { "path": "/api/tweet-rafels",  "schedule": "0 8 * * *" }
   ],
 
-  "rewrites": [
-    { "source": "/meteorafels", "destination": "/meteorafels.html" },
+  "redirects": [
     {
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "meteorafels.meteomodels.app" }],
-      "destination": "/meteorafels.html"
-    },
+      "destination": "https://www.meteomodels.app/meteorafels",
+      "permanent": true
+    }
+  ],
+
+  "rewrites": [
+    { "source": "/meteorafels", "destination": "/meteorafels.html" },
     { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html|meteorafels.html).*)", "destination": "/index.html" }
   ]
 }
