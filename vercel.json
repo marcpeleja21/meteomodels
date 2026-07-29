@@ -51,15 +51,6 @@
     }
   ],
 
-  "redirects": [
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "meteorafels.meteomodels.app" }],
-      "destination": "/meteorafels.html",
-      "permanent": true
-    }
-  ],
-
   "crons": [
     { "path": "/api/log-rafels",    "schedule": "0 2 * * *" },
     { "path": "/api/tweet-rafels",  "schedule": "0 7 * * *" },
@@ -68,6 +59,11 @@
 
   "rewrites": [
     { "source": "/meteorafels", "destination": "/meteorafels.html" },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "meteorafels.meteomodels.app" }],
+      "destination": "/meteorafels.html"
+    },
     { "source": "/((?!api|assets|icons|screenshots|sw.js|workbox.*|manifest.webmanifest|favicon.*|apple-touch-icon.png|registerSW.js|privacy.html|about.html|meteorafels.html).*)", "destination": "/index.html" }
   ]
 }
