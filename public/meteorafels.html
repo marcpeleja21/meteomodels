@@ -246,6 +246,31 @@
       object-fit: contain; box-shadow: 0 16px 60px rgba(0,0,0,.8);
     }
 
+    /* ── Rain radar card ── */
+    .radar-card {
+      background: var(--card);
+      backdrop-filter: blur(16px) saturate(1.4);
+      -webkit-backdrop-filter: blur(16px) saturate(1.4);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .radar-label {
+      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-size: .66rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .7px; color: var(--text-muted);
+    }
+    .radar-iframe {
+      width: 100%; height: 320px; border: none; display: block;
+    }
+    .radar-badge {
+      padding: 6px 16px; font-size: .72rem; color: #78b3f8;
+      background: rgba(120,179,248,.08); border-bottom: 1px solid rgba(120,179,248,.15);
+    }
+    .radar-attribution {
+      padding: 6px 16px; font-size: .62rem; color: var(--text-dim);
+    }
+    .radar-attribution a { color: var(--text-dim); text-decoration: none }
+
     /* ── Metric cards grid ── */
     .grid {
       display: grid;
@@ -580,7 +605,10 @@
       <div id="webcamContent"></div>
     </div>
 
-    <!-- ②  Current conditions -->
+    <!-- ②  Rain radar (shown when rain is expected) -->
+    <div id="radarCard"></div>
+
+    <!-- ③  Current conditions -->
     <div class="section-title" id="conditionsSectionTitle">📍 Condicions actuals</div>
     <div class="grid">
 
@@ -758,6 +786,8 @@ const chartHover = { canvas: null, image: null, history: null, pad: null, cw: 0,
 let webcamState  = 'placeholder' // 'placeholder' | 'stream' | 'snapshot'
 let forecastDaily    = null  // blended multi-model daily forecast: [{date,hi,lo,prob,code}]
 let forecastExpanded = false // show all 7 days vs. initial 4
+let stationRaining   = false // true when station reports precipRate > 0
+let forecastRainIn   = null  // earliest hour offset (0-6) at which ≥2 models agree on rain, or null
 
 /* ══════════════════════════════════════════════
    i18n
@@ -799,6 +829,7 @@ const LANG = {
     histMaxLbl: 'Màx', histMinLbl: 'Mín',
     monthAbbr: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'],
     monthFull: ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'],
+    radarTitle: '🌧 Radar de pluja', radarForecast: 'Pluja esperada en {n}h',
   },
   es: {
     locale: 'es-ES',
@@ -836,6 +867,7 @@ const LANG = {
     histMaxLbl: 'Máx', histMinLbl: 'Mín',
     monthAbbr: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
     monthFull: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+    radarTitle: '🌧 Radar de lluvia', radarForecast: 'Lluvia esperada en {n}h',
   },
   en: {
     locale: 'en-GB',
@@ -873,6 +905,7 @@ const LANG = {
     histMaxLbl: 'Max', histMinLbl: 'Min',
     monthAbbr: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     monthFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    radarTitle: '🌧 Rain radar', radarForecast: 'Rain expected in {n}h',
   },
 }
 
@@ -1150,6 +1183,95 @@ function fcWModal(entries){
   return e.length?+e.sort((a,b)=>b[1]-a[1])[0][0]:null
 }
 
+/* ── Rain radar helpers ── */
+function currentHourIdxFc(times, timezone) {
+  const now = new Date()
+  let nowStr
+  if (timezone) {
+    try {
+      const s = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).format(now)
+      nowStr = s.slice(0, 10) + 'T' + s.slice(11, 13)
+    } catch {
+      const loc = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+      nowStr = loc.toISOString().slice(0, 13)
+    }
+  } else {
+    const loc = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    nowStr = loc.toISOString().slice(0, 13)
+  }
+  let best = 0
+  for (let i = 0; i < times.length; i++) {
+    if (times[i].slice(0, 13) <= nowStr) best = i
+    else break
+  }
+  return best
+}
+
+function hoursUntilRain(models) {
+  if (!models.length) return null
+  const hits = {}
+  for (const m of models) {
+    const h = m.hourly
+    if (!h?.time?.length) continue
+    const base = currentHourIdxFc(h.time, m.timezone)
+    for (let offset = 0; offset <= 6; offset++) {
+      const idx = base + offset
+      if (idx >= h.time.length) break
+      const code = h.weather_code?.[idx] ?? null
+      const prob = h.precipitation_probability?.[idx] ?? 0
+      const isRain = code !== null && (
+        (code >= 51 && code <= 82) || (code >= 85 && code <= 86) || (code >= 95 && code <= 99)
+      )
+      if (isRain || prob >= 40) {
+        hits[offset] = (hits[offset] ?? 0) + 1
+        break
+      }
+    }
+  }
+  const entries = Object.entries(hits).map(([k, v]) => [+k, v]).sort((a, b) => a[0] - b[0])
+  if (!entries.length) return null
+  const minAgree = Math.min(2, models.length)
+  for (const [offset, count] of entries) {
+    if (count >= minAgree) return offset
+  }
+  return null
+}
+
+function showRadar(hoursUntil) {
+  const el = document.getElementById('radarCard')
+  if (!el) return
+  const t = LANG[currentLang]
+  const LAT = 38.73, LON = -0.63
+  const badge = (hoursUntil !== null && hoursUntil > 0)
+    ? `<div class="radar-badge">⏱ ${t.radarForecast.replace('{n}', hoursUntil)}</div>`
+    : ''
+  const url = `https://embed.windy.com/embed2.html?lat=${LAT}&lon=${LON}&detailLat=${LAT}&detailLon=${LON}&zoom=8&level=surface&overlay=radar&menu=&message=false&marker=true&calendar=now&type=map&location=coordinates&metricWind=default&metricTemp=default`
+  el.innerHTML = `<div class="radar-card">
+    <div class="radar-label">${t.radarTitle}</div>
+    ${badge}
+    <iframe src="${url}" class="radar-iframe" loading="lazy" allowfullscreen></iframe>
+    <div class="radar-attribution">Radar © <a href="https://www.windy.com" target="_blank" rel="noopener">Windy</a></div>
+  </div>`
+}
+
+function clearRadar() {
+  const el = document.getElementById('radarCard')
+  if (el) el.innerHTML = ''
+}
+
+function updateRadarCard() {
+  if (stationRaining) {
+    showRadar(null)
+  } else if (forecastRainIn !== null) {
+    showRadar(forecastRainIn)
+  } else {
+    clearRadar()
+  }
+}
+
 function wmoEmoji(code) {
   if (code == null) return '—'
   if (code === 0)   return '☀️'
@@ -1289,6 +1411,12 @@ async function loadForecast() {
   })
 
   renderForecastStrip()
+
+  const hourlyModels = settled
+    .filter(r => r.status === 'fulfilled' && r.value?.hourly?.time?.length)
+    .map(r => ({ hourly: r.value.hourly, timezone: r.value.timezone }))
+  forecastRainIn = hoursUntilRain(hourlyModels)
+  updateRadarCard()
 }
 
 /* ══════════════════════════════════════════════
@@ -1315,6 +1443,9 @@ function renderCards(d) {
   } else {
     RainAnim.stop()
   }
+
+  stationRaining = (d.precipRate ?? 0) > 0
+  updateRadarCard()
 
   const arrow = $('compassArrow')
   if (arrow && d.windDir != null) arrow.setAttribute('transform', `rotate(${d.windDir},30,30)`)
