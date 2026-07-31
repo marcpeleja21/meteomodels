@@ -300,6 +300,7 @@
     .card-sub b { color: var(--text); font-weight: 500 }
     .rain-active { color: var(--accent2) !important }
     .rain-none   { color: var(--text-dim) !important }
+    .card--wet   { background: rgba(79,195,247,.13); border-color: rgba(79,195,247,.28) }
     .card-wind-body { display: flex; align-items: center; gap: 12px; margin-top: 4px }
     .compass { width: 52px; height: 52px; flex-shrink: 0 }
     .uv-bar {
@@ -654,7 +655,7 @@
       </div>
 
       <!-- Precipitation -->
-      <div class="card">
+      <div class="card" id="precipCard">
         <div class="card-label" id="lblPrecip">🌧 Precipitació</div>
         <div class="card-value" style="font-size:1.40rem">
           <span id="valPrecipTotal">—</span><span class="unit">mm</span>
@@ -1437,6 +1438,7 @@ function renderCards(d) {
   setTxt('valWindDir',      d.windDir != null ? degToCompass(d.windDir) : '—')
   setTxt('valPressure',     fmt(d.pressure))
   setTxt('valPrecipTotal',  fmt(d.precipTotal))
+  $('precipCard')?.classList.toggle('card--wet', (d.precipTotal ?? 0) > 0)
 
   const rEl = $('valPrecipRate')
   if (rEl) {
