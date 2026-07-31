@@ -1031,12 +1031,14 @@ async function mountStream(el, url) {
   const isMjpeg = /mjpe?g/i.test(url)
   const isHls   = !isMjpeg && /\.m3u8(\?|$)/i.test(url)
 
+  const snapshotUrl = () => '/api/webcam-rafels?t=' + Date.now()
+
   if (isMjpeg) {
     const img = document.createElement('img')
     img.className = 'webcam-img'
     img.alt = 'Webcam Ràfels'
     img.src = url
-    img.addEventListener('click', () => openLightbox(url))
+    img.addEventListener('click', () => openLightbox(snapshotUrl()))
     el.appendChild(img)
     return
   }
@@ -1046,6 +1048,8 @@ async function mountStream(el, url) {
   video.autoplay   = true
   video.muted      = true
   video.playsInline = true
+  video.style.cursor = 'pointer'
+  video.addEventListener('click', () => openLightbox(snapshotUrl()))
   el.appendChild(video)
 
   if (isHls && video.canPlayType('application/vnd.apple.mpegurl')) {
