@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MeteoRàfels — Meteorologia en temps real a Ràfels (Ráfales)</title>
   <meta name="description" content="Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales): temperatura, humitat, precipitació, vent i pronòstic de 7 dies.">
-  <meta name="keywords" content="Ràfels, Ráfales, meteorologia, temps real, temperatura, humitat, precipitació, estació meteorològica, Valencia, meteo">
+  <meta name="keywords" content="Ràfels, Ráfales, meteorologia, temps real, temperatura, humitat, precipitació, estació meteorològica, Matarranya, Aragó, meteo">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.meteomodels.app/meteorafels">
 
@@ -16,10 +16,10 @@
   <link rel="alternate" hreflang="x-default" href="https://www.meteomodels.app/meteorafels">
 
   <!-- Geo tags -->
-  <meta name="geo.region"   content="ES-VC">
-  <meta name="geo.placename" content="Ràfels, Ráfales, País Valencià, Espanya">
-  <meta name="geo.position" content="38.73;-0.63">
-  <meta name="ICBM"         content="38.73, -0.63">
+  <meta name="geo.region"   content="ES-AR">
+  <meta name="geo.placename" content="Ràfels, Ráfales, Matarranya, Aragó, Espanya">
+  <meta name="geo.position" content="40.73;0.21">
+  <meta name="ICBM"         content="40.73, 0.21">
 
   <!-- Open Graph -->
   <meta property="og:type"        content="website">
@@ -48,7 +48,7 @@
     "@type": "WebApplication",
     "name": "MeteoRàfels",
     "url": "https://meteorafels.meteomodels.app",
-    "description": "Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales, Valencia, Espanya): temperatura, humitat, precipitació, vent i pronòstic.",
+    "description": "Dades meteorològiques en temps real de l'estació de Ràfels (Ráfales, Aragó, Espanya): temperatura, humitat, precipitació, vent i pronòstic.",
     "applicationCategory": "WeatherApplication",
     "operatingSystem": "Web",
     "inLanguage": ["ca", "es", "en"],
@@ -57,12 +57,12 @@
       "name": "Ràfels (Ráfales)",
       "geo": {
         "@type": "GeoCoordinates",
-        "latitude": 38.73,
-        "longitude": -0.63
+        "latitude": 40.73,
+        "longitude": 0.21
       },
       "containedInPlace": {
         "@type": "Place",
-        "name": "Valencia, Espanya"
+        "name": "Aragó, Espanya"
       }
     }
   }
@@ -501,7 +501,7 @@
   <div style="font-family:sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#111">
     <h1>MeteoRàfels — Estació Meteorològica de Ràfels (Ráfales)</h1>
     <p>
-      MeteoRàfels és l'estació meteorològica automàtica de <strong>Ràfels (Ráfales)</strong>, un municipi de la comarca del Comtat (País Valencià, Espanya), situat a 630 metres d'altitud.
+      MeteoRàfels és l'estació meteorològica automàtica de <strong>Ràfels (Ráfales)</strong>, un municipi de la comarca del Matarranya (Aragó, Espanya), situat a 630 metres d'altitud.
       Ofereix dades en temps real de temperatura, humitat relativa, precipitació acumulada, velocitat del vent i pronòstic de 7 dies.
     </p>
     <p>
@@ -517,7 +517,7 @@
       <li>Webcam en directe de Ràfels i els voltants</li>
     </ul>
     <p>
-      <strong>Estació:</strong> Ràfels (Ráfales) · <strong>Comarca:</strong> El Comtat · <strong>Província:</strong> Alacant · <strong>Coordenades:</strong> 38.73°N, 0.63°W · <strong>Altitud:</strong> 630 m
+      <strong>Estació:</strong> Ràfels (Ráfales) · <strong>Comarca:</strong> Matarranya · <strong>Província:</strong> Terol · <strong>Coordenades:</strong> 40.73°N, 0.21°E · <strong>Altitud:</strong> 630 m
     </p>
     <p>Activa JavaScript per veure les dades en temps real i els gràfics interactius.</p>
   </div>
@@ -657,9 +657,9 @@
       <div class="card">
         <div class="card-label" id="lblPrecip">🌧 Precipitació</div>
         <div class="card-value" style="font-size:1.40rem">
-          <span id="valPrecipRate" class="rain-none">—</span><span class="unit">mm/h</span>
+          <span id="valPrecipTotal">—</span><span class="unit">mm</span>
         </div>
-        <div class="card-sub"><span id="lblTotalToday">Total avui</span> <b id="valPrecipTotal">—</b> mm</div>
+        <div class="card-sub"><span id="valPrecipRate" class="rain-none">—</span> mm/h</div>
       </div>
 
     </div><!-- /grid -->
@@ -788,6 +788,7 @@ let forecastDaily    = null  // blended multi-model daily forecast: [{date,hi,lo
 let forecastExpanded = false // show all 7 days vs. initial 4
 let stationRaining   = false // true when station reports precipRate > 0
 let forecastRainIn   = null  // earliest hour offset (0-6) at which ≥2 models agree on rain, or null
+let rainStopTimer    = null  // delayed stop — animation persists 15 min after last mm/h reading
 
 /* ══════════════════════════════════════════════
    i18n
@@ -932,7 +933,7 @@ function applyLang(lang) {
   setTxt('lblFeelsLike', t.feelsLike)
   setTxt('lblDewPoint', t.dewPoint)
   setTxt('lblGust', t.gust)
-  setTxt('lblTotalToday', t.totalToday)
+
   setTxt('footerLabel', t.dataSource)
   setTxt('compassW', t.west)
   setTxt('evoEmpty', t.noData)
@@ -1248,7 +1249,7 @@ function showRadar(hoursUntil) {
   const el = document.getElementById('radarCard')
   if (!el) return
   const t = LANG[currentLang]
-  const LAT = 38.73, LON = -0.63
+  const LAT = 40.73, LON = 0.21
   const badge = (hoursUntil !== null && hoursUntil > 0)
     ? `<div class="radar-badge">⏱ ${t.radarForecast.replace('{n}', hoursUntil)}</div>`
     : ''
@@ -1347,7 +1348,7 @@ function expandForecast() {
 }
 
 async function loadForecast() {
-  const LAT    = '38.73', LON = '-0.63'
+  const LAT    = '40.73', LON = '0.21'
   // Exact same vars MeteoModels sends so both share the same Open-Meteo cache entry
   const HOURLY = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,pressure_msl,cloud_cover,uv_index,snow_depth,snowfall'
   const DAILY  = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max'
@@ -1393,7 +1394,7 @@ async function loadForecast() {
     // For day i, only include models whose range covers it
     const sources = valid.filter(x => i < x.maxDays)
     // Compute weights for the subset of models active on this day
-    const W = computeWeights(sources.map(x => x.wKey), 38.73, -0.63, 630)
+    const W = computeWeights(sources.map(x => x.wKey), 40.73, 0.21, 630)
     // Mirror MeteoModels' inferCodeFromPrecip fallback when weather_code is null
     const codeEntries = sources.map(s => {
       const c = s.daily.weather_code?.[i] ?? null
@@ -1443,9 +1444,10 @@ function renderCards(d) {
     rEl.className = (d.precipRate ?? 0) > 0 ? 'rain-active' : 'rain-none'
   }
   if ((d.precipRate ?? 0) > 0) {
+    if (rainStopTimer) { clearTimeout(rainStopTimer); rainStopTimer = null }
     d.temp != null && d.temp <= 2 ? RainAnim.startSnow() : RainAnim.startRain()
-  } else {
-    RainAnim.stop()
+  } else if (!rainStopTimer) {
+    rainStopTimer = setTimeout(() => { RainAnim.stop(); rainStopTimer = null }, 15 * 60 * 1000)
   }
 
   stationRaining = (d.precipRate ?? 0) > 0
