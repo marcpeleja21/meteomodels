@@ -18,8 +18,8 @@
   <!-- Geo tags -->
   <meta name="geo.region"   content="ES-AR">
   <meta name="geo.placename" content="Ràfels, Ráfales, Matarranya, Aragó, Espanya">
-  <meta name="geo.position" content="40.73;0.21">
-  <meta name="ICBM"         content="40.73, 0.21">
+  <meta name="geo.position" content="40.84;0.02">
+  <meta name="ICBM"         content="40.84, 0.02">
 
   <!-- Open Graph -->
   <meta property="og:type"        content="website">
@@ -57,8 +57,8 @@
       "name": "Ràfels (Ráfales)",
       "geo": {
         "@type": "GeoCoordinates",
-        "latitude": 40.73,
-        "longitude": 0.21
+        "latitude": 40.84,
+        "longitude": 0.02
       },
       "containedInPlace": {
         "@type": "Place",
@@ -518,7 +518,7 @@
       <li>Webcam en directe de Ràfels i els voltants</li>
     </ul>
     <p>
-      <strong>Estació:</strong> Ràfels (Ráfales) · <strong>Comarca:</strong> Matarranya · <strong>Província:</strong> Terol · <strong>Coordenades:</strong> 40.73°N, 0.21°E · <strong>Altitud:</strong> 630 m
+      <strong>Estació:</strong> Ràfels (Ráfales) · <strong>Comarca:</strong> Matarranya · <strong>Província:</strong> Terol · <strong>Coordenades:</strong> 40.84°N, 0.02°E · <strong>Altitud:</strong> 630 m
     </p>
     <p>Activa JavaScript per veure les dades en temps real i els gràfics interactius.</p>
   </div>
@@ -1250,7 +1250,7 @@ function showRadar(hoursUntil) {
   const el = document.getElementById('radarCard')
   if (!el) return
   const t = LANG[currentLang]
-  const LAT = 40.73, LON = 0.21
+  const LAT = 40.84, LON = 0.02
   const badge = (hoursUntil !== null && hoursUntil > 0)
     ? `<div class="radar-badge">⏱ ${t.radarForecast.replace('{n}', hoursUntil)}</div>`
     : ''
@@ -1349,7 +1349,7 @@ function expandForecast() {
 }
 
 async function loadForecast() {
-  const LAT    = '40.73', LON = '0.21'
+  const LAT    = '40.84', LON = '0.02'
   // Exact same vars MeteoModels sends so both share the same Open-Meteo cache entry
   const HOURLY = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,pressure_msl,cloud_cover,uv_index,snow_depth,snowfall'
   const DAILY  = 'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max'
@@ -1395,7 +1395,7 @@ async function loadForecast() {
     // For day i, only include models whose range covers it
     const sources = valid.filter(x => i < x.maxDays)
     // Compute weights for the subset of models active on this day
-    const W = computeWeights(sources.map(x => x.wKey), 40.73, 0.21, 630)
+    const W = computeWeights(sources.map(x => x.wKey), 40.84, 0.02, 630)
     // Mirror MeteoModels' inferCodeFromPrecip fallback when weather_code is null
     const codeEntries = sources.map(s => {
       const c = s.daily.weather_code?.[i] ?? null

@@ -169,8 +169,8 @@ export default async function handler(request) {
     }
   } else if (period === 'month') {
     // 30-day history: ERA5 baseline → Supabase station overlay → WU 7-day overlay (freshest)
-    const lat = obs.lat ?? 38.73
-    const lon = obs.lon ?? -0.63
+    const lat = obs.lat ?? 40.84
+    const lon = obs.lon ?? 0.02
     const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
     const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 29)
     const fmtDate = d => d.toISOString().slice(0, 10)
@@ -250,8 +250,8 @@ export default async function handler(request) {
     if (!result.history) result.history = []
   } else {
     // Week: PWS observations_hourly → 3h buckets; OM fills dates not yet archived
-    const lat = obs.lat ?? 38.73
-    const lon = obs.lon ?? -0.63
+    const lat = obs.lat ?? 40.84
+    const lon = obs.lon ?? 0.02
     const endDate = new Date(); endDate.setDate(endDate.getDate() - 1)
     const startDate = new Date(endDate); startDate.setDate(startDate.getDate() - 6)
     const fmtDate = d => d.toISOString().slice(0, 10)
@@ -325,11 +325,20 @@ export default async function handler(request) {
         for (const s of (wuJson?.summaries ?? wuJson?.observations ?? [])) {
           const date = (s.obsTimeLocal ?? '').slice(0, 10)
           if (date) dailyStation[date] = {
-            tempHigh: s.metric?.tempHigh ?? null,
-            tempLow:  s.metric?.tempLow  ?? null,
-            humidity: s.humidityAvg      ?? null,
+            tempHigh: s.metric?.tempHigh   ?? null,
+            tempLow:  s.metric?.tempLow    ?? null,
+            humidity: s.humidityAvg        ?? null,
+            precip:   s.metric?.precipTotal ?? null,
           }
         }
+      }
+
+      // For dates with WU daily data but no hourly slots (e.g. yesterday, before ERA5 catches up),
+      // inject a synthetic slot so precipitation isn't lost from the chart.
+      for (const [date, daily] of Object.entries(dailyStation)) {
+        if (coveredDates.has(date)) continue
+        const key = date + '|0'
+        if (!slots.has(key)) slots.set(key, { date, slot: 0, tempsAvg: [], tempsHi: [], tempsLo: [], precips: daily.precip != null ? [daily.precip] : [], winds: [], humids: daily.humidity != null ? [daily.humidity] : [] })
       }
 
       const avg = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
