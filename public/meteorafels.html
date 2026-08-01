@@ -663,6 +663,14 @@
         <div class="card-sub"><span id="valPrecipRate" class="rain-none">—</span> mm/h</div>
       </div>
 
+      <!-- UV index -->
+      <div class="card" id="uvCard">
+        <div class="card-label" id="lblUV">☀️ Índex UV</div>
+        <div class="card-value"><span id="valUV">—</span></div>
+        <div class="card-sub" id="valUVLabel">—</div>
+        <div class="uv-bar"><div class="uv-marker" id="uvMarker" style="left:0%"></div></div>
+      </div>
+
     </div><!-- /grid -->
 
     <!-- ③  7-day forecast -->
@@ -809,6 +817,7 @@ const LANG = {
     evoTitle: '📊 Evolució',
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
     wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV',
+    uvLow: 'Baix', uvMod: 'Moderat', uvHigh: 'Alt', uvVeryHigh: 'Molt alt', uvExtreme: 'Extrem',
     feelsLike: 'Sensació tèrmica', dewPoint: 'Punt de rosada', gust: 'Ratxa', totalToday: 'Total avui',
     metricTemp: 'Temperatura', metricRain: 'Pluja', metricHumidity: 'Humitat', metricWind: 'Vent',
     periodDay: 'Dia', periodWeek: 'Setmana', periodMonth: 'Mes',
@@ -847,6 +856,7 @@ const LANG = {
     evoTitle: '📊 Evolución',
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
     wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV',
+    uvLow: 'Bajo', uvMod: 'Moderado', uvHigh: 'Alto', uvVeryHigh: 'Muy alto', uvExtreme: 'Extremo',
     feelsLike: 'Sensación térmica', dewPoint: 'Punto de rocío', gust: 'Racha', totalToday: 'Total hoy',
     metricTemp: 'Temperatura', metricRain: 'Lluvia', metricHumidity: 'Humedad', metricWind: 'Viento',
     periodDay: 'Día', periodWeek: 'Semana', periodMonth: 'Mes',
@@ -885,6 +895,7 @@ const LANG = {
     evoTitle: '📊 Evolution',
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
     wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index',
+    uvLow: 'Low', uvMod: 'Moderate', uvHigh: 'High', uvVeryHigh: 'Very high', uvExtreme: 'Extreme',
     feelsLike: 'Feels like', dewPoint: 'Dew point', gust: 'Gust', totalToday: 'Total today',
     metricTemp: 'Temperature', metricRain: 'Rain', metricHumidity: 'Humidity', metricWind: 'Wind',
     periodDay: 'Day', periodWeek: 'Week', periodMonth: 'Month',
@@ -931,6 +942,7 @@ function applyLang(lang) {
   setTxt('lblPressure', t.pressure)
   setTxt('lblWind', t.wind)
   setTxt('lblPrecip', t.precip)
+  setTxt('lblUV', t.uv)
   setTxt('lblFeelsLike', t.feelsLike)
   setTxt('lblDewPoint', t.dewPoint)
   setTxt('lblGust', t.gust)
@@ -1439,6 +1451,19 @@ function renderCards(d) {
   setTxt('valPressure',     fmt(d.pressure))
   setTxt('valPrecipTotal',  fmt(d.precipTotal))
   $('precipCard')?.classList.toggle('card--wet', (d.precipTotal ?? 0) > 0)
+
+  const uv = d.uv ?? null
+  setTxt('valUV', uv != null ? String(uv % 1 === 0 ? uv : uv.toFixed(1)) : '—')
+  const uvMarker = $('uvMarker')
+  const uvLabel  = $('valUVLabel')
+  if (uv != null) {
+    if (uvMarker) uvMarker.style.left = Math.min(uv / 12, 1) * 100 + '%'
+    const cat = uv >= 11 ? 'uvExtreme' : uv >= 8 ? 'uvVeryHigh' : uv >= 6 ? 'uvHigh' : uv >= 3 ? 'uvMod' : 'uvLow'
+    if (uvLabel) uvLabel.textContent = LANG[currentLang][cat]
+  } else {
+    if (uvMarker) uvMarker.style.left = '0%'
+    if (uvLabel) uvLabel.textContent = '—'
+  }
 
   const rEl = $('valPrecipRate')
   if (rEl) {
