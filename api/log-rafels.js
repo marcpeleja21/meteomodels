@@ -7,8 +7,8 @@ export const config = { runtime: 'edge' }
 const WU_KEY  = process.env.WU_KEY  ?? '3b28991981854cdba8991981851cdbb8'
 const STATION = 'IRFALE2'
 const BASE    = 'https://api.weather.com'
-const LAT     = 38.73
-const LON     = -0.63
+const LAT     = 40.84
+const LON     = 0.02
 
 const avg  = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
 const rnd1 = v   => v != null ? +v.toFixed(1) : null
