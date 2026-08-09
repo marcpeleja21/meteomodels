@@ -86,6 +86,7 @@ export default async function handler(req) {
       })
       log.daily.wuStatus = r.status
       log.daily.wuRows   = r.ok ? rows.length : 0
+      if (!r.ok) log.daily.wuError = await r.text().catch(() => null)
     } else {
       log.daily.wuRows = 0
       log.daily.wuNote = 'WU returned 0 rows'
