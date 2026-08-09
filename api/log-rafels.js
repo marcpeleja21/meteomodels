@@ -73,7 +73,7 @@ export default async function handler(req) {
         temp_high: rnd1(s.metric?.tempHigh),
         temp_low:  rnd1(s.metric?.tempLow),
         temp_avg:  rnd1(s.metric?.tempAvg),
-        humidity:  s.humidityAvg ?? s.humidity ?? null,
+        humidity:  s.humidityAvg != null ? Math.round(s.humidityAvg) : s.humidity != null ? Math.round(s.humidity) : null,
         precip:    rnd1(s.metric?.precipTotal),
         wind_high: rnd1(s.metric?.windspeedHigh ?? s.metric?.windSpeedHigh ?? s.metric?.windGustHigh
                         ?? s.windspeedHigh ?? s.windGustHigh),
