@@ -52,10 +52,10 @@
   ],
 
   "crons": [
-    { "path": "/api/log-rafels",   "schedule": "0 2  * * *" },
+    { "path": "/api/log-rafels",   "schedule": "0 2 * * *" },
     { "path": "/api/log-rafels",   "schedule": "0 14 * * *" },
-    { "path": "/api/tweet-rafels", "schedule": "0 7  * * *" },
-    { "path": "/api/tweet-rafels", "schedule": "0 8  * * *" }
+    { "path": "/api/tweet-rafels", "schedule": "0 7 * * *" },
+    { "path": "/api/tweet-rafels", "schedule": "0 8 * * *" }
   ],
 
   "redirects": [
