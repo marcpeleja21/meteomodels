@@ -81,7 +81,7 @@ export default async function handler(req) {
       .filter(r => r.obs_date)
 
     if (rows.length) {
-      const r = await fetch(`${supabaseUrl}/rest/v1/observations`, {
+      const r = await fetch(`${supabaseUrl}/rest/v1/observations?on_conflict=obs_date`, {
         method: 'POST', headers: sbW, body: JSON.stringify(rows),
       })
       log.daily.wuStatus = r.status
@@ -134,7 +134,7 @@ export default async function handler(req) {
             .filter(Boolean)
 
           if (omRows.length) {
-            const r = await fetch(`${supabaseUrl}/rest/v1/observations`, {
+            const r = await fetch(`${supabaseUrl}/rest/v1/observations?on_conflict=obs_date`, {
               method: 'POST', headers: sbW, body: JSON.stringify(omRows),
             })
             log.daily.omStatus = r.status
@@ -202,7 +202,7 @@ export default async function handler(req) {
       }))
 
       if (hourlyRows.length) {
-        const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly`, {
+        const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly?on_conflict=obs_date,obs_hour`, {
           method: 'POST', headers: sbW, body: JSON.stringify(hourlyRows),
         })
         log.hourly.wuStatus = r.status
@@ -261,7 +261,7 @@ export default async function handler(req) {
             })
           }
           if (omHRows.length) {
-            const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly`, {
+            const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly?on_conflict=obs_date,obs_hour`, {
               method: 'POST', headers: sbW, body: JSON.stringify(omHRows),
             })
             log.hourly.omStatus = r.status
