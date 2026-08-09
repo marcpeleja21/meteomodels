@@ -325,20 +325,40 @@ export default async function handler(request) {
         for (const s of (wuJson?.summaries ?? wuJson?.observations ?? [])) {
           const date = (s.obsTimeLocal ?? '').slice(0, 10)
           if (date) dailyStation[date] = {
-            tempHigh: s.metric?.tempHigh   ?? null,
-            tempLow:  s.metric?.tempLow    ?? null,
-            humidity: s.humidityAvg        ?? null,
+            tempHigh: s.metric?.tempHigh    ?? null,
+            tempLow:  s.metric?.tempLow     ?? null,
+            tempAvg:  s.metric?.tempAvg     ?? null,
+            humidity: s.humidityAvg         ?? null,
             precip:   s.metric?.precipTotal ?? null,
           }
         }
       }
 
-      // For dates with WU daily data but no hourly slots (e.g. yesterday, before ERA5 catches up),
-      // inject a synthetic slot so precipitation isn't lost from the chart.
+      // For dates with WU daily data but no hourly slots (e.g. yesterday):
+      // - if slot missing entirely (no Supabase, no ERA5 yet): create it with WU temps + precip
+      // - if slot exists from ERA5 but precip/temps are wrong: overlay WU values
       for (const [date, daily] of Object.entries(dailyStation)) {
         if (coveredDates.has(date)) continue
         const key = date + '|0'
-        if (!slots.has(key)) slots.set(key, { date, slot: 0, tempsAvg: [], tempsHi: [], tempsLo: [], precips: daily.precip != null ? [daily.precip] : [], winds: [], humids: daily.humidity != null ? [daily.humidity] : [] })
+        if (!slots.has(key)) {
+          slots.set(key, {
+            date, slot: 0,
+            tempsAvg: daily.tempAvg  != null ? [daily.tempAvg]  : [],
+            tempsHi:  daily.tempHigh != null ? [daily.tempHigh] : [],
+            tempsLo:  daily.tempLow  != null ? [daily.tempLow]  : [],
+            precips:  daily.precip   != null ? [daily.precip]   : [],
+            winds: [],
+            humids: daily.humidity   != null ? [daily.humidity]  : [],
+          })
+        } else {
+          // ERA5 already created this slot — patch in WU data where ERA5 is wrong/missing
+          const b = slots.get(key)
+          if (daily.precip  != null) b.precips  = [daily.precip]   // WU is authoritative for rain
+          if (daily.tempHigh != null) b.tempsHi.push(daily.tempHigh)
+          if (daily.tempLow  != null) b.tempsLo.push(daily.tempLow)
+          if (daily.tempAvg  != null && !b.tempsAvg.length) b.tempsAvg.push(daily.tempAvg)
+          if (daily.humidity != null && !b.humids.length)   b.humids.push(daily.humidity)
+        }
       }
 
       const avg = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
@@ -364,13 +384,31 @@ export default async function handler(request) {
       for (const daySlots of Object.values(slotsByDate)) {
         const daily = dailyStation[daySlots[0].date]
         if (!daily) continue
+
+        // Precip: if WU recorded rain but slots show nothing (Supabase nulls or ERA5 missed it),
+        // put the daily total in the first slot.
+        if (daily.precip != null && daily.precip > 0) {
+          const slotTotal = daySlots.reduce((a, s) => a + (s.precip ?? 0), 0)
+          if (slotTotal === 0 || daySlots.every(s => s.precip == null)) {
+            daySlots[0].precip = daily.precip
+          }
+        }
+
+        // tempHigh: push peak slot up to station verified max
         if (daily.tempHigh != null) {
           const peak = daySlots.reduce((a, b) => ((b.tempHigh ?? -Infinity) > (a.tempHigh ?? -Infinity) ? b : a))
           if ((peak.tempHigh ?? -Infinity) < daily.tempHigh) peak.tempHigh = daily.tempHigh
         }
+
+        // tempLow: pull trough slot down to station verified min
         if (daily.tempLow != null) {
           const trough = daySlots.reduce((a, b) => ((b.tempLow ?? Infinity) < (a.tempLow ?? Infinity) ? b : a))
           if ((trough.tempLow ?? Infinity) > daily.tempLow) trough.tempLow = daily.tempLow
+        }
+
+        // tempAvg: if all slots for this day have no avg temp (e.g. synthetic slot), seed from WU
+        if (daily.tempAvg != null && daySlots.every(s => s.tempAvg == null)) {
+          daySlots[0].tempAvg = daily.tempAvg
         }
       }
 
