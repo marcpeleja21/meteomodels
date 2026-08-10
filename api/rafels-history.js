@@ -63,9 +63,37 @@ export default async function handler(req) {
     if (mode === 'day') {
       const date = url.searchParams.get('date') ?? ''
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('bad date', { status: 400 })
-      const rows = await sb('observations_hourly',
-        `obs_date=eq.${date}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg,wind_high&order=obs_hour`)
-      return new Response(JSON.stringify({ mode, hourly: true, monthly: false, rows }), { headers: cors })
+      const [hourlyRows, dailyRows] = await Promise.all([
+        sb('observations_hourly',
+          `obs_date=eq.${date}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg,wind_high&order=obs_hour`),
+        sb('observations',
+          `obs_date=eq.${date}&select=temp_high,temp_low,temp_avg,precip&limit=1`),
+      ])
+
+      // Anchor hourly slots to the verified daily summary — mirrors the week-chart WU anchor in
+      // rafels.js. Needed because hourly rows can come from ERA5 gap-fill (wrong coordinates,
+      // capped temps, missing rain) while the daily summary is correct from WU.
+      if (hourlyRows.length && dailyRows.length) {
+        const daily = dailyRows[0]
+        const rows  = hourlyRows.map(r => ({ ...r }))  // shallow copy
+
+        if (daily.temp_high != null) {
+          const peak = rows.reduce((a, b) => ((b.temp_high ?? -Infinity) > (a.temp_high ?? -Infinity) ? b : a))
+          if ((peak.temp_high ?? -Infinity) < daily.temp_high) peak.temp_high = daily.temp_high
+        }
+        if (daily.temp_low != null) {
+          const trough = rows.reduce((a, b) => ((b.temp_low ?? Infinity) < (a.temp_low ?? Infinity) ? b : a))
+          if ((trough.temp_low ?? Infinity) > daily.temp_low) trough.temp_low = daily.temp_low
+        }
+        if (daily.precip != null && daily.precip > 0) {
+          const slotTotal = rows.reduce((a, r) => a + (r.precip ?? 0), 0)
+          if (slotTotal === 0) rows[0].precip = daily.precip
+        }
+
+        return new Response(JSON.stringify({ mode, hourly: true, monthly: false, rows }), { headers: cors })
+      }
+
+      return new Response(JSON.stringify({ mode, hourly: true, monthly: false, rows: hourlyRows }), { headers: cors })
     }
 
     // ── All other modes: daily observations table ──────────────────────────
