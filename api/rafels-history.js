@@ -38,7 +38,7 @@ export default async function handler(req) {
   const url  = new URL(req.url)
   const mode = url.searchParams.get('mode') ?? ''
   const sbH  = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
-  const cors = { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=1800' }
+  const cors = { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900' }
 
   async function sb(table, qs) {
     const r = await fetch(`${supabaseUrl}/rest/v1/${table}?${qs}`, { headers: sbH })
