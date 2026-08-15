@@ -6,9 +6,11 @@
  */
 export const config = { runtime: 'edge' }
 
-const WU_KEY  = '3b28991981854cdba8991981851cdbb8'
-const STATION = 'IRFALE2'
-const BASE    = 'https://api.weather.com'
+const WU_KEY    = '3b28991981854cdba8991981851cdbb8'
+const STATION   = 'IRFALE2'
+const BASE      = 'https://api.weather.com'
+// PWS rain_gain=1.5 applied on console only, not transmitted to WU — correct here
+const RAIN_GAIN = 1.5
 
 export default async function handler(request) {
   const period = new URL(request.url).searchParams.get('period') ?? 'day'
@@ -99,8 +101,8 @@ export default async function handler(request) {
     windGust:       obs.metric?.windGust      ?? null,
     windDir:        obs.winddir               ?? null,
     pressure:       obs.metric?.pressure      ?? null,
-    precipRate:     obs.metric?.precipRate    ?? null,
-    precipTotal:    obs.metric?.precipTotal   ?? null,
+    precipRate:     obs.metric?.precipRate   != null ? obs.metric.precipRate   * RAIN_GAIN : null,
+    precipTotal:    obs.metric?.precipTotal  != null ? obs.metric.precipTotal  * RAIN_GAIN : null,
     uv:             obs.uv                    ?? null,
     solarRadiation: obs.solarRadiation        ?? null,
   }
@@ -127,7 +129,7 @@ export default async function handler(request) {
       const b = buckets.get(slotKey)
       if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
       if (o.humidityAvg != null) b.humids.push(o.humidityAvg)
-      if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal // last reading wins (cumulative)
+      if (o.metric?.precipTotal != null) b.precipCum = o.metric.precipTotal * RAIN_GAIN // last reading wins (cumulative)
       const ws = o.metric?.windSpeedAvg ?? o.metric?.windspeedAvg ?? o.metric?.windSpeed ?? o.metric?.windspeed
       if (ws != null) b.winds.push(ws)
     }
@@ -238,7 +240,7 @@ export default async function handler(request) {
             tempLow:  s.metric?.tempLow                             ?? null,
             tempAvg:  s.metric?.tempAvg                             ?? null,
             humidity: s.humidityAvg                                 ?? null,
-            precip:   s.metric?.precipTotal                         ?? null,
+            precip:   s.metric?.precipTotal  != null ? +(s.metric.precipTotal  * RAIN_GAIN).toFixed(1) : null,
             windHigh: s.metric?.windSpeedHigh ?? s.metric?.windspeedHigh ?? null,
           }
         }
@@ -329,7 +331,7 @@ export default async function handler(request) {
             tempLow:  s.metric?.tempLow     ?? null,
             tempAvg:  s.metric?.tempAvg     ?? null,
             humidity: s.humidityAvg         ?? null,
-            precip:   s.metric?.precipTotal ?? null,
+            precip:   s.metric?.precipTotal != null ? +(s.metric.precipTotal * RAIN_GAIN).toFixed(1) : null,
           }
         }
       }

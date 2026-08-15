@@ -4,11 +4,14 @@
 // Open-Meteo ERA5 archive — so a failed run or a WU outage never creates a permanent hole.
 export const config = { runtime: 'edge' }
 
-const WU_KEY  = process.env.WU_KEY  ?? '3b28991981854cdba8991981851cdbb8'
-const STATION = 'IRFALE2'
-const BASE    = 'https://api.weather.com'
-const LAT     = 40.84
-const LON     = 0.02
+const WU_KEY   = process.env.WU_KEY  ?? '3b28991981854cdba8991981851cdbb8'
+const STATION  = 'IRFALE2'
+const BASE     = 'https://api.weather.com'
+const LAT      = 40.84
+const LON      = 0.02
+// PWS rain_gain=1.5 is applied locally on the console display but not transmitted to WU.
+// Correct all WU-sourced precipitation here. ERA5 gap-fill is unaffected.
+const RAIN_GAIN = 1.5
 
 const avg  = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
 const rnd1 = v   => v != null ? +v.toFixed(1) : null
@@ -74,7 +77,7 @@ export default async function handler(req) {
         temp_low:  rnd1(s.metric?.tempLow),
         temp_avg:  rnd1(s.metric?.tempAvg),
         humidity:  s.humidityAvg != null ? Math.round(s.humidityAvg) : s.humidity != null ? Math.round(s.humidity) : null,
-        precip:    rnd1(s.metric?.precipTotal),
+        precip:    rnd1(s.metric?.precipTotal != null ? s.metric.precipTotal * RAIN_GAIN : null),
         wind_high: rnd1(s.metric?.windspeedHigh ?? s.metric?.windSpeedHigh ?? s.metric?.windGustHigh
                         ?? s.windspeedHigh ?? s.windGustHigh),
       }))
@@ -196,7 +199,7 @@ export default async function handler(req) {
         temp_high: rnd1(b.temps.length ? Math.max(...b.temps) : null),
         temp_low:  rnd1(b.temps.length ? Math.min(...b.temps) : null),
         humidity:  rnd1(avg(b.humids)),
-        precip:    rnd1(b.rainDeltas.reduce((a, c) => a + c, 0)),
+        precip:    rnd1(b.rainDeltas.reduce((a, c) => a + c, 0) * RAIN_GAIN),
         wind_avg:  rnd1(avg(b.windAvgs)),
         wind_high: rnd1(b.windHighs.length ? Math.max(...b.windHighs) : null),
       }))
