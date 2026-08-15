@@ -11,7 +11,7 @@ const LAT      = 40.84
 const LON      = 0.02
 // PWS rain_gain=1.5 is applied locally on the console display but not transmitted to WU.
 // Correct all WU-sourced precipitation here. ERA5 gap-fill is unaffected.
-const RAIN_GAIN = 1.5
+const RAIN_GAIN = 1.55
 
 const avg  = arr => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null
 const rnd1 = v   => v != null ? +v.toFixed(1) : null
