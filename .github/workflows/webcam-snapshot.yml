@@ -9,15 +9,13 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
-
       - name: Capture and upload every 30s for ~4.5 min
         run: |
           for i in $(seq 1 9); do
             echo "=== Snapshot $i/9 ==="
             rm -f snap.jpg
             ffmpeg -rtsp_transport tcp \
+              -timeout 15000000 -stimeout 15000000 \
               -i "${{ secrets.WEBCAM_RTSP_URL }}" \
               -vf scale=1280:-1 -frames:v 1 -update 1 -q:v 3 -y snap.jpg \
             && curl -sf -X PUT \
