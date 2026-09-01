@@ -9,6 +9,9 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --fix-missing ffmpeg
+
       - name: Capture and upload every 30s for ~4.5 min
         run: |
           for i in $(seq 1 9); do
