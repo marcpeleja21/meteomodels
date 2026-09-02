@@ -18,7 +18,6 @@ jobs:
             echo "=== Snapshot $i/9 ==="
             rm -f snap.jpg
             ffmpeg -rtsp_transport tcp \
-              -timeout 15000000 -stimeout 15000000 \
               -i "${{ secrets.WEBCAM_RTSP_URL }}" \
               -vf scale=1280:-1 -frames:v 1 -update 1 -q:v 3 -y snap.jpg \
             && curl -sf -X PUT \
