@@ -391,8 +391,12 @@ export default async function handler(request) {
         // put the daily total in the first slot.
         if (daily.precip != null && daily.precip > 0) {
           const slotTotal = daySlots.reduce((a, s) => a + (s.precip ?? 0), 0)
+          const diff = daily.precip - slotTotal
           if (slotTotal === 0 || daySlots.every(s => s.precip == null)) {
             daySlots[0].precip = daily.precip
+          } else if (diff > 0.05) {
+            const target = daySlots.reduce((best, s) => (s.precip ?? 0) >= (best.precip ?? 0) ? s : best, daySlots[0])
+            target.precip = +((target.precip ?? 0) + diff).toFixed(1)
           }
         }
 
