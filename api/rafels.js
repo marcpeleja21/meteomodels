@@ -9,8 +9,7 @@ export const config = { runtime: 'edge' }
 const WU_KEY    = '3b28991981854cdba8991981851cdbb8'
 const STATION   = 'IRFALE2'
 const BASE      = 'https://api.weather.com'
-// PWS rain_gain=1.5 applied on console only, not transmitted to WU — correct here
-const RAIN_GAIN = 1.55
+const RAIN_GAIN = 1
 
 export default async function handler(request) {
   const period = new URL(request.url).searchParams.get('period') ?? 'day'
@@ -391,8 +390,12 @@ export default async function handler(request) {
         // put the daily total in the first slot.
         if (daily.precip != null && daily.precip > 0) {
           const slotTotal = daySlots.reduce((a, s) => a + (s.precip ?? 0), 0)
+          const diff = daily.precip - slotTotal
           if (slotTotal === 0 || daySlots.every(s => s.precip == null)) {
             daySlots[0].precip = daily.precip
+          } else if (diff > 0.05) {
+            const target = daySlots.reduce((best, s) => (s.precip ?? 0) >= (best.precip ?? 0) ? s : best, daySlots[0])
+            target.precip = +((target.precip ?? 0) + diff).toFixed(1)
           }
         }
 
