@@ -420,7 +420,8 @@
     }
     .evo-stat-hi { color: var(--orange) }
     .evo-stat-lo { color: var(--accent2) }
-    .evo-stat-hi b, .evo-stat-lo b { font-family: var(--font-data) }
+    .evo-stat-rain { color: rgb(79,195,247) }
+    .evo-stat-hi b, .evo-stat-lo b, .evo-stat-rain b { font-family: var(--font-data) }
 
     /* ── Page loading / error ── */
     .state-wrap {
@@ -702,8 +703,9 @@
       </div>
     </div>
     <div id="evoStats" class="evo-stats hidden">
-      <span class="evo-stat-hi">↑ <b id="evoStatHi">—</b>°C</span>
-      <span class="evo-stat-lo">↓ <b id="evoStatLo">—</b>°C</span>
+      <span class="evo-stat-hi" id="evoStatHiWrap">↑ <b id="evoStatHi">—</b>°C</span>
+      <span class="evo-stat-lo" id="evoStatLoWrap">↓ <b id="evoStatLo">—</b>°C</span>
+      <span class="evo-stat-rain hidden" id="evoStatRainWrap">🌧 Total: <b id="evoStatRain">—</b> mm</span>
     </div>
     <div class="evo-wrap" id="evoWrap">
       <canvas id="evoChart" class="evo-chart" height="200"></canvas>
@@ -1695,35 +1697,50 @@ function drawTempRangeBand(ctx, history, pad, cw, ch, yMin, yMax) {
 
 /* ── Evolution stats row ── */
 function updateEvoStats(history) {
-  const stats = $('evoStats')
+  const stats    = $('evoStats')
   if (!stats) return
+  const hiWrap   = $('evoStatHiWrap')
+  const loWrap   = $('evoStatLoWrap')
+  const rainWrap = $('evoStatRainWrap')
 
-  if (activeMetric !== 'temp') {
-    stats.classList.add('hidden')
-    return
-  }
-
-  let hi, lo
-  if (activePeriod === 'day') {
-    const dayData = dataCache['day']
-    const curTemp = dayData?.temp ?? null
-    hi = dayData?.tempHighToday ?? null
-    lo = dayData?.tempLowToday  ?? null
-    if (curTemp != null) {
-      if (hi != null) hi = Math.max(hi, curTemp)
-      if (lo != null) lo = Math.min(lo, curTemp)
-    }
-  } else {
-    const highs = (history ?? []).map(h => h.tempHigh).filter(v => v != null)
-    const lows  = (history ?? []).map(h => h.tempLow).filter(v => v != null)
-    hi = highs.length ? Math.max(...highs) : null
-    lo = lows.length  ? Math.min(...lows)  : null
-  }
-
-  if (hi != null || lo != null) {
-    setTxt('evoStatHi', hi != null ? fmt(hi) : '—')
-    setTxt('evoStatLo', lo != null ? fmt(lo) : '—')
+  if (activeMetric === 'rain') {
+    hiWrap?.classList.add('hidden')
+    loWrap?.classList.add('hidden')
+    rainWrap?.classList.remove('hidden')
+    const total = (history ?? []).reduce((a, h) => a + (h.precip ?? 0), 0)
+    setTxt('evoStatRain', fmt(total))
     stats.classList.remove('hidden')
+
+  } else if (activeMetric === 'temp') {
+    hiWrap?.classList.remove('hidden')
+    loWrap?.classList.remove('hidden')
+    rainWrap?.classList.add('hidden')
+
+    let hi, lo
+    if (activePeriod === 'day') {
+      const dayData = dataCache['day']
+      const curTemp = dayData?.temp ?? null
+      hi = dayData?.tempHighToday ?? null
+      lo = dayData?.tempLowToday  ?? null
+      if (curTemp != null) {
+        if (hi != null) hi = Math.max(hi, curTemp)
+        if (lo != null) lo = Math.min(lo, curTemp)
+      }
+    } else {
+      const highs = (history ?? []).map(h => h.tempHigh).filter(v => v != null)
+      const lows  = (history ?? []).map(h => h.tempLow).filter(v => v != null)
+      hi = highs.length ? Math.max(...highs) : null
+      lo = lows.length  ? Math.min(...lows)  : null
+    }
+
+    if (hi != null || lo != null) {
+      setTxt('evoStatHi', hi != null ? fmt(hi) : '—')
+      setTxt('evoStatLo', lo != null ? fmt(lo) : '—')
+      stats.classList.remove('hidden')
+    } else {
+      stats.classList.add('hidden')
+    }
+
   } else {
     stats.classList.add('hidden')
   }
