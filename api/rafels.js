@@ -9,8 +9,7 @@ export const config = { runtime: 'edge' }
 const WU_KEY    = '3b28991981854cdba8991981851cdbb8'
 const STATION   = 'IRFALE2'
 const BASE      = 'https://api.weather.com'
-// PWS rain_gain=1.5 applied on console only, not transmitted to WU — correct here
-const RAIN_GAIN = 1.55
+const RAIN_GAIN = 1
 
 export default async function handler(request) {
   const period = new URL(request.url).searchParams.get('period') ?? 'day'
