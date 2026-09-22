@@ -26,27 +26,20 @@ function colorScale(stops: [number, string][], v: number): string {
 }
 
 // ── Temperature ───────────────────────────────────────────────────────────────
-// < -5° purple → 0° icy blue → 5° cool blue → 12° green → 20° yellow → 30° orange → 40° red
+// cold blue → neutral grey → warm amber → hot red
 
 const TEMP_MAX_STOPS: [number, string][] = [
-  [ -5, '#b39ddb'],  // purple
-  [  0, '#89c4f4'],  // icy blue
-  [  5, '#64b5f6'],  // cool blue
-  [ 12, '#81c784'],  // green
-  [ 20, '#ffd54f'],  // yellow
-  [ 30, '#ff8a65'],  // orange
-  [ 40, '#f44336'],  // red
+  [ -5, '#90caf9'],  // cold blue
+  [ 12, '#b0bec5'],  // neutral grey
+  [ 22, '#ffa726'],  // warm amber
+  [ 35, '#ef5350'],  // hot red
 ]
 
-// Min temp uses the same scale but values tend to run ~8–12° cooler
 const TEMP_MIN_STOPS: [number, string][] = [
-  [-12, '#b39ddb'],  // purple
-  [ -5, '#89c4f4'],  // icy blue
-  [  0, '#64b5f6'],  // cool blue
-  [  8, '#81c784'],  // green
-  [ 15, '#ffd54f'],  // yellow
-  [ 23, '#ff8a65'],  // orange
-  [ 30, '#f44336'],  // red
+  [-10, '#90caf9'],  // cold blue
+  [  2, '#80cbc4'],  // cool teal
+  [ 14, '#b0bec5'],  // neutral grey
+  [ 26, '#ffa726'],  // warm amber
 ]
 
 export function tempMaxColor(v: number | null): string {
