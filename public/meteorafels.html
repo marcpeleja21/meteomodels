@@ -182,8 +182,10 @@
       display: flex; justify-content: center; gap: 18px;
       font-size: .88rem; font-weight: 500; margin-top: 10px;
     }
-    .hero-hilo .hi { color: var(--orange) }
-    .hero-hilo .lo { color: var(--accent2) }
+    .hero-rain {
+      font-size: .84rem; font-weight: 500; margin-top: 8px;
+      color: rgb(79,195,247);
+    }
     .hero-obs {
       font-size: .66rem; color: rgba(255,255,255,0.26); margin-top: 12px;
       letter-spacing: .2px;
@@ -578,9 +580,10 @@
     &nbsp;·&nbsp; <span id="lblDewPoint">Punt de rosada</span> <b id="valDew">—</b>°C
   </div>
   <div class="hero-hilo hidden" id="tempHiLo">
-    <span class="hi">↑ <span id="valTempHigh">—</span>°</span>
-    <span class="lo">↓ <span id="valTempLow">—</span>°</span>
+    <span id="heroHiSpan">↑ <span id="valTempHigh">—</span>°</span>
+    <span id="heroLoSpan">↓ <span id="valTempLow">—</span>°</span>
   </div>
+  <div class="hero-rain hidden" id="heroRain"></div>
   <div class="hero-obs" id="obsTime"></div>
 </div>
 
@@ -787,8 +790,8 @@ function colorScale(stops, v) {
   }
   return stops[stops.length-1][1]
 }
-const TEMP_MAX_STOPS = [[-5,'#b39ddb'],[0,'#89c4f4'],[5,'#64b5f6'],[12,'#81c784'],[20,'#ffd54f'],[30,'#ff8a65'],[40,'#f44336'],[45,'#9c27b0']]
-const TEMP_MIN_STOPS = [[-12,'#b39ddb'],[-5,'#89c4f4'],[0,'#64b5f6'],[8,'#81c784'],[15,'#ffd54f'],[23,'#ff8a65'],[30,'#f44336']]
+const TEMP_MAX_STOPS = [[-5,'#90caf9'],[12,'#b0bec5'],[22,'#ffa726'],[35,'#ef5350']]
+const TEMP_MIN_STOPS = [[-10,'#90caf9'],[2,'#80cbc4'],[14,'#b0bec5'],[26,'#ffa726']]
 const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
 const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f']]
 function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
@@ -843,6 +846,7 @@ const LANG = {
     dayAbbr: ['Dg','Dl','Dm','Dc','Dj','Dv','Ds'],
     west: 'O',
     ttipHi: 'Temperatura màxima', ttipLo: 'Temperatura mínima',
+    consecutiveDays: 'dies de pluja seguits',
     ttipRainProb: 'Probabilitat de pluja', ttipPrecipMm: 'Precipitació prevista', ttipWind: 'Vent màxim',
     fcExpand: '+3 dies', fcExpandHint: 'Estimar llarg termini',
     fcAccuracy: '⚠ La previsió a llarg termini pot ser menys precisa',
@@ -882,6 +886,7 @@ const LANG = {
     dayAbbr: ['Do','Lu','Ma','Mi','Ju','Vi','Sá'],
     west: 'O',
     ttipHi: 'Temperatura máxima', ttipLo: 'Temperatura mínima',
+    consecutiveDays: 'días de lluvia seguidos',
     ttipRainProb: 'Probabilidad de lluvia', ttipPrecipMm: 'Precipitación prevista', ttipWind: 'Viento máximo',
     fcExpand: '+3 días', fcExpandHint: 'Estimación largo plazo',
     fcAccuracy: '⚠ La previsión a largo plazo puede ser menos precisa',
@@ -921,6 +926,7 @@ const LANG = {
     dayAbbr: ['Su','Mo','Tu','We','Th','Fr','Sa'],
     west: 'W',
     ttipHi: 'Max temperature', ttipLo: 'Min temperature',
+    consecutiveDays: 'consecutive rainy days',
     ttipRainProb: 'Rain probability', ttipPrecipMm: 'Expected precipitation', ttipWind: 'Max wind speed',
     fcExpand: '+3 days', fcExpandHint: 'Long-range estimate',
     fcAccuracy: '⚠ Long-range forecast — accuracy decreases beyond 3 days',
@@ -1508,11 +1514,45 @@ function renderCards(d) {
       const loVal = d.tempLowToday  != null ? (curTemp != null ? Math.min(d.tempLowToday,  curTemp) : d.tempLowToday)  : null
       setTxt('valTempHigh', hiVal != null ? fmt(hiVal) : '—')
       setTxt('valTempLow',  loVal != null ? fmt(loVal) : '—')
+      const hiSpan = $('heroHiSpan')
+      const loSpan = $('heroLoSpan')
+      if (hiSpan) hiSpan.style.color = hiVal != null ? tempMaxColor(hiVal) : ''
+      if (loSpan) loSpan.style.color = loVal != null ? tempMinColor(loVal) : ''
       hiLo.classList.remove('hidden')
     } else {
       hiLo.classList.add('hidden')
     }
   }
+
+  updateHeroPrecip(d.precipTotal ?? 0)
+}
+
+function updateHeroPrecip(precipToday) {
+  const el = $('heroRain')
+  if (!el) return
+  if (precipToday <= 0) { el.classList.add('hidden'); return }
+
+  // Count consecutive rainy days from week cache (including today)
+  let consecutive = 1
+  const weekHistory = dataCache['week']?.history
+  if (weekHistory && weekHistory.length) {
+    const byDate = {}
+    for (const h of weekHistory) {
+      if (h.date) byDate[h.date] = (byDate[h.date] ?? 0) + (h.precip ?? 0)
+    }
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const pastDates = Object.keys(byDate).filter(d => d < todayStr).sort().reverse()
+    for (const d of pastDates) {
+      if ((byDate[d] ?? 0) > 0) consecutive++
+      else break
+    }
+  }
+
+  const t = LANG[currentLang]
+  let text = `🌧 ${fmt(precipToday)} mm`
+  if (consecutive > 1) text += ` · ${consecutive} ${t.consecutiveDays ?? 'consecutive days'}`
+  el.textContent = text
+  el.classList.remove('hidden')
 }
 
 /* ══════════════════════════════════════════════
@@ -2478,6 +2518,8 @@ async function switchPeriod(period, force = false) {
     const data = await fetchPeriod(period, force)
     if (evoLoading) evoLoading.classList.add('hidden')
     requestAnimationFrame(() => drawEvoChart(data.history))
+    // Refresh hero rain once week data is available (enables consecutive-days count)
+    if (period === 'week') updateHeroPrecip(dataCache['day']?.precipTotal ?? 0)
   } catch (err) {
     if (evoLoading) evoLoading.classList.add('hidden')
     const empty = $('evoEmpty')
