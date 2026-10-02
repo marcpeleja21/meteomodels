@@ -29,24 +29,24 @@ function colorScale(stops: [number, string][], v: number): string {
 // cold blue → neutral grey → warm amber → hot red
 
 const TEMP_MAX_STOPS: [number, string][] = [
-  [ -5, '#90caf9'],  // cold blue
-  [ 12, '#b0bec5'],  // neutral grey
-  [ 22, '#ffa726'],  // warm amber
-  [ 35, '#ef5350'],  // hot red
+  [ -5, '#1565c0'],  // cold blue
+  [ 12, '#546e7a'],  // neutral blue-grey
+  [ 22, '#e65100'],  // warm orange
+  [ 35, '#c62828'],  // hot red
 ]
 
 const TEMP_MIN_STOPS: [number, string][] = [
-  [-10, '#90caf9'],  // cold blue
-  [  2, '#80cbc4'],  // cool teal
-  [ 14, '#b0bec5'],  // neutral grey
-  [ 26, '#ffa726'],  // warm amber
+  [-10, '#1565c0'],  // cold blue
+  [  2, '#00695c'],  // cool teal
+  [ 14, '#546e7a'],  // neutral blue-grey
+  [ 26, '#e65100'],  // warm orange
 ]
 
 export function tempMaxColor(v: number | null): string {
-  return v === null ? '#666' : colorScale(TEMP_MAX_STOPS, v)
+  return v === null ? '#546e7a' : colorScale(TEMP_MAX_STOPS, v)
 }
 export function tempMinColor(v: number | null): string {
-  return v === null ? '#666' : colorScale(TEMP_MIN_STOPS, v)
+  return v === null ? '#546e7a' : colorScale(TEMP_MIN_STOPS, v)
 }
 /** Single temperature value (current/hourly) — uses the max scale */
 export function tempColor(v: number | null): string {
@@ -57,50 +57,47 @@ export function tempColor(v: number | null): string {
 // 0–19 % grey, then blue deepens with probability
 
 export function rainPctColor(pct: number | null): string {
-  if (pct === null || pct < 20) return '#666'
+  if (pct === null || pct < 20) return '#78909c'
   return colorScale([
-    [20, '#64b5f6'],  // light blue
-    [50, '#2196f3'],  // blue
-    [80, '#1565c0'],  // deep blue
+    [20, '#2563eb'],  // blue
+    [50, '#1d4ed8'],  // deeper blue
+    [80, '#1e3a8a'],  // deep navy
   ], pct)
 }
 
 // ── Precipitation amount (mm) ─────────────────────────────────────────────────
-// 0 mm grey; cyan → teal for visibility on dark backgrounds
 
 export function precipColor(mm: number | null): string {
-  if (mm === null || mm === 0) return '#666'
+  if (mm === null || mm === 0) return '#78909c'
   return colorScale([
-    [0.1,  '#80deea'],  // light cyan
-    [  2,  '#26c6da'],  // cyan
-    [  8,  '#00bcd4'],  // medium cyan-teal
-    [ 20,  '#00838f'],  // deep teal
+    [0.1,  '#3b82f6'],  // blue
+    [  2,  '#2563eb'],  // deeper blue
+    [  8,  '#1d4ed8'],  // deep blue
+    [ 20,  '#1e3a8a'],  // navy
   ], mm)
 }
 
 // ── Wind speed (km/h) ─────────────────────────────────────────────────────────
-// < 20 calm grey → green → yellow → orange → red
 
 export function windColor(v: number | null): string {
-  if (v === null || v < 20) return '#666'
+  if (v === null || v < 20) return '#78909c'
   return colorScale([
-    [20, '#aed581'],  // light green
-    [40, '#ffd54f'],  // yellow
-    [60, '#ff9800'],  // orange
-    [80, '#f44336'],  // red
+    [20, '#2e7d32'],  // dark green
+    [40, '#b45309'],  // amber
+    [60, '#c2410c'],  // dark orange
+    [80, '#991b1b'],  // dark red
   ], v)
 }
 
 // ── Relative humidity (%) ─────────────────────────────────────────────────────
-// low → grey, rising → blue (high humidity)
 
 export function humidityColor(v: number | null): string {
-  if (v === null) return '#666'
+  if (v === null) return '#78909c'
   return colorScale([
-    [ 0,  '#666'],     // dry — muted
-    [30,  '#90a4ae'],  // low humidity
-    [60,  '#64b5f6'],  // moderate
-    [80,  '#2196f3'],  // high
-    [100, '#1565c0'],  // very high
+    [ 0,  '#78909c'],  // dry
+    [30,  '#546e7a'],  // low
+    [60,  '#2563eb'],  // moderate
+    [80,  '#1d4ed8'],  // high
+    [100, '#1e3a8a'],  // very high
   ], v)
 }
