@@ -1995,3 +1995,239 @@ footer {
   100% { box-shadow: 0 0 0 0 rgba(0,210,230,0); }
 }
 .search-pulse { animation: searchPulse .85s ease-out; }
+
+/* ═══════════════════════════════════════════════════════════════
+   UI/UX IMPROVEMENTS
+   ─────────────────────────────────────────────────────────────
+   1. Design tokens
+   2. Focus-visible keyboard ring
+   3. Minimum font-size floor (≥ 11px)
+   4. Touch targets ≥ 44px on mobile
+   5. Station card live accent
+   6. Location bar separator
+   7. Model grid tablet layout
+   8. Forecast strip readability
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  --touch-min: 44px;
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  40px;
+}
+
+/* ── 2. FOCUS-VISIBLE RING ────────────────────────────────────── */
+/* Applies only on keyboard navigation (not mouse clicks) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* Tighter offset for pill/chip-shaped elements */
+.mtab:focus-visible,
+.mtric:focus-visible,
+.strip-day:focus-visible,
+.fav-pill:focus-visible,
+.leg-toggle:focus-visible {
+  outline-offset: 2px;
+}
+/* Remove the default outline override for elements that already manage their own */
+.nav-current:focus-visible,
+.lang-current:focus-visible,
+.nav-option:focus-visible,
+.lang-option:focus-visible,
+.welcome-btn:focus-visible,
+.geoloc-btn:focus-visible {
+  outline-offset: 2px;
+}
+
+/* ── 3. MINIMUM FONT-SIZE FLOOR ───────────────────────────────── */
+/* Elements under ~11px become unreadable at normal viewing distance.
+   These are the only elements that reach ≤.66rem in the base styles. */
+.strip-models,
+.mc2-note,
+.fc-precip,
+.fc-wind-lbl,
+.day-d,
+.alert-badge,
+.loc-time,
+.mc2-gust,
+.freshness-badge {
+  font-size: max(0.688rem, 11px);  /* 11px hard floor */
+}
+
+/* ── 4. TOUCH TARGETS ─────────────────────────────────────────── */
+/* Interactive chips/tabs must be at least 44×44px on touch screens */
+@media (max-width: 768px) {
+  /* Model-view tabs */
+  .mtab {
+    min-height: var(--touch-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Metric tabs (chart) */
+  .mtric {
+    min-height: var(--touch-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  /* Forecast day strip */
+  .strip-day {
+    min-height: var(--touch-min);
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  /* Nav & lang options in dropdown */
+  .nav-option {
+    min-height: var(--touch-min);
+  }
+  .lang-option {
+    min-height: var(--touch-min);
+    padding: 10px 16px;
+  }
+
+  /* Chart legend toggle pills */
+  .leg-toggle {
+    min-height: 36px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+}
+
+/* ── 5. STATION CARD LIVE ACCENT ──────────────────────────────── */
+/* Mirrors the main-card gradient accent, but uses green to signal
+   "live real-time data" rather than the forecast accent. */
+.station-card {
+  position: relative;
+  overflow: hidden;
+}
+.station-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--green) 0%,
+    rgba(0,230,118,0.45) 40%,
+    rgba(0,230,118,0.08) 70%,
+    transparent 100%
+  );
+  border-radius: var(--radius) var(--radius) 0 0;
+  pointer-events: none;
+}
+
+/* ── 6. LOCATION BAR SEPARATOR ────────────────────────────────── */
+/* A faint bottom border helps eyes anchor the "where" section
+   before scanning the forecast content below. */
+.loc-bar {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--card-border);
+  margin-bottom: 2px;
+}
+
+/* ── 7. MODEL GRID TABLET LAYOUT ──────────────────────────────── */
+/* Between 600–900px the auto-fill grid collapses to only 2 columns
+   because minmax(185px,1fr) fills 3 slots at ~600px. We force 3 so
+   tablet users see more models without scrolling. */
+@media (min-width: 600px) and (max-width: 900px) {
+  .model-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+}
+
+/* ── 8. FORECAST STRIP READABILITY ────────────────────────────── */
+/* Slightly heavier weight on the hi/lo temperature pair so the
+   range reads at a glance without needing to squint. */
+.strip-temps {
+  font-size: .83rem;
+  font-weight: 800;
+}
+/* The muted "low" temp inside strip-temps */
+.strip-temps span {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+/* Nudge the day label up slightly for better vertical rhythm */
+.strip-dname {
+  font-size: .73rem;
+  letter-spacing: .6px;
+}
+
+/* ── 9. PREDICTION CARD DIVIDER ───────────────────────────────── */
+/* Make the vertical divider between "today" and "tomorrow" panels
+   more prominent so the two-panel layout reads as a comparison. */
+.prediction-divider {
+  background: rgba(255,255,255,0.10);
+  margin: 0 20px;
+}
+
+/* ── 10. SCROLLBAR POLISH ─────────────────────────────────────── */
+/* Thin, themed scrollbars for the main content area and table */
+.tbl-scroll,
+.beach-list,
+.ski-list,
+.chart-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,210,230,0.25) transparent;
+}
+.tbl-scroll::-webkit-scrollbar,
+.beach-list::-webkit-scrollbar,
+.ski-list::-webkit-scrollbar,
+.chart-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.tbl-scroll::-webkit-scrollbar-thumb,
+.beach-list::-webkit-scrollbar-thumb,
+.ski-list::-webkit-scrollbar-thumb,
+.chart-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,210,230,0.25);
+  border-radius: 2px;
+}
+
+/* ── 11. WELCOME SCREEN SEARCH — elevated shadow ─────────────── */
+/* Slightly more prominent shadow on focus for spatial depth */
+.welcome-input:focus {
+  box-shadow: 0 0 0 4px rgba(0,210,230,0.12), 0 12px 40px rgba(0,0,0,0.5);
+}
+
+/* ── 12. MAIN CARD STATS PANEL ────────────────────────────────── */
+/* On desktop, tighten the stat list so it sits better in the
+   right column next to the big temperature. */
+.mc-right {
+  gap: 9px;
+}
+.stat {
+  font-size: .84rem;
+}
+
+/* ── 13. IMPROVED SECTION TITLE ───────────────────────────────── */
+/* Slightly more contrast for section labels */
+.section-title {
+  color: rgba(110,140,170,0.95);
+  letter-spacing: 1.6px;
+}
+
+/* ── 14. MODEL CARD HEADER BOTTOM MARGIN ─────────────────────── */
+/* Give the model name/org a bit more breathing room */
+.mc2-head {
+  margin-bottom: 14px;
+  gap: 8px;
+}
+
+/* ── 15. MAIN CARD TEMP SIZE ON SMALL TABLETS ─────────────────── */
+@media (max-width: 900px) and (min-width: 769px) {
+  .mc-temp { font-size: 3.1rem; }
+  .mc-big-icon { font-size: 4rem; }
+}
