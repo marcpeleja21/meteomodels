@@ -36,6 +36,12 @@ export function renderForecastStrip() {
   const today  = new Date().toISOString().slice(0, 10)
   const extras = buildDayExtras(days.length)
 
+  // Max precip across all days — used to scale the precipitation bars
+  const maxPrecip = Math.max(
+    ...extras.precip.map(v => v ?? 0),
+    1,  // avoid division by zero
+  )
+
   function renderDayCards(arr: typeof days, startI: number): string {
     return arr.map((d, offset) => {
       const i          = startI + offset
@@ -49,12 +55,19 @@ export function renderForecastStrip() {
       const gustVal    = extras.gust[i]
       const precipVal  = extras.precip[i]
 
+      // Precipitation bar: width relative to the wettest day in the week
+      const barPct   = precipVal != null && precipVal > 0
+        ? Math.min((precipVal / maxPrecip) * 100, 100)
+        : 0
+      const barColor = precipVal != null && precipVal > 0 ? precipColor(precipVal) : 'transparent'
+
       let cls = 'strip-day'
       if (isToday)    cls += ' today'
       if (isSelected) cls += ' selected'
 
       return `
-        <div class="${cls}" data-day="${i}">
+        <div class="${cls}" data-day="${i}" role="button" tabindex="0"
+             aria-label="${dayName} ${dayNum} ${mon}, ${fmt(d.maxT,0)}° / ${fmt(d.minT,0)}°${rainPct ? ', ' + rainPct + ' ' + t.tipRain : ''}">
           <div class="strip-dname">${dayName}</div>
           <div style="font-size:.68rem;color:var(--text-dim)">${dayNum} ${mon}</div>
           <div class="strip-icon">${d.cond.icon}</div>
@@ -67,12 +80,15 @@ export function renderForecastStrip() {
           ${precipVal !== null && precipVal > 0 ? `<div class="strip-precip" title="${t.tipPrecip}" style="color:${precipColor(precipVal)}">🌧 ${fmt(precipVal, 1)} mm</div>` : ''}
           ${gustVal !== null ? `<div class="strip-wind" title="${t.tipGusts}" style="color:${windColor(gustVal)}">💨 ↑${fmt(gustVal, 0)} km/h</div>` : ''}
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
+          <div class="strip-precip-bar-wrap" title="${precipVal != null && precipVal > 0 ? fmt(precipVal,1) + ' mm' : ''}">
+            <div class="strip-precip-bar" style="width:${barPct.toFixed(1)}%;background:${barColor}"></div>
+          </div>
         </div>
       `
     }).join('')
   }
 
-  // Render first 4 days
+  // Main strip: first 4 days (today + 3 more)
   const first4 = days.slice(0, 4)
   const rest3  = days.slice(4)
 
@@ -90,13 +106,17 @@ export function renderForecastStrip() {
     expandRow.classList.add('hidden')
   }
 
-  // Click handlers for day cards
+  // Click + keyboard handlers for day cards
   function attachClicks(container: HTMLElement) {
     container.querySelectorAll<HTMLDivElement>('.strip-day').forEach(dayEl => {
-      dayEl.addEventListener('click', () => {
+      const selectDay = () => {
         const i = parseInt(dayEl.dataset.day!)
         state.selectedDay = i
         document.dispatchEvent(new CustomEvent('mm:daySelected', { detail: i }))
+      }
+      dayEl.addEventListener('click', selectDay)
+      dayEl.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectDay() }
       })
     })
   }

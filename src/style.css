@@ -272,7 +272,11 @@ input{touch-action:manipulation}
 
 /* ── WELCOME ────────────────────────────────────────────────── */
 .welcome{text-align:center;padding:64px 20px 48px;color:var(--text)}
-.welcome h1{font-size:2.5rem;font-weight:900;margin-bottom:14px;line-height:1.15;letter-spacing:-.5px}
+.welcome h1{
+  font-size:2.5rem;font-weight:900;margin-bottom:14px;line-height:1.15;letter-spacing:-.5px;
+  background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
 .welcome p{font-size:1.05rem;color:var(--text-muted);margin-bottom:36px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6}
 
 /* ── WELCOME ICONS (animated floating row) ───────────────────── */
@@ -623,7 +627,10 @@ input{touch-action:manipulation}
 .cmp-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-radius:var(--radius);overflow:hidden}
 .cmp-row-single{grid-template-columns:1fr}
 .cmp-panel{padding:18px 20px;display:flex;flex-direction:column;gap:4px}
-.now-panel{background:rgba(255,255,255,0.03);border-right:1px solid var(--card-border)}
+.now-panel{
+  background:rgba(0,230,118,0.04);
+  border-right:1px solid rgba(0,230,118,0.15);
+}
 .fcast-panel{background:transparent}
 .cmp-label{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:2px}
 .cmp-icon{font-size:2.2rem;line-height:1;margin:4px 0}
@@ -656,10 +663,15 @@ input{touch-action:manipulation}
 
 .mc-divider{height:1px;background:var(--card-border);margin:0 24px}
 
-/* ── 5-DAY FORECAST STRIP ───────────────────────────────────── */
+/* ── FORECAST STRIP ─────────────────────────────────────────── */
+/* Main strip shows 4 days; extra strip shows up to 3 more */
 .forecast-strip{
-  display:grid;grid-template-columns:repeat(5,1fr);
+  display:grid;grid-template-columns:repeat(4,1fr);
   padding:16px 20px; gap:4px;
+}
+.forecast-strip.forecast-strip-extra{
+  grid-template-columns:repeat(3,1fr);
+  padding-top:0;
 }
 .strip-day{
   display:flex;flex-direction:column;align-items:center;gap:4px;
@@ -683,6 +695,17 @@ input{touch-action:manipulation}
 .strip-precip{font-size:.68rem;color:#29b6f6}
 .strip-wind{font-size:.68rem;color:var(--text-muted)}
 .strip-models{font-size:.62rem;color:var(--text-dim);margin-top:1px}
+
+/* ── Precipitation indicator bar at the bottom of each strip day ── */
+.strip-precip-bar-wrap{
+  width:100%; height:3px; margin-top:4px;
+  background:rgba(255,255,255,0.04); border-radius:2px; overflow:hidden;
+}
+.strip-precip-bar{
+  height:100%; border-radius:2px;
+  transition:width .5s ease;
+  min-width:0;
+}
 
 /* ── MODEL CARDS ────────────────────────────────────────────── */
 .model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
@@ -1298,7 +1321,7 @@ footer {
   .main-card-top{grid-template-columns:1fr;gap:14px}
   .mc-right{flex-direction:row;flex-wrap:wrap;min-width:unset}
   .stat{min-width:120px}
-  .forecast-strip{grid-template-columns:repeat(5,1fr);gap:2px}
+  .forecast-strip{grid-template-columns:repeat(4,1fr);gap:2px}
   .model-grid{grid-template-columns:repeat(2,1fr);gap:10px}
   .mc-temp{font-size:2.8rem}
   .mc-big-icon{font-size:3.5rem}
