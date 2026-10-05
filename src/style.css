@@ -723,17 +723,6 @@ input{touch-action:manipulation}
 }
 .strip-models{font-size:.58rem;color:var(--text-dim);margin-top:1px}
 
-/* ── Precipitation indicator bar at the bottom of each strip day ── */
-.strip-precip-bar-wrap{
-  width:100%; height:4px; margin-top:5px;
-  background:rgba(0,30,80,0.08); border-radius:2px; overflow:hidden;
-}
-.strip-precip-bar{
-  height:100%; border-radius:2px;
-  transition:width .5s ease;
-  min-width:0;
-}
-
 /* ── Day detail view (selected future day in main card) ──────── */
 .day-view-top{display:flex;align-items:center;gap:16px;margin:8px 0 4px}
 .day-view-icon{font-size:3.5rem;line-height:1;flex-shrink:0}

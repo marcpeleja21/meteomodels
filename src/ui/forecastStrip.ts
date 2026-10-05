@@ -36,12 +36,6 @@ export function renderForecastStrip() {
   const today  = new Date().toISOString().slice(0, 10)
   const extras = buildDayExtras(days.length)
 
-  // Max precip across all days — used to scale the precipitation bars
-  const maxPrecip = Math.max(
-    ...extras.precip.map(v => v ?? 0),
-    1,  // avoid division by zero
-  )
-
   function renderDayCards(arr: typeof days, startI: number): string {
     return arr.map((d, offset) => {
       const i           = startI + offset
@@ -56,11 +50,6 @@ export function renderForecastStrip() {
       const windVal     = extras.wind[i]
       const precipVal   = extras.precip[i]
       const displayWind = gustVal ?? windVal
-
-      // Precipitation bar: width relative to the wettest day in the week
-      const barPct   = precipVal != null && precipVal > 0
-        ? Math.min((precipVal / maxPrecip) * 100, 100) : 0
-      const barColor = precipVal != null && precipVal > 0 ? precipColor(precipVal) : 'transparent'
 
       let cls = 'strip-day'
       if (isToday)    cls += ' today'
@@ -87,9 +76,6 @@ export function renderForecastStrip() {
           <div class="strip-tmin" style="color:${tempMinColor(d.minT)}">${fmt(d.minT, 0)}°</div>
           <div class="strip-chips">${rainChip}${mmChip}${windChip}</div>
           ${i === 0 && d.n > 1 ? `<div class="strip-models">${t.nModels(d.n)}</div>` : ''}
-          <div class="strip-precip-bar-wrap" title="${precipVal != null && precipVal > 0 ? fmt(precipVal,1) + ' mm' : ''}">
-            <div class="strip-precip-bar" style="width:${barPct.toFixed(1)}%;background:${barColor}"></div>
-          </div>
         </div>
       `
     }).join('')
