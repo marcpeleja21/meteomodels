@@ -217,13 +217,14 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
   const date = new Date(day.date + 'T12:00:00')
   const dateLabel = `${t.days[date.getDay()]} ${date.getDate()} ${t.months[date.getMonth()]}`
 
-  const models     = getActiveModels().filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
-  const winds      = models.map(m => m.daily.wind_speed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const gusts      = models.map(m => m.daily.wind_gusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const precipVals = models.map(m => m.daily.precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
-  const avgWind    = winds.length ? avg(winds) : null
-  const avgGust    = gusts.length ? avg(gusts) : null
-  const avgPrecip  = precipVals.length ? avg(precipVals) : null
+  const models      = getActiveModels().filter(m => modelValidForDay(m, dayIndex) && state.wxData[m.key] != null).map(m => state.wxData[m.key]!)
+  const winds       = models.map(m => m.daily.wind_speed_10m_max[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const gusts       = models.map(m => m.daily.wind_gusts_10m_max?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const precipVals  = models.map(m => m.daily.precipitation_sum?.[dayIndex] ?? null).filter((v): v is number => v !== null)
+  const avgWind     = winds.length ? avg(winds) : null
+  const avgGust     = gusts.length ? avg(gusts) : null
+  const avgPrecip   = precipVals.length ? avg(precipVals) : null
+  const displayWind = avgGust ?? avgWind
 
   el.innerHTML = `
     <div class="cmp-row cmp-row-single">
@@ -232,14 +233,27 @@ function renderDayView(el: HTMLElement, t: LangData, dayIndex: number) {
           ${dateLabel} · ${t.nModels(day.n)}
           <span class="ens-info-btn" tabindex="0" aria-label="Model weights info" data-ens-tip="${buildEnsTip(state.lang).replace(/"/g, '&quot;')}">ⓘ</span>
         </div>
-        <div class="cmp-icon">${wx.icon}</div>
-        <div class="cmp-temp" style="color:${tempMaxColor(day.maxT)}">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="cmp-unit">°C</span></div>
+        <div class="day-view-top">
+          <div class="day-view-icon">${wx.icon}</div>
+          <div class="day-temp-block">
+            <div class="day-tmax" style="color:${tempMaxColor(day.maxT)}">${day.maxT !== null ? Math.round(day.maxT) : '—'}<span class="day-tunit">°</span></div>
+            <div class="day-tmin" style="color:${tempMinColor(day.minT)}">${day.minT !== null ? Math.round(day.minT) : '—'}<span class="day-tunit">°</span></div>
+          </div>
+        </div>
         <div class="cmp-cond">${wx.lbl}</div>
-        <div class="cmp-feels">↓ Mín: <span style="color:${tempMinColor(day.minT)}">${day.minT !== null ? Math.round(day.minT) + '°C' : '—'}</span></div>
-        <div class="cmp-stats">
-          <span title="${t.tipRain}" style="color:${rainPctColor(day.rain)}">💦 ${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</span>
-          ${avgPrecip !== null ? `<span title="${t.tipPrecip}" style="color:${precipColor(avgPrecip)}">🌧️ ${fmt(avgPrecip, 1)} mm</span>` : ''}
-          <span title="${t.tipGusts}" style="color:${windColor(avgGust ?? avgWind)}">💨 ↑${fmt(avgGust ?? avgWind, 0)} km/h</span>
+        <div class="day-stats-grid">
+          <div class="day-stat">
+            <div class="day-stat-val" style="color:${rainPctColor(day.rain)}">${day.rain !== null ? Math.round(day.rain) + '%' : '—'}</div>
+            <div class="day-stat-lbl">${t.statRain}</div>
+          </div>
+          <div class="day-stat">
+            <div class="day-stat-val" style="color:${precipColor(avgPrecip)}">${avgPrecip !== null ? fmt(avgPrecip, 1) + ' mm' : '—'}</div>
+            <div class="day-stat-lbl">${t.statPrecip}</div>
+          </div>
+          <div class="day-stat">
+            <div class="day-stat-val" style="color:${windColor(displayWind)}">↑${displayWind !== null ? fmt(displayWind, 0) : '—'}</div>
+            <div class="day-stat-lbl">${t.statWind}</div>
+          </div>
         </div>
       </div>
     </div>
