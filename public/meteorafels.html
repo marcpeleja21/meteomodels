@@ -895,10 +895,9 @@ const LANG = {
     monthFull: ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'],
     radarTitle: '🌧 Radar de pluja', radarForecast: 'Pluja esperada en {n}h',
     recTitle: "Historial de l'estació",
-    recSince: (d, n) => `Dades arxivades des del ${d}: ${n} dies.`,
+    recSince: y => `Dades des del ${y}`,
     recTempHigh: 'Màxima més alta', recTempLow: 'Mínima més baixa',
-    recWindHigh: 'Ratxa més forta', recPrecipTotal: 'Pluja total',
-    recAvgFmt: (hi, lo) => `Mitjana de màximes ${hi}° · mínimes ${lo}°`,
+    recWindHigh: 'Ratxa més forta', recPrecipTotal: 'Pluja màx. en un dia',
   },
   es: {
     locale: 'es-ES',
@@ -940,10 +939,9 @@ const LANG = {
     monthFull: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
     radarTitle: '🌧 Radar de lluvia', radarForecast: 'Lluvia esperada en {n}h',
     recTitle: 'Historial de la estación',
-    recSince: (d, n) => `Datos archivados desde el ${d}: ${n} días.`,
+    recSince: y => `Datos desde ${y}`,
     recTempHigh: 'Máxima más alta', recTempLow: 'Mínima más baja',
-    recWindHigh: 'Racha más fuerte', recPrecipTotal: 'Lluvia total',
-    recAvgFmt: (hi, lo) => `Media de máximas ${hi}° · mínimas ${lo}°`,
+    recWindHigh: 'Racha más fuerte', recPrecipTotal: 'Lluvia máx. en un día',
   },
   en: {
     locale: 'en-GB',
@@ -985,10 +983,9 @@ const LANG = {
     monthFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
     radarTitle: '🌧 Rain radar', radarForecast: 'Rain expected in {n}h',
     recTitle: 'Station history',
-    recSince: (d, n) => `Data archived since ${d}: ${n} days.`,
+    recSince: y => `Data since ${y}`,
     recTempHigh: 'Highest max temp', recTempLow: 'Lowest min temp',
-    recWindHigh: 'Strongest gust', recPrecipTotal: 'Total rainfall',
-    recAvgFmt: (hi, lo) => `Avg high ${hi}° · avg low ${lo}°`,
+    recWindHigh: 'Strongest gust', recPrecipTotal: 'Max daily rainfall',
   },
 }
 
@@ -1096,7 +1093,7 @@ function fmtDateLong(dateStr) {
   if (isNaN(d)) return dateStr
   try {
     return new Intl.DateTimeFormat(LANG[currentLang].locale, {
-      weekday: 'long', day: 'numeric', month: 'long'
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     }).format(d)
   } catch {
     const t = LANG[currentLang]
@@ -1124,7 +1121,7 @@ function renderStationStats() {
   if (section) section.classList.remove('hidden')
 
   setTxt('recTitle', t.recTitle)
-  setTxt('recMeta', t.recSince(fmtDateShort(s.firstDate), s.days))
+  setTxt('recMeta', t.recSince(s.firstDate?.slice(0, 4) ?? ''))
 
   setTxt('recLblTempHigh',   t.recTempHigh)
   setTxt('recLblTempLow',    t.recTempLow)
@@ -1146,11 +1143,10 @@ function renderStationStats() {
       `${fmt(s.windHigh.value, 1)}<span class="unit"> km/h</span>`
     setTxt('recDateWindHigh', fmtDateLong(s.windHigh.date))
   }
-  if (s.precipTotal != null) {
+  if (s.precipMax?.value != null) {
     $('recValPrecipTotal').innerHTML =
-      `${fmt(s.precipTotal, 1)}<span class="unit"> mm</span>`
-    if (s.avgTempHigh != null && s.avgTempLow != null)
-      setTxt('recAvgTemps', t.recAvgFmt(fmt(s.avgTempHigh, 1), fmt(s.avgTempLow, 1)))
+      `${fmt(s.precipMax.value, 1)}<span class="unit"> mm</span>`
+    setTxt('recAvgTemps', fmtDateLong(s.precipMax.date))
   }
 }
 
