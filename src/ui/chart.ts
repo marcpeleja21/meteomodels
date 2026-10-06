@@ -2,235 +2,286 @@ import { state } from '../state'
 import { getActiveModels } from '../config/models'
 import { LANG_DATA } from '../config/i18n'
 import { computeModelWeights } from '../utils/modelWeights'
-import type { MetricConfig, LangData } from '../types'
 
-const W = 900, H = 280, PAD = { top: 24, right: 20, bottom: 40, left: 44 }
-const CHART_W = W - PAD.left - PAD.right
-const CHART_H = H - PAD.top  - PAD.bottom
-const DAYS = 5   // show 5 days in the chart
-const TOP_N = 5  // default number of pre-selected models
+// ── Layout constants ───────────────────────────────────────────────────────────
+const W = 900, H = 348
+const PL = 44, PR = 16, PT = 54
+const CW = W - PL - PR   // 840
 
-// Preferred model families in priority order — one is picked per family.
-// Satisfies the user's request: GFS, ECMWF, AROME, HARMONIE, ICON by default.
+const TEMP_TOP   = PT            // 54
+const TEMP_H     = 148
+const PREC_TOP   = TEMP_TOP + TEMP_H + 10   // 212
+const PREC_H     = 50
+const WIND_TOP   = PREC_TOP + PREC_H + 8    // 270
+const WIND_H     = 30
+const XLAB_Y     = WIND_TOP + WIND_H + 14   // 314
+
+// 3-hourly resolution for 3 days = 24 sample points
+const STEP = 3, N_DAYS = 3, N_MAX = (N_DAYS * 24) / STEP   // 24
+
+const TOP_N = 5
 const PREFERRED_FAMILIES = [
-  ['gfs'],
-  ['ecmwf'],
-  ['arome_hd', 'arome'],
-  ['knmi_harmonie', 'dmi_harmonie'],
-  ['icon_eu', 'icon'],
+  ['gfs'], ['ecmwf'], ['arome_hd', 'arome'], ['knmi_harmonie', 'dmi_harmonie'], ['icon_eu', 'icon'],
 ]
 
-type MetricKey = 'temp' | 'precip' | 'rain' | 'wind' | 'hum' | 'pres'
+const ENS_T_CLR = '#c0392b'
+const ENS_P_CLR = '#2563eb'
 
-function buildMetrics(_t: LangData): Record<MetricKey, MetricConfig> {
-  return {
-    temp:   { key: 'temp',   unit: '°C',  color: '#ff7043', src: (k, i) => state.wxData[k]?.daily.temperature_2m_max[i] ?? null },
-    precip: { key: 'precip', unit: 'mm',  color: '#29b6f6', src: (k, i) => state.wxData[k]?.daily.precipitation_sum?.[i] ?? null },
-    rain:   { key: 'rain',   unit: '%',   color: '#4dd0e1', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
-    wind:   { key: 'wind',   unit: 'km/h',color: '#aed581', src: (k, i) => state.wxData[k]?.daily.wind_speed_10m_max[i] ?? null },
-    hum:    { key: 'hum',    unit: '%',   color: '#90caf9', src: (k, i) => state.wxData[k]?.daily.precipitation_probability_max[i] ?? null },
-    pres:   { key: 'pres',   unit: 'hPa', color: '#ce93d8', src: (k, i) => {
-      const d = state.wxData[k]
-      if (!d) return null
-      return d.hourly.pressure_msl[i * 24 + 12] ?? null
-    }},
-  }
+function avg(vals: (number | null)[]): number | null {
+  const v = vals.filter((x): x is number => x !== null)
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
 }
 
-/** Seed chartSelectedModels using preferred families (GFS, ECMWF, AROME, HARMONIE, ICON). */
-function seedTopModels(loadedKeys: string[]) {
-  if (!loadedKeys.length) return
+/** Catmull-Rom → SVG cubic bezier smooth curve through all points */
+function smoothPath(pts: [number, number][]): string {
+  if (!pts.length) return ''
+  if (pts.length < 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]
+    const p1 = pts[i]
+    const p2 = pts[i + 1]
+    const p3 = pts[Math.min(pts.length - 1, i + 2)]
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+  }
+  return d
+}
 
+function seedTopModels(keys: string[]) {
+  if (!keys.length) return
   const sel = new Set<string>()
-
-  // Pick one model per preferred family (first available key wins)
-  for (const family of PREFERRED_FAMILIES) {
+  for (const fam of PREFERRED_FAMILIES) {
     if (sel.size >= TOP_N) break
-    const match = family.find(k => loadedKeys.includes(k))
+    const match = fam.find(k => keys.includes(k))
     if (match) sel.add(match)
   }
-
-  // If preferred families didn't fill TOP_N slots, pad with weight-sorted remaining
   if (sel.size < TOP_N) {
-    const loc = state.currentLoc
-    const obs = state.currentObs
-    const weights = computeModelWeights(
-      loadedKeys, loc?.latitude ?? 0, loc?.longitude ?? 0, loc?.elevation ?? 0,
+    const loc = state.currentLoc, obs = state.currentObs
+    const wts = computeModelWeights(
+      keys, loc?.latitude ?? 0, loc?.longitude ?? 0, loc?.elevation ?? 0,
       state.wxData, obs?.temp, obs?.time,
     )
-    const sorted = [...loadedKeys].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
-    for (const k of sorted) {
-      if (sel.size >= TOP_N) break
-      if (!sel.has(k)) sel.add(k)
-    }
+    const sorted = [...keys].sort((a, b) => (wts[b] ?? 0) - (wts[a] ?? 0))
+    for (const k of sorted) { if (sel.size >= TOP_N) break; if (!sel.has(k)) sel.add(k) }
   }
-
   state.chartSelectedModels = sel
 }
 
-export function renderChart(onMetricChange?: (key: string) => void) {
-  const t       = LANG_DATA[state.lang]
-  const metrics = buildMetrics(t)
-  const el      = document.getElementById('chartCard')!
-
-  const metricLabels: Record<MetricKey, string> = {
-    temp: t.mTemp, precip: t.statPrecip, rain: t.mRain, wind: t.mWind, hum: t.mHum, pres: t.mPres,
-  }
-
-  const tabsHtml = (Object.keys(metrics) as MetricKey[]).map(k => {
-    const active = state.activeMetric === k ? ' active' : ''
-    return `<button class="mtric${active}" data-metric="${k}">${metricLabels[k]}</button>`
-  }).join('')
+export function renderChart(_onMetricChange?: (key: string) => void) {
+  const lang = LANG_DATA[state.lang]
+  const el   = document.getElementById('chartCard')!
 
   const loaded = getActiveModels().filter(m => state.wxData[m.key] != null)
   if (!loaded.length) { el.innerHTML = ''; return }
 
-  // Normalise activeMetric
-  if (!Object.keys(metrics).includes(state.activeMetric)) state.activeMetric = 'temp'
-
-  // ── Seed top-5 selection when location changes or on first render ──────────
-  // Re-seed if: never seeded, or if a model loaded that isn't tracked at all
   const loadedKeys = loaded.map(m => m.key)
-  const needsReseed = !state.chartSelectedModels ||
-    loadedKeys.every(k => !state.chartSelectedModels!.has(k))
-  if (needsReseed) seedTopModels(loadedKeys)
+  if (!state.chartSelectedModels || loadedKeys.every(k => !state.chartSelectedModels!.has(k)))
+    seedTopModels(loadedKeys)
 
-  // Ensure the set only contains keys that are actually loaded
-  const sel = state.chartSelectedModels!
-  const visible = loaded.filter(m => sel.has(m.key))
-  // Always show at least 1 model even if selection is stale
+  const sel        = state.chartSelectedModels!
+  const visible    = loaded.filter(m => sel.has(m.key))
   const renderList = visible.length ? visible : loaded.slice(0, 1)
 
-  const isTemp = state.activeMetric === 'temp'
-  const metric = metrics[state.activeMetric as MetricKey] ?? metrics.temp
+  // Reference timestamps from first visible model
+  const refKey   = (renderList[0] ?? loaded[0]).key
+  const allTimes = state.wxData[refKey]?.hourly.time ?? []
 
-  // Collect all values for scale — use only visible models
-  const allVals: number[] = []
-  for (const m of renderList) {
-    for (let i = 0; i < DAYS; i++) {
-      if (isTemp) {
-        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
-        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
-        if (vmax !== null) allVals.push(vmax)
-        if (vmin !== null) allVals.push(vmin)
-      } else {
-        const v = metric.src(m.key, i)
-        if (v !== null) allVals.push(v)
-      }
+  // Start from current hour rounded down to nearest STEP boundary
+  const nowStr = new Date().toISOString().slice(0, 13)
+  let si = allTimes.findIndex(ts => ts >= nowStr)
+  if (si < 0) si = 0
+  si = Math.floor(si / STEP) * STEP
+
+  const indices = Array.from({ length: N_MAX }, (_, i) => si + i * STEP)
+    .filter(idx => idx < allTimes.length)
+  const nPts = indices.length
+  if (nPts < 2) { el.innerHTML = ''; return }
+
+  // ── Compute ensemble averages ──────────────────────────────────────────────
+  const ensTemp   = indices.map(idx => avg(renderList.map(m => state.wxData[m.key]?.hourly.temperature_2m[idx]    ?? null)))
+  const ensPrecip = indices.map(idx => avg(renderList.map(m => state.wxData[m.key]?.hourly.precipitation[idx]      ?? null)))
+  const ensWind   = indices.map(idx => avg(renderList.map(m => state.wxData[m.key]?.hourly.wind_speed_10m[idx]     ?? null)))
+  const ensDir    = indices.map(idx => avg(renderList.map(m => state.wxData[m.key]?.hourly.wind_direction_10m[idx] ?? null)))
+
+  // ── Temperature scale ──────────────────────────────────────────────────────
+  const tempVals: number[] = []
+  for (const m of renderList)
+    for (const idx of indices) {
+      const v = state.wxData[m.key]?.hourly.temperature_2m[idx] ?? null
+      if (v !== null) tempVals.push(v)
+    }
+  ensTemp.forEach(v => v !== null && tempVals.push(v))
+  const tMin = Math.floor(Math.min(...tempVals)) - 1
+  const tMax = Math.ceil(Math.max(...tempVals))  + 1
+  const tRng = tMax - tMin || 1
+
+  const maxPrecip = Math.max(...ensPrecip.map(v => v ?? 0), 0.5)
+
+  // ── Coordinate helpers ──────────────────────────────────────────────────────
+  const sx  = (i: number) => PL + (i / (nPts - 1)) * CW
+  const syT = (v: number) => TEMP_TOP + TEMP_H - ((v - tMin) / tRng) * TEMP_H
+
+  const barW = CW / nPts
+
+  // ── Night shading ──────────────────────────────────────────────────────────
+  let nightRects = ''
+  let nStart: number | null = null
+  for (let i = 0; i <= nPts; i++) {
+    const ts   = allTimes[indices[i] ?? -1] ?? ''
+    const hr   = ts ? parseInt(ts.slice(11, 13)) : -1
+    const isNight = hr >= 21 || (hr >= 0 && hr < 6)
+    if (isNight && nStart === null) {
+      nStart = sx(i) - barW / 2
+    } else if (!isNight && nStart !== null) {
+      const w = sx(i - 1) + barW / 2 - nStart
+      if (w > 0) nightRects += `<rect x="${nStart.toFixed(1)}" y="${TEMP_TOP}" width="${w.toFixed(1)}" height="${WIND_TOP + WIND_H - TEMP_TOP}" fill="rgba(0,30,80,0.04)"/>`
+      nStart = null
     }
   }
-  if (!allVals.length) { el.innerHTML = ''; return }
-
-  const minV  = Math.min(...allVals)
-  const maxV  = Math.max(...allVals)
-  const range = maxV - minV || 1
-
-  function scaleY(v: number) {
-    return PAD.top + CHART_H - ((v - minV) / range) * CHART_H
-  }
-  function scaleX(i: number) {
-    return PAD.left + (i / (DAYS - 1)) * CHART_W
+  if (nStart !== null) {
+    const w = sx(nPts - 1) + barW / 2 - nStart
+    if (w > 0) nightRects += `<rect x="${nStart.toFixed(1)}" y="${TEMP_TOP}" width="${w.toFixed(1)}" height="${WIND_TOP + WIND_H - TEMP_TOP}" fill="rgba(0,30,80,0.04)"/>`
   }
 
-  // Reference dates
-  const refModel = renderList[0] ?? loaded[0]
-  const refTimes = refModel ? (state.wxData[refModel.key]?.daily.time ?? []) : []
-
-  // Build polylines per visible model
-  let lines = ''
-  if (isTemp) {
-    lines = renderList.map(m => {
-      const ptsMax: string[] = []
-      const ptsMin: string[] = []
-      for (let i = 0; i < DAYS; i++) {
-        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
-        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
-        if (vmax !== null) ptsMax.push(`${scaleX(i)},${scaleY(vmax)}`)
-        if (vmin !== null) ptsMin.push(`${scaleX(i)},${scaleY(vmin)}`)
-      }
-      let out = ''
-      if (ptsMax.length) out += `<polyline points="${ptsMax.join(' ')}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
-      if (ptsMin.length) out += `<polyline points="${ptsMin.join(' ')}" fill="none" stroke="${m.color}" stroke-width="1.5" stroke-dasharray="5,4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>`
-      return out
-    }).join('\n')
-  } else {
-    lines = renderList.map(m => {
-      const pts: string[] = []
-      for (let i = 0; i < DAYS; i++) {
-        const v = metric.src(m.key, i)
-        if (v !== null) pts.push(`${scaleX(i)},${scaleY(v)}`)
-      }
-      if (!pts.length) return ''
-      return `<polyline points="${pts.join(' ')}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
-    }).join('\n')
+  // ── Day separators + date headers ─────────────────────────────────────────
+  let daySeps = '', dayHeaders = ''
+  const today = new Date().toISOString().slice(0, 10)
+  let prevDate = ''
+  for (let i = 0; i < nPts; i++) {
+    const ts   = allTimes[indices[i]] ?? ''
+    const date = ts.slice(0, 10)
+    if (date === prevDate) continue
+    prevDate = date
+    const x = sx(i)
+    const d = new Date(ts)
+    const lbl = date === today ? lang.today : `${lang.days[d.getDay()]} ${d.getDate()}`
+    if (i > 0) daySeps += `<line x1="${x.toFixed(1)}" y1="${TEMP_TOP - 6}" x2="${x.toFixed(1)}" y2="${WIND_TOP + WIND_H}" stroke="rgba(0,30,80,0.15)" stroke-width="1" stroke-dasharray="3,4"/>`
+    dayHeaders += `<text x="${x.toFixed(1)}" y="${TEMP_TOP - 10}" fill="var(--text)" font-size="12" font-weight="700">${lbl}</text>`
   }
 
-  // Dots (visible models only)
-  let dots = ''
-  if (isTemp) {
-    dots = renderList.map(m => {
-      return Array.from({ length: DAYS }, (_, i) => {
-        const vmax = state.wxData[m.key]?.daily.temperature_2m_max[i] ?? null
-        const vmin = state.wxData[m.key]?.daily.temperature_2m_min[i] ?? null
-        let out = ''
-        if (vmax !== null) out += `<circle cx="${scaleX(i)}" cy="${scaleY(vmax)}" r="3.5" fill="${m.color}" opacity="0.9" class="chart-dot" data-day="${i}" data-model="${m.key}" data-val="${vmax.toFixed(1)}"/>`
-        if (vmin !== null) out += `<circle cx="${scaleX(i)}" cy="${scaleY(vmin)}" r="2.5" fill="${m.color}" opacity="0.7" class="chart-dot" data-day="${i}" data-model="${m.key}" data-valmin="${vmin.toFixed(1)}"/>`
-        return out
-      }).join('')
-    }).join('')
-  } else {
-    dots = renderList.map(m => {
-      return Array.from({ length: DAYS }, (_, i) => {
-        const v = metric.src(m.key, i)
-        if (v === null) return ''
-        return `<circle cx="${scaleX(i)}" cy="${scaleY(v)}" r="3.5" fill="${m.color}" opacity="0.9" class="chart-dot" data-day="${i}" data-model="${m.key}" data-val="${v.toFixed(1)}"/>`
-      }).join('')
-    }).join('')
+  // ── Temperature grid + Y labels ────────────────────────────────────────────
+  let tempGrid = ''
+  const gridStep = tRng <= 8 ? 2 : tRng <= 20 ? 4 : 5
+  const gridStart = Math.ceil(tMin / gridStep) * gridStep
+  for (let v = gridStart; v <= tMax; v += gridStep) {
+    const y = syT(v)
+    tempGrid += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W - PR}" y2="${y.toFixed(1)}" stroke="rgba(0,30,80,0.06)" stroke-width="1"/>`
+    tempGrid += `<text x="${(PL - 6).toFixed(1)}" y="${(y + 4).toFixed(1)}" fill="var(--text-muted)" font-size="10" text-anchor="end">${v}°</text>`
   }
 
-  // Hit areas
-  const colW = CHART_W / (DAYS - 1)
-  const hitAreas = Array.from({ length: DAYS }, (_, i) => {
-    const cx = scaleX(i)
-    return `<rect class="chart-hit" data-day="${i}" x="${cx - colW / 2}" y="${PAD.top}" width="${colW}" height="${CHART_H}" fill="transparent" style="cursor:crosshair"/>`
-  }).join('')
+  // ── Individual model lines (dimmed behind ensemble) ───────────────────────
+  let modelLines = ''
+  for (const m of renderList) {
+    const pts: [number, number][] = []
+    for (let i = 0; i < nPts; i++) {
+      const v = state.wxData[m.key]?.hourly.temperature_2m[indices[i]] ?? null
+      if (v !== null) pts.push([sx(i), syT(v)])
+    }
+    if (pts.length > 1)
+      modelLines += `<path d="${smoothPath(pts)}" fill="none" stroke="${m.color}" stroke-width="1.5" stroke-linecap="round" opacity="0.22"/>`
+  }
 
-  // X axis labels
-  const xLabels = Array.from({ length: DAYS }, (_, i) => {
-    const dateStr = refTimes[i]
-    if (!dateStr) return ''
-    const d = new Date(dateStr + 'T12:00:00')
-    return `<text x="${scaleX(i)}" y="${H - 6}" fill="var(--text-muted)" font-size="11" text-anchor="middle">${t.days[d.getDay()]} ${d.getDate()}</text>`
-  }).join('')
+  // ── Ensemble temperature curve ─────────────────────────────────────────────
+  const ensPts: [number, number][] = []
+  for (let i = 0; i < nPts; i++) {
+    const v = ensTemp[i]
+    if (v !== null) ensPts.push([sx(i), syT(v)])
+  }
 
-  // Y axis labels
-  const ySteps = 5
-  const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => {
-    const v = minV + (range / ySteps) * i
-    const y = scaleY(v)
-    return `<text x="${PAD.left - 6}" y="${y + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${v.toFixed(0)}</text>`
-  }).join('')
+  // Dots every 2nd point to avoid clutter
+  const ensDots = ensPts.map((pt, i) =>
+    i % 2 === 0
+      ? `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="3.5" fill="${ENS_T_CLR}" stroke="#fff" stroke-width="1.5"/>`
+      : ''
+  ).join('')
 
-  // Grid lines
-  const gridLines = Array.from({ length: ySteps + 1 }, (_, i) => {
-    const v = minV + (range / ySteps) * i
-    const y = scaleY(v)
-    return `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + CHART_W}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`
-  }).join('')
+  // ── Temperature labels at local peaks/troughs (min gap = 4 points) ─────────
+  let tempLabels = ''
+  let lastLblIdx = -5
+  for (let i = 0; i < nPts; i++) {
+    const v = ensTemp[i]
+    if (v === null) continue
+    const prev = i > 0 ? ensTemp[i - 1] : null
+    const next = i < nPts - 1 ? ensTemp[i + 1] : null
+    const isPeak   = (prev === null || v > prev) && (next === null || v >= next)
+    const isTrough = (prev === null || v < prev) && (next === null || v <= next)
+    if ((!isPeak && !isTrough) || i - lastLblIdx < 4) continue
+    lastLblIdx = i
+    const y = syT(v)
+    const ly = isPeak ? y - 9 : y + 14
+    const anchor = i < 2 ? 'start' : i > nPts - 3 ? 'end' : 'middle'
+    tempLabels += `<text x="${sx(i).toFixed(1)}" y="${ly.toFixed(1)}" fill="${ENS_T_CLR}" font-size="11" font-weight="800" text-anchor="${anchor}">${v.toFixed(0)}°</text>`
+  }
 
-  // Vertical highlight line
-  const hlLine = `<line class="chart-hl" x1="0" y1="${PAD.top}" x2="0" y2="${PAD.top + CHART_H}" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="4,3" style="display:none"/>`
+  // ── Precipitation bars ─────────────────────────────────────────────────────
+  const bW = Math.max(5, barW * 0.62)
+  let precipBars = ''
+  precipBars += `<line x1="${PL}" y1="${(PREC_TOP + PREC_H).toFixed(1)}" x2="${(W - PR).toFixed(1)}" y2="${(PREC_TOP + PREC_H).toFixed(1)}" stroke="rgba(0,30,80,0.1)" stroke-width="1"/>`
+  precipBars += `<text x="${(PL - 6).toFixed(1)}" y="${(PREC_TOP + PREC_H / 2 + 3).toFixed(1)}" fill="var(--text-muted)" font-size="9" text-anchor="end">mm</text>`
+  for (let i = 0; i < nPts; i++) {
+    const v = ensPrecip[i]
+    if (v === null || v < 0.05) continue
+    const bH = Math.max(2, (v / maxPrecip) * PREC_H)
+    const bX = sx(i) - bW / 2
+    const bY = PREC_TOP + PREC_H - bH
+    precipBars += `<rect x="${bX.toFixed(1)}" y="${bY.toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" fill="${ENS_P_CLR}" rx="2" opacity="0.82"/>`
+    if (v >= 0.2)
+      precipBars += `<text x="${sx(i).toFixed(1)}" y="${(bY - 3).toFixed(1)}" fill="${ENS_P_CLR}" font-size="9" font-weight="700" text-anchor="middle">${v.toFixed(1)}</text>`
+  }
 
-  // Tooltip group
-  const tooltipGroup = `
-    <g class="chart-tip" style="display:none;pointer-events:none">
-      <rect class="chart-tip-bg" rx="6" ry="6" fill="rgba(10,20,40,0.97)" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
-      <g class="chart-tip-lines"></g>
-    </g>
-  `
+  // ── Wind strip ────────────────────────────────────────────────────────────
+  const windCY = WIND_TOP + 10
+  const spdY   = WIND_TOP + WIND_H - 2
+  let windStrip = `<text x="${(PL - 6).toFixed(1)}" y="${(windCY + 4).toFixed(1)}" fill="var(--text-muted)" font-size="9" text-anchor="end">km/h</text>`
+  for (let i = 0; i < nPts; i++) {
+    const spd = ensWind[i], dir = ensDir[i]
+    if (spd === null) continue
+    const x = sx(i)
+    let clr = '#78909c'
+    if (spd >= 50)      clr = '#991b1b'
+    else if (spd >= 30) clr = '#b45309'
+    else if (spd >= 15) clr = '#2e7d32'
+    if (dir !== null) {
+      // Arrow points toward where wind blows (FROM direction + 180°)
+      const rot = (dir + 180) % 360
+      windStrip += `<g transform="translate(${x.toFixed(1)},${windCY}) rotate(${rot})">
+        <polygon points="0,-7 3.5,4 0,1.5 -3.5,4" fill="${clr}" opacity="0.85"/>
+      </g>`
+    }
+    windStrip += `<text x="${x.toFixed(1)}" y="${spdY.toFixed(1)}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${Math.round(spd)}</text>`
+  }
 
-  // ── Legend: all loaded models as toggleable pills ──────────────────────────
-  const legendHtml = loaded.map(m => {
+  // ── X-axis hour labels ─────────────────────────────────────────────────────
+  let xLabels = ''
+  const labelEach = nPts >= 20 ? 2 : 1
+  for (let i = 0; i < nPts; i += labelEach) {
+    const ts = allTimes[indices[i]] ?? ''
+    const hr = ts ? parseInt(ts.slice(11, 13)) : -1
+    if (hr < 0) continue
+    xLabels += `<text x="${sx(i).toFixed(1)}" y="${XLAB_Y}" fill="var(--text-muted)" font-size="10" text-anchor="middle">${hr.toString().padStart(2, '0')}</text>`
+  }
+
+  // ── Interactive hit areas ──────────────────────────────────────────────────
+  const hitAreas = Array.from({ length: nPts }, (_, i) =>
+    `<rect class="chart-hit" data-si="${i}" x="${(sx(i) - barW / 2).toFixed(1)}" y="${TEMP_TOP}" width="${barW.toFixed(1)}" height="${WIND_TOP + WIND_H - TEMP_TOP}" fill="transparent" style="cursor:crosshair"/>`
+  ).join('')
+
+  const hlLine = `<line class="chart-hl" x1="0" y1="${TEMP_TOP}" x2="0" y2="${WIND_TOP + WIND_H}" stroke="rgba(0,30,80,0.18)" stroke-width="1" stroke-dasharray="4,3" style="display:none"/>`
+
+  const tooltipGroup = `<g class="chart-tip" style="display:none;pointer-events:none">
+    <rect class="chart-tip-bg" rx="6" ry="6" fill="#ffffff" stroke="#d0dce8" stroke-width="1" filter="url(#tip-shadow)"/>
+    <g class="chart-tip-lines"></g>
+  </g>`
+
+  // ── Legend ─────────────────────────────────────────────────────────────────
+  const legendHtml = `<span class="leg-item leg-ens-avg">
+    <svg width="22" height="6" style="flex-shrink:0;display:block"><line x1="1" y1="3" x2="21" y2="3" stroke="${ENS_T_CLR}" stroke-width="3" stroke-linecap="round"/></svg>
+    ${lang.ensemble}
+  </span>` + loaded.map(m => {
     const active = sel.has(m.key)
     return `<button class="leg-item leg-toggle${active ? ' leg-active' : ''}" data-model-key="${m.key}" title="${active ? 'Click to hide' : 'Click to show'}">
       <span class="leg-dot" style="background:${active ? m.color : 'transparent'};border-color:${m.color}"></span>
@@ -239,18 +290,26 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   }).join('')
 
   el.innerHTML = `
-    <div class="chart-header">
-      <div class="section-title">${t.chartTitle}</div>
-      <div class="metric-tabs">${tabsHtml}</div>
-    </div>
+    <div class="chart-header"><div class="section-title">${lang.chartTitle}</div></div>
     <div class="chart-scroll">
       <svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-        ${gridLines}
-        ${hlLine}
-        ${lines}
-        ${dots}
+        <defs>
+          <filter id="tip-shadow" x="-10%" y="-20%" width="120%" height="150%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,30,80,0.12)"/>
+          </filter>
+        </defs>
+        ${nightRects}
+        ${tempGrid}
+        ${daySeps}
+        ${dayHeaders}
+        ${modelLines}
+        <path d="${smoothPath(ensPts)}" fill="none" stroke="${ENS_T_CLR}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${ensDots}
+        ${tempLabels}
+        ${precipBars}
+        ${windStrip}
         ${xLabels}
-        ${yLabels}
+        ${hlLine}
         ${hitAreas}
         ${tooltipGroup}
       </svg>
@@ -258,7 +317,7 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     <div class="chart-legend">${legendHtml}</div>
   `
 
-  // ── Interactive tooltip ────────────────────────────────────────────────────
+  // ── Interactivity ──────────────────────────────────────────────────────────
   const svgEl  = el.querySelector<SVGSVGElement>('.chart-svg')!
   const tipGrp = svgEl.querySelector<SVGGElement>('.chart-tip')!
   const tipBg  = svgEl.querySelector<SVGRectElement>('.chart-tip-bg')!
@@ -266,77 +325,45 @@ export function renderChart(onMetricChange?: (key: string) => void) {
   const hlEl   = svgEl.querySelector<SVGLineElement>('.chart-hl')!
 
   svgEl.querySelectorAll<SVGRectElement>('.chart-hit').forEach(rect => {
-    const dayI = parseInt(rect.dataset.day!)
+    const i = parseInt(rect.dataset.si!)
 
     rect.addEventListener('mouseenter', () => {
-      const cx = scaleX(dayI)
-      hlEl.setAttribute('x1', String(cx))
-      hlEl.setAttribute('x2', String(cx))
+      const cx = sx(i)
+      hlEl.setAttribute('x1', String(cx)); hlEl.setAttribute('x2', String(cx))
       hlEl.style.display = ''
 
-      const dateStr = refTimes[dayI]
-      const d = dateStr ? new Date(dateStr + 'T12:00:00') : null
-      const dayLabel = d ? `${t.days[d.getDay()]} ${d.getDate()}` : `Dia ${dayI + 1}`
+      const ts = allTimes[indices[i]] ?? ''
+      const d  = ts ? new Date(ts) : new Date()
+      const hr = ts ? parseInt(ts.slice(11, 13)) : 0
+      const dayLbl = `${lang.days[d.getDay()]} ${d.getDate()} ${hr.toString().padStart(2, '0')}:00`
 
-      let tipH: number
-      let tipW: number
-      let inner: string
-
-      if (isTemp) {
-        const rows: { name: string; color: string; vmax: string; vmin: string }[] = []
-        for (const m of renderList) {
-          const vmax = state.wxData[m.key]?.daily.temperature_2m_max[dayI] ?? null
-          const vmin = state.wxData[m.key]?.daily.temperature_2m_min[dayI] ?? null
-          if (vmax !== null || vmin !== null) {
-            rows.push({
-              name: `${m.flag} ${m.name}`,
-              color: m.color,
-              vmax: vmax !== null ? `${vmax.toFixed(1)}°C` : '—',
-              vmin: vmin !== null ? `${vmin.toFixed(1)}°C` : '—',
-            })
-          }
-        }
-        const lh = 16
-        tipH = 22 + rows.length * (lh + 2)
-        tipW = 190
-        inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
-        rows.forEach((row, ri) => {
-          const ry = 14 + (ri + 1) * (lh + 2)
-          inner += `
-            <rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
-            <text x="20" y="${ry}" fill="#6e8caa" font-size="10">${row.name}</text>
-            <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="700">↑ ${row.vmax} / ↓ ${row.vmin}</text>
-          `
-        })
-      } else {
-        const rows: { name: string; color: string; val: string }[] = []
-        for (const m of renderList) {
-          const v = metric.src(m.key, dayI)
-          if (v !== null) rows.push({ name: `${m.flag} ${m.name}`, color: m.color, val: `${v.toFixed(metric.unit === 'hPa' ? 0 : 1)} ${metric.unit}` })
-        }
-        const lh = 16
-        tipH = 22 + rows.length * lh
-        tipW = 170
-        inner = `<text x="8" y="14" fill="#e4f0fb" font-size="11" font-weight="700">${dayLabel}</text>`
-        rows.forEach((row, ri) => {
-          const ry = 14 + (ri + 1) * lh
-          inner += `
-            <rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
-            <text x="20" y="${ry}" fill="#6e8caa" font-size="10">${row.name}</text>
-            <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="700">${row.val}</text>
-          `
-        })
+      const rows: { name: string; color: string; val: string; bold?: boolean }[] = []
+      const eT = ensTemp[i], eP = ensPrecip[i], eW = ensWind[i]
+      rows.push({ name: `${lang.ensemble}`, color: ENS_T_CLR, bold: true, val: eT !== null ? `${eT.toFixed(1)}°C` : '—' })
+      if (eP !== null && eP >= 0.05) rows.push({ name: lang.statPrecip, color: ENS_P_CLR, val: `${eP.toFixed(1)} mm` })
+      if (eW !== null) rows.push({ name: lang.statWind, color: '#546e7a', val: `${Math.round(eW)} km/h` })
+      for (const m of renderList) {
+        const v = state.wxData[m.key]?.hourly.temperature_2m[indices[i]] ?? null
+        if (v !== null) rows.push({ name: `${m.flag} ${m.name}`, color: m.color, val: `${v.toFixed(1)}°C` })
       }
 
-      let tx = cx + 14
-      if (tx + tipW > W - PAD.right) tx = cx - tipW - 14
-      const ty = PAD.top + 4
+      const lh = 15, tipW = 200
+      const tipH = 22 + rows.length * lh
+      let inner = `<text x="8" y="14" fill="#0c1a2e" font-size="11" font-weight="700">${dayLbl}</text>`
+      rows.forEach((row, ri) => {
+        const ry  = 14 + (ri + 1) * lh
+        const fw  = row.bold ? '800' : '600'
+        const clr = row.bold ? '#0c1a2e' : '#4d6888'
+        inner += `<rect x="8" y="${ry - 8}" width="8" height="8" rx="2" fill="${row.color}"/>
+          <text x="20" y="${ry}" fill="${clr}" font-size="10" font-weight="${fw}">${row.name}</text>
+          <text x="${tipW - 8}" y="${ry}" fill="${row.color}" font-size="10" text-anchor="end" font-weight="${fw}">${row.val}</text>`
+      })
 
-      tipBg.setAttribute('x', String(tx))
-      tipBg.setAttribute('y', String(ty))
-      tipBg.setAttribute('width', String(tipW))
-      tipBg.setAttribute('height', String(tipH))
-      tipLns.setAttribute('transform', `translate(${tx},${ty})`)
+      let tx = cx + 14
+      if (tx + tipW > W - PR) tx = cx - tipW - 14
+      tipBg.setAttribute('x', String(tx)); tipBg.setAttribute('y', String(TEMP_TOP + 4))
+      tipBg.setAttribute('width', String(tipW)); tipBg.setAttribute('height', String(tipH))
+      tipLns.setAttribute('transform', `translate(${tx},${TEMP_TOP + 4})`)
       tipLns.innerHTML = inner
       tipGrp.style.display = ''
     })
@@ -347,27 +374,12 @@ export function renderChart(onMetricChange?: (key: string) => void) {
     })
   })
 
-  // ── Legend toggle clicks ───────────────────────────────────────────────────
+  // Model toggle clicks
   el.querySelectorAll<HTMLButtonElement>('.leg-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.modelKey!
-      if (sel.has(key)) {
-        // Don't allow deselecting the last visible model
-        if (sel.size <= 1) return
-        sel.delete(key)
-      } else {
-        sel.add(key)
-      }
-      renderChart(onMetricChange)
-    })
-  })
-
-  // ── Metric tab clicks ──────────────────────────────────────────────────────
-  el.querySelectorAll<HTMLButtonElement>('.mtric').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeMetric = btn.dataset.metric!
-      renderChart(onMetricChange)
-      onMetricChange?.(state.activeMetric)
+      if (sel.has(key)) { if (sel.size <= 1) return; sel.delete(key) } else sel.add(key)
+      renderChart()
     })
   })
 }
