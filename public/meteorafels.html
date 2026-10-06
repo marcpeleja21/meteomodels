@@ -484,6 +484,15 @@
     .hist-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center }
     .hist-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem }
 
+    /* ── Station all-time records ── */
+    .rec-title { font-size: 1.5rem; font-weight: 900; color: var(--text); line-height: 1.1; margin-bottom: 4px }
+    .rec-meta  { font-size: .82rem; color: var(--text-muted); margin-bottom: 14px }
+    .rec-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px }
+    @media (min-width: 560px) { .rec-grid { grid-template-columns: repeat(4, 1fr) } }
+    .rec-value { font-family: var(--font-data); font-size: 2rem; font-weight: 500; letter-spacing: -1.5px; line-height: 1; margin-top: 6px }
+    .rec-value .unit { font-size: .82rem; color: var(--text-muted); margin-left: 2px; font-weight: 400 }
+    .rec-date  { font-size: .72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4 }
+
     @media (max-width: 420px) {
       .header { padding: 8px 12px; gap: 8px }
       .brand-sub { display: none }
@@ -718,6 +727,34 @@
       <div class="evo-empty" id="evoEmpty">Sense dades per aquest període</div>
     </div>
 
+    <!-- Station all-time records -->
+    <div id="recSection" class="hidden">
+      <div class="rec-title" id="recTitle">Historial de l'estació</div>
+      <div class="rec-meta"  id="recMeta"></div>
+      <div class="rec-grid">
+        <div class="card">
+          <div class="card-label" id="recLblTempHigh">Màxima més alta</div>
+          <div class="rec-value" id="recValTempHigh">—</div>
+          <div class="rec-date"  id="recDateTempHigh"></div>
+        </div>
+        <div class="card">
+          <div class="card-label" id="recLblTempLow">Mínima més baixa</div>
+          <div class="rec-value" id="recValTempLow">—</div>
+          <div class="rec-date"  id="recDateTempLow"></div>
+        </div>
+        <div class="card">
+          <div class="card-label" id="recLblWindHigh">Ratxa més forta</div>
+          <div class="rec-value" id="recValWindHigh">—</div>
+          <div class="rec-date"  id="recDateWindHigh"></div>
+        </div>
+        <div class="card">
+          <div class="card-label" id="recLblPrecipTotal">Pluja total</div>
+          <div class="rec-value" id="recValPrecipTotal">—</div>
+          <div class="rec-date"  id="recAvgTemps"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ⑤ Historical data -->
     <div class="section-title" id="histSectionTitle">📂 Dades Històriques</div>
     <div class="hist-controls">
@@ -857,6 +894,11 @@ const LANG = {
     monthAbbr: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'],
     monthFull: ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'],
     radarTitle: '🌧 Radar de pluja', radarForecast: 'Pluja esperada en {n}h',
+    recTitle: "Historial de l'estació",
+    recSince: (d, n) => `Dades arxivades des del ${d}: ${n} dies.`,
+    recTempHigh: 'Màxima més alta', recTempLow: 'Mínima més baixa',
+    recWindHigh: 'Ratxa més forta', recPrecipTotal: 'Pluja total',
+    recAvgFmt: (hi, lo) => `Mitjana de màximes ${hi}° · mínimes ${lo}°`,
   },
   es: {
     locale: 'es-ES',
@@ -897,6 +939,11 @@ const LANG = {
     monthAbbr: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
     monthFull: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
     radarTitle: '🌧 Radar de lluvia', radarForecast: 'Lluvia esperada en {n}h',
+    recTitle: 'Historial de la estación',
+    recSince: (d, n) => `Datos archivados desde el ${d}: ${n} días.`,
+    recTempHigh: 'Máxima más alta', recTempLow: 'Mínima más baja',
+    recWindHigh: 'Racha más fuerte', recPrecipTotal: 'Lluvia total',
+    recAvgFmt: (hi, lo) => `Media de máximas ${hi}° · mínimas ${lo}°`,
   },
   en: {
     locale: 'en-GB',
@@ -937,6 +984,11 @@ const LANG = {
     monthAbbr: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     monthFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
     radarTitle: '🌧 Rain radar', radarForecast: 'Rain expected in {n}h',
+    recTitle: 'Station history',
+    recSince: (d, n) => `Data archived since ${d}: ${n} days.`,
+    recTempHigh: 'Highest max temp', recTempLow: 'Lowest min temp',
+    recWindHigh: 'Strongest gust', recPrecipTotal: 'Total rainfall',
+    recAvgFmt: (hi, lo) => `Avg high ${hi}° · avg low ${lo}°`,
   },
 }
 
@@ -985,6 +1037,7 @@ function applyLang(lang) {
     drawHistChart(histRows, histMonthly, histHourly)
     updateHistStats(histRows, histMonthly, histHourly)
   })
+  if (stationStats) renderStationStats()
 
   const metricBtn = document.querySelector('[data-metric="temp"]')
   if (metricBtn) {
@@ -1030,6 +1083,84 @@ function obsTimeLabel(iso) {
   const hm  = d.toLocaleTimeString(LANG[currentLang].locale, { hour: '2-digit', minute: '2-digit', hour12: false })
   const ago = Math.round((Date.now() - d.getTime()) / 60_000)
   return `${hm} · ${LANG[currentLang].agoFmt(ago)}`
+}
+
+/* ══════════════════════════════════════════════
+   Station records
+══════════════════════════════════════════════ */
+let stationStats = null
+
+function fmtDateLong(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  if (isNaN(d)) return dateStr
+  try {
+    return new Intl.DateTimeFormat(LANG[currentLang].locale, {
+      weekday: 'long', day: 'numeric', month: 'long'
+    }).format(d)
+  } catch {
+    const t = LANG[currentLang]
+    return `${d.getDate()} ${t.monthFull[d.getMonth()]}`
+  }
+}
+
+function fmtDateShort(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  if (isNaN(d)) return dateStr
+  const t = LANG[currentLang]
+  const day   = d.getDate()
+  const month = (t.monthFull[d.getMonth()] || '').toLowerCase()
+  return currentLang === 'en'
+    ? `${day} ${t.monthFull[d.getMonth()]}`
+    : `${day} de ${month}`
+}
+
+function renderStationStats() {
+  const s = stationStats
+  if (!s || s.empty) return
+  const t = LANG[currentLang]
+  const section = $('recSection')
+  if (section) section.classList.remove('hidden')
+
+  setTxt('recTitle', t.recTitle)
+  setTxt('recMeta', t.recSince(fmtDateShort(s.firstDate), s.days))
+
+  setTxt('recLblTempHigh',   t.recTempHigh)
+  setTxt('recLblTempLow',    t.recTempLow)
+  setTxt('recLblWindHigh',   t.recWindHigh)
+  setTxt('recLblPrecipTotal', t.recPrecipTotal)
+
+  if (s.tempHigh?.value != null) {
+    $('recValTempHigh').innerHTML =
+      `<span style="color:${tempMaxColor(s.tempHigh.value)}">${fmt(s.tempHigh.value, 1)}</span><span class="unit">°C</span>`
+    setTxt('recDateTempHigh', fmtDateLong(s.tempHigh.date))
+  }
+  if (s.tempLow?.value != null) {
+    $('recValTempLow').innerHTML =
+      `<span style="color:${tempMinColor(s.tempLow.value)}">${fmt(s.tempLow.value, 1)}</span><span class="unit">°C</span>`
+    setTxt('recDateTempLow', fmtDateLong(s.tempLow.date))
+  }
+  if (s.windHigh?.value != null) {
+    $('recValWindHigh').innerHTML =
+      `${fmt(s.windHigh.value, 1)}<span class="unit"> km/h</span>`
+    setTxt('recDateWindHigh', fmtDateLong(s.windHigh.date))
+  }
+  if (s.precipTotal != null) {
+    $('recValPrecipTotal').innerHTML =
+      `${fmt(s.precipTotal, 1)}<span class="unit"> mm</span>`
+    if (s.avgTempHigh != null && s.avgTempLow != null)
+      setTxt('recAvgTemps', t.recAvgFmt(fmt(s.avgTempHigh, 1), fmt(s.avgTempLow, 1)))
+  }
+}
+
+async function loadStationStats() {
+  try {
+    const r = await fetch('/api/rafels-history?mode=stats')
+    if (!r.ok) return
+    stationStats = await r.json()
+    renderStationStats()
+  } catch { /* non-critical */ }
 }
 
 /* ══════════════════════════════════════════════
@@ -2564,6 +2695,7 @@ applyLang(currentLang)
 initWebcam()
 loadDay()
 loadForecast()
+loadStationStats()
 initHistPickers()
 
 setInterval(() => {

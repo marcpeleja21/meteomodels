@@ -59,6 +59,42 @@ export default async function handler(req) {
   }
 
   try {
+    // ── Stats mode: all-time records from daily observations ───────────────
+    if (mode === 'stats') {
+      const rows = await sbAll('observations',
+        `select=obs_date,temp_high,temp_low,wind_high,precip&order=obs_date`)
+      if (!rows.length) return new Response(JSON.stringify({ mode, empty: true }), { headers: cors })
+
+      let maxTH = null, maxTHDate = null
+      let minTL = null, minTLDate = null
+      let maxW  = null, maxWDate  = null
+      let precipTotal = 0, ths = [], tls = []
+
+      for (const r of rows) {
+        const th = r.temp_high != null ? +r.temp_high : null
+        const tl = r.temp_low  != null ? +r.temp_low  : null
+        const wh = r.wind_high != null ? +r.wind_high : null
+        const pr = r.precip    != null ? +r.precip    : 0
+        if (th != null) { ths.push(th); if (maxTH === null || th > maxTH) { maxTH = th; maxTHDate = r.obs_date } }
+        if (tl != null) { tls.push(tl); if (minTL === null || tl < minTL) { minTL = tl; minTLDate = r.obs_date } }
+        if (wh != null) { if (maxW  === null || wh > maxW)  { maxW  = wh; maxWDate  = r.obs_date } }
+        precipTotal += pr
+      }
+
+      return new Response(JSON.stringify({
+        mode: 'stats',
+        firstDate:    rows[0].obs_date,
+        lastDate:     rows[rows.length - 1].obs_date,
+        days:         rows.length,
+        tempHigh:     { value: rnd(maxTH), date: maxTHDate },
+        tempLow:      { value: rnd(minTL), date: minTLDate },
+        windHigh:     { value: rnd(maxW),  date: maxWDate  },
+        precipTotal:  rnd(precipTotal),
+        avgTempHigh:  rnd(ths.length ? ths.reduce((a, b) => a + b, 0) / ths.length : null),
+        avgTempLow:   rnd(tls.length ? tls.reduce((a, b) => a + b, 0) / tls.length : null),
+      }), { headers: cors })
+    }
+
     // ── Day mode: hourly table ─────────────────────────────────────────────
     if (mode === 'day') {
       const date = url.searchParams.get('date') ?? ''
