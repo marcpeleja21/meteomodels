@@ -196,8 +196,8 @@
 
     /* ── Section titles ── */
     .section-title {
-      font-size: .66rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .9px; color: var(--text-muted); margin: 20px 0 8px;
+      font-size: 1.5rem; font-weight: 900; color: var(--text);
+      line-height: 1.1; margin: 28px 0 8px;
     }
 
     /* ── Webcam ── */
@@ -485,6 +485,7 @@
     .hist-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem }
 
     /* ── Station all-time records ── */
+    #recSection { margin-top: 28px }
     .rec-title { font-size: 1.5rem; font-weight: 900; color: var(--text); line-height: 1.1; margin-bottom: 4px }
     .rec-meta  { font-size: .82rem; color: var(--text-muted); margin-bottom: 14px }
     .rec-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px }
@@ -607,7 +608,7 @@
   <div id="dataWrap" class="hidden">
 
     <!-- ①  Webcam (top) -->
-    <div class="section-title" id="webcamSectionTitle">📷 Webcam Ràfels</div>
+    <div class="section-title" id="webcamSectionTitle">Webcam Ràfels</div>
     <div class="webcam-card" id="webcamCard">
       <div class="webcam-header">
         <div class="webcam-header-left">
@@ -623,7 +624,7 @@
     <div id="radarCard"></div>
 
     <!-- ③  Current conditions -->
-    <div class="section-title" id="conditionsSectionTitle">📍 Condicions actuals</div>
+    <div class="section-title" id="conditionsSectionTitle">Condicions actuals</div>
     <div class="grid">
 
       <!-- Humidity -->
@@ -695,12 +696,12 @@
     </div><!-- /grid -->
 
     <!-- ③  7-day forecast -->
-    <div class="section-title" id="forecastSectionTitle">📅 Previsió</div>
+    <div class="section-title" id="forecastSectionTitle">Previsió</div>
     <div class="forecast-strip" id="forecastStrip"></div>
     <div id="fcAccuracyNote" class="fc-accuracy-note hidden"></div>
 
     <!-- ④  Evolution charts -->
-    <div class="section-title" id="evoSectionTitle">📊 Evolució</div>
+    <div class="section-title" id="evoSectionTitle">Evolució</div>
     <div class="evo-controls">
       <div class="tab-group" role="group" aria-label="Mètrica">
         <button class="tab-btn active" data-metric="temp">Temperatura</button>
@@ -756,7 +757,7 @@
     </div>
 
     <!-- ⑤ Historical data -->
-    <div class="section-title" id="histSectionTitle">📂 Dades Històriques</div>
+    <div class="section-title" id="histSectionTitle">Dades Històriques</div>
     <div class="hist-controls">
       <div class="hist-mode-tabs">
         <button class="tab-btn active" data-hist-mode="year"  id="histBtnYear">Any</button>
@@ -863,10 +864,10 @@ const LANG = {
     refresh: '↻ Actualitzar',
     pullDown: '↓ Actualitzar', pullRelease: '↑ Soltar per actualitzar',
     live: 'EN DIRECTE',
-    webcamTitle: '📷 Webcam Ràfels',
-    conditionsTitle: '📍 Condicions actuals',
-    forecastTitle: '📅 Previsió', todayLabel: 'Avui',
-    evoTitle: '📊 Evolució',
+    webcamTitle: 'Webcam Ràfels',
+    conditionsTitle: 'Condicions actuals',
+    forecastTitle: 'Previsió', todayLabel: 'Avui',
+    evoTitle: 'Evolució',
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
     wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV', solar: '⚡ Radiació solar',
     uvLow: 'Baix', uvMod: 'Moderat', uvHigh: 'Alt', uvVeryHigh: 'Molt alt', uvExtreme: 'Extrem',
@@ -887,7 +888,7 @@ const LANG = {
     ttipRainProb: 'Probabilitat de pluja', ttipPrecipMm: 'Precipitació prevista', ttipWind: 'Vent màxim',
     fcExpand: '+3 dies', fcExpandHint: 'Estimar llarg termini',
     fcAccuracy: '⚠ La previsió a llarg termini pot ser menys precisa',
-    histTitle: '📂 Dades Històriques',
+    histTitle: 'Dades Històriques',
     histYear: 'Any', histMonth: 'Mes', histDay: 'Dia', histRange: 'Rang', histApply: 'Aplicar',
     histNoData: 'Sense dades per al rang seleccionat',
     histMaxLbl: 'Màx', histMinLbl: 'Mín',
@@ -907,10 +908,10 @@ const LANG = {
     refresh: '↻ Actualizar',
     pullDown: '↓ Actualizar', pullRelease: '↑ Soltar para actualizar',
     live: 'EN DIRECTO',
-    webcamTitle: '📷 Webcam de Ràfels',
-    conditionsTitle: '📍 Condiciones actuales',
-    forecastTitle: '📅 Previsión', todayLabel: 'Hoy',
-    evoTitle: '📊 Evolución',
+    webcamTitle: 'Webcam de Ràfels',
+    conditionsTitle: 'Condiciones actuales',
+    forecastTitle: 'Previsión', todayLabel: 'Hoy',
+    evoTitle: 'Evolución',
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
     wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV', solar: '⚡ Radiación solar',
     uvLow: 'Bajo', uvMod: 'Moderado', uvHigh: 'Alto', uvVeryHigh: 'Muy alto', uvExtreme: 'Extremo',
@@ -931,7 +932,7 @@ const LANG = {
     ttipRainProb: 'Probabilidad de lluvia', ttipPrecipMm: 'Precipitación prevista', ttipWind: 'Viento máximo',
     fcExpand: '+3 días', fcExpandHint: 'Estimación largo plazo',
     fcAccuracy: '⚠ La previsión a largo plazo puede ser menos precisa',
-    histTitle: '📂 Datos Históricos',
+    histTitle: 'Datos Históricos',
     histYear: 'Año', histMonth: 'Mes', histDay: 'Día', histRange: 'Rango', histApply: 'Aplicar',
     histNoData: 'Sin datos para el rango seleccionado',
     histMaxLbl: 'Máx', histMinLbl: 'Mín',
@@ -951,10 +952,10 @@ const LANG = {
     refresh: '↻ Refresh',
     pullDown: '↓ Pull to refresh', pullRelease: '↑ Release to refresh',
     live: 'LIVE',
-    webcamTitle: '📷 Ràfels Webcam',
-    conditionsTitle: '📍 Current conditions',
-    forecastTitle: '📅 Forecast', todayLabel: 'Today',
-    evoTitle: '📊 Evolution',
+    webcamTitle: 'Ràfels Webcam',
+    conditionsTitle: 'Current conditions',
+    forecastTitle: 'Forecast', todayLabel: 'Today',
+    evoTitle: 'Evolution',
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
     wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index', solar: '⚡ Solar radiation',
     uvLow: 'Low', uvMod: 'Moderate', uvHigh: 'High', uvVeryHigh: 'Very high', uvExtreme: 'Extreme',
@@ -975,7 +976,7 @@ const LANG = {
     ttipRainProb: 'Rain probability', ttipPrecipMm: 'Expected precipitation', ttipWind: 'Max wind speed',
     fcExpand: '+3 days', fcExpandHint: 'Long-range estimate',
     fcAccuracy: '⚠ Long-range forecast — accuracy decreases beyond 3 days',
-    histTitle: '📂 Historical Data',
+    histTitle: 'Historical Data',
     histYear: 'Year', histMonth: 'Month', histDay: 'Day', histRange: 'Range', histApply: 'Apply',
     histNoData: 'No data for the selected range',
     histMaxLbl: 'Max', histMinLbl: 'Min',
