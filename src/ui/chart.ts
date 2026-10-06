@@ -5,7 +5,7 @@ import { computeModelWeights } from '../utils/modelWeights'
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const W = 900, H = 348
-const PL = 44, PR = 16, PT = 54, PB = 28
+const PL = 44, PR = 16, PT = 54
 const CW = W - PL - PR   // 840
 
 const TEMP_TOP   = PT            // 54
