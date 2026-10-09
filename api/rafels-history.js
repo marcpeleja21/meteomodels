@@ -119,14 +119,20 @@ export default async function handler(req) {
           const trough = rows.reduce((a, b) => ((b.temp_low ?? Infinity) < (a.temp_low ?? Infinity) ? b : a))
           if ((trough.temp_low ?? Infinity) > daily.temp_low) trough.temp_low = daily.temp_low
         }
-        if (daily.precip != null && daily.precip > 0) {
+        if (daily.precip != null) {
           const slotTotal = rows.reduce((a, r) => a + (r.precip ?? 0), 0)
           const diff = daily.precip - slotTotal
-          if (slotTotal === 0) {
-            rows[0].precip = daily.precip
-          } else if (diff > 0.05) {
-            const target = rows.reduce((best, r) => (r.precip ?? 0) >= (best.precip ?? 0) ? r : best, rows[0])
-            target.precip = rnd((target.precip ?? 0) + diff)
+          if (diff < -0.5) {
+            // Hourly rain exceeds the verified daily total (bad/misplaced rows): scale down to match
+            const k = daily.precip / slotTotal
+            for (const r of rows) if (r.precip != null) r.precip = rnd(r.precip * k)
+          } else if (daily.precip > 0) {
+            if (slotTotal === 0) {
+              rows[0].precip = daily.precip
+            } else if (diff > 0.05) {
+              const target = rows.reduce((best, r) => (r.precip ?? 0) >= (best.precip ?? 0) ? r : best, rows[0])
+              target.precip = rnd((target.precip ?? 0) + diff)
+            }
           }
         }
 
