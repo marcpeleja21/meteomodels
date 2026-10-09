@@ -1192,13 +1192,21 @@ async function mountStream(el, url) {
   const isMjpeg = /mjpe?g/i.test(url)
   const isHls   = !isMjpeg && /\.m3u8(\?|$)/i.test(url)
 
-  const snapshotUrl = () => '/api/webcam-rafels?t=' + Date.now()
+  const snapshotUrl = () => '/api/webcam-rafels?snapshot=1&t=' + Date.now()
+  let failed = false
+  const fallback = () => {
+    if (failed) return
+    failed = true
+    clearInterval(webcamTimer)
+    mountSnapshot(el)
+  }
 
   if (isMjpeg) {
     const img = document.createElement('img')
     img.className = 'webcam-img'
     img.alt = 'Webcam Ràfels'
     img.src = url
+    img.addEventListener('error', fallback)
     img.addEventListener('click', () => openLightbox(snapshotUrl()))
     el.appendChild(img)
     return
@@ -1211,6 +1219,7 @@ async function mountStream(el, url) {
   video.playsInline = true
   video.style.cursor = 'pointer'
   video.addEventListener('click', () => openLightbox(snapshotUrl()))
+  video.addEventListener('error', fallback)
   el.appendChild(video)
 
   if (isHls && video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -1222,6 +1231,7 @@ async function mountStream(el, url) {
         const hls = new Hls({ lowLatencyMode: true })
         hls.loadSource(url)
         hls.attachMedia(video)
+        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { hls.destroy(); fallback() } })
       } else {
         video.src = url
       }
@@ -1248,11 +1258,11 @@ function mountSnapshot(el) {
   img.className = 'webcam-img'
   img.alt = 'Webcam Ràfels'
   img.title = 'Clic per obrir en pantalla completa'
-  img.addEventListener('click', () => openLightbox('/api/webcam-rafels?t=' + Date.now()))
+  img.addEventListener('click', () => openLightbox('/api/webcam-rafels?snapshot=1&t=' + Date.now()))
   el.appendChild(img)
 
   function refresh() {
-    img.src = '/api/webcam-rafels?t=' + Date.now()
+    img.src = '/api/webcam-rafels?snapshot=1&t=' + Date.now()
     $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
   }
   refresh()

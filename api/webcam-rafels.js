@@ -12,10 +12,12 @@
  */
 export const config = { runtime: 'edge' }
 
-export default async function handler() {
+export default async function handler(req) {
+  // ?snapshot=1 forces the JPEG path (used for lightbox and as stream fallback)
+  const forceSnapshot = new URL(req.url).searchParams.has('snapshot')
   // ── Streaming mode ─────────────────────────────────────────────────────────
   const streamUrl = process.env.WEBCAM_STREAM_URL
-  if (streamUrl) {
+  if (streamUrl && !forceSnapshot) {
     return new Response(JSON.stringify({ mode: 'stream', url: streamUrl }), {
       headers: {
         'Content-Type':                'application/json',
