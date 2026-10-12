@@ -125,7 +125,7 @@ export default defineConfig({
 
         // Never serve the SW script itself from the browser HTTP cache
         // (overrides even stale disk-cache entries after a deploy)
-        navigateFallbackDenylist: [],
+        navigateFallbackDenylist: [/^\/api\//, /^\/meteorafels/],
 
         runtimeCaching: [
           // Open-Meteo weather API — network-first, 1 h cache fallback

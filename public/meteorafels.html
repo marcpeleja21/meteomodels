@@ -482,6 +482,7 @@
     .hist-wrap { position: relative; min-height: 200px }
     .hist-chart { width: 100%; display: block }
     .hist-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center }
+    .hist-note { font-size: .72rem; color: var(--text-muted); margin-top: 6px }
     .hist-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem }
 
     /* ── Station all-time records ── */
@@ -794,6 +795,7 @@
       <div class="hist-loading hidden" id="histLoading"><div class="mini-spinner"></div></div>
       <div class="hist-empty hidden" id="histEmpty">Sense dades per al rang seleccionat</div>
     </div>
+    <div class="hist-note hidden" id="histModelNote"></div>
 
   </div><!-- /dataWrap -->
 </main>
@@ -891,6 +893,7 @@ const LANG = {
     histTitle: 'Dades Històriques',
     histYear: 'Any', histMonth: 'Mes', histDay: 'Dia', histRange: 'Rang', histApply: 'Aplicar',
     histNoData: 'Sense dades per al rang seleccionat',
+    histModel: "Dades del model Open-Meteo: sense lectures horàries de l'estació aquest dia.",
     histMaxLbl: 'Màx', histMinLbl: 'Mín',
     monthAbbr: ['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'],
     monthFull: ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'],
@@ -935,6 +938,7 @@ const LANG = {
     histTitle: 'Datos Históricos',
     histYear: 'Año', histMonth: 'Mes', histDay: 'Día', histRange: 'Rango', histApply: 'Aplicar',
     histNoData: 'Sin datos para el rango seleccionado',
+    histModel: 'Datos del modelo Open-Meteo: sin lecturas horarias de la estación este día.',
     histMaxLbl: 'Máx', histMinLbl: 'Mín',
     monthAbbr: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
     monthFull: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
@@ -979,6 +983,7 @@ const LANG = {
     histTitle: 'Historical Data',
     histYear: 'Year', histMonth: 'Month', histDay: 'Day', histRange: 'Range', histApply: 'Apply',
     histNoData: 'No data for the selected range',
+    histModel: 'Open-Meteo model data: no hourly station readings for this day.',
     histMaxLbl: 'Max', histMinLbl: 'Min',
     monthAbbr: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     monthFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
@@ -2572,6 +2577,7 @@ async function loadHistData() {
   if (empty)   empty.classList.add('hidden')
   if (canvas)  canvas.style.opacity = '0'
   if (stats)   stats.classList.add('hidden')
+  $('histModelNote')?.classList.add('hidden')
 
   try {
     let qs = ''
@@ -2593,6 +2599,11 @@ async function loadHistData() {
     histMonthly = data.monthly ?? false
     histHourly  = data.hourly  ?? false
     histRows    = normalizeHistRows(data.rows ?? [])
+    const note = $('histModelNote')
+    if (note) {
+      note.textContent = LANG[currentLang].histModel
+      note.classList.toggle('hidden', !data.modelData)
+    }
 
     if (loading) loading.classList.add('hidden')
 
