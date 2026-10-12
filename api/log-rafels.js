@@ -1,7 +1,7 @@
 // Vercel Edge Function — daily IRFALE2 summary logger
 // Runs daily at 2am UTC via Vercel cron. Env: SUPABASE_URL, SUPABASE_KEY, WU_KEY
-// Self-heals: after each WU write it checks Supabase for gaps and fills them from
-// Open-Meteo ERA5 archive — so a failed run or a WU outage never creates a permanent hole.
+// Daily gaps are filled from the Open-Meteo ERA5 archive. Hourly gaps are left empty:
+// readers fall back to Open-Meteo at read time, so model data never lands in observations_hourly.
 export const config = { runtime: 'edge' }
 
 const WU_KEY   = process.env.WU_KEY  ?? '3b28991981854cdba8991981851cdbb8'
@@ -219,64 +219,6 @@ export default async function handler(req) {
     log.hourly.wuNote = histRes.status === 'rejected'
       ? `WU fetch error: ${histRes.reason}`
       : `WU HTTP ${histRes.value?.status}`
-  }
-
-  // 2b. Gap-fill: find dates missing from observations_hourly in the last 7 days
-  //     and fill from OM archive hourly (approximate but prevents permanent holes).
-  try {
-    const yesterday    = daysAgo(1)
-    const hourlyFrom   = daysAgo(7)
-    const haveHRes     = await fetch(
-      `${supabaseUrl}/rest/v1/observations_hourly?select=obs_date&obs_date=gte.${hourlyFrom}&obs_date=lte.${yesterday}&order=obs_date`,
-      { headers: sbR }
-    )
-    if (haveHRes.ok) {
-      const haveHDates  = new Set((await haveHRes.json()).map(r => r.obs_date))
-      const missingH    = dateRange(hourlyFrom, yesterday).filter(d => !haveHDates.has(d))
-      log.hourly.missing = missingH
-
-      if (missingH.length) {
-        const omHRes = await fetch(
-          `https://archive-api.open-meteo.com/v1/archive?latitude=${LAT}&longitude=${LON}` +
-          `&start_date=${missingH[0]}&end_date=${missingH[missingH.length - 1]}` +
-          `&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m` +
-          `&timezone=Europe%2FMadrid`
-        )
-        if (omHRes.ok) {
-          const { hourly } = await omHRes.json()
-          const missingHSet = new Set(missingH)
-          const omHRows = []
-          for (let i = 0; i < hourly.time.length; i++) {
-            const date = hourly.time[i].slice(0, 10)
-            if (!missingHSet.has(date)) continue
-            const t = hourly.temperature_2m[i]
-            omHRows.push({
-              obs_date:  date,
-              obs_hour:  parseInt(hourly.time[i].slice(11, 13), 10),
-              temp_avg:  rnd1(t),
-              temp_high: rnd1(t),
-              temp_low:  rnd1(t),
-              humidity:  hourly.relative_humidity_2m[i] != null
-                           ? Math.round(hourly.relative_humidity_2m[i]) : null,
-              precip:    rnd1(hourly.precipitation[i]),
-              wind_avg:  rnd1(hourly.wind_speed_10m[i]),
-              wind_high: rnd1(hourly.wind_speed_10m[i]),
-            })
-          }
-          if (omHRows.length) {
-            const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly?on_conflict=obs_date,obs_hour`, {
-              method: 'POST', headers: sbW, body: JSON.stringify(omHRows),
-            })
-            log.hourly.omStatus = r.status
-            log.hourly.omRows   = r.ok ? omHRows.length : 0
-          }
-        } else {
-          log.hourly.omNote = `OM HTTP ${omHRes.status}`
-        }
-      }
-    }
-  } catch (e) {
-    log.hourly.gapError = e.message
   }
 
   return new Response(JSON.stringify(log), {
