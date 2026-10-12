@@ -1,5 +1,5 @@
 // Vercel Edge Function — daily IRFALE2 summary logger
-// Runs daily at 2am UTC via Vercel cron. Env: SUPABASE_URL, SUPABASE_KEY, WU_KEY
+// Runs via Vercel cron (see vercel.json; includes end-of-local-day runs that complete each day). Env: SUPABASE_URL, SUPABASE_KEY, WU_KEY
 // Daily gaps are filled from the Open-Meteo ERA5 archive. Hourly gaps are left empty:
 // readers fall back to Open-Meteo at read time, so model data never lands in observations_hourly.
 export const config = { runtime: 'edge' }
@@ -154,66 +154,66 @@ export default async function handler(req) {
 
   // ── 2. Hourly observations (from 5-min readings) ──────────────────────────
 
-  // 2a. Write yesterday's WU 5-min data bucketed into hours
-  let prevDate = daysAgo(1)  // fallback
+  // 2a. Write WU 5-min readings bucketed into hours.
+  // The all/1day payload can start mid-day, so a date is only written when its first reading
+  // is near local midnight; otherwise the rain accumulated before the first reading would be
+  // lost or dumped into one hour. Runs near the end of the local day complete the date.
   if (histRes.status === 'fulfilled' && histRes.value.ok) {
     const json   = await histRes.value.json()
-    const allObs = json?.observations ?? []
+    const allObs = (json?.observations ?? []).filter(o => (o.obsTimeLocal ?? '').length >= 16)
+      .sort((a, b) => a.obsTimeLocal.localeCompare(b.obsTimeLocal))
 
-    // At 2am UTC Ràfels is 3-4am local — yesterday is fully captured.
-    const mostRecent = (allObs[allObs.length - 1]?.obsTimeLocal ?? '').slice(0, 10)
-    if (mostRecent) {
-      const d = new Date(mostRecent + 'T12:00:00Z')
-      d.setUTCDate(d.getUTCDate() - 1)
-      prevDate = d.toISOString().slice(0, 10)
-    }
+    const byDate = {}
+    for (const o of allObs) (byDate[o.obsTimeLocal.slice(0, 10)] ??= []).push(o)
 
-    const dayObs = allObs.filter(o => (o.obsTimeLocal ?? '').slice(0, 10) === prevDate)
-
-    if (dayObs.length) {
-      const sorted = [...dayObs].sort((a, b) =>
-        (a.obsTimeLocal ?? '').localeCompare(b.obsTimeLocal ?? ''))
-      sorted.forEach((o, i) => {
-        const prev = i > 0 ? (sorted[i - 1].metric?.precipTotal ?? 0) : 0
-        o._rainDelta = Math.max(0, (o.metric?.precipTotal ?? prev) - prev)
-      })
+    const hourlyRows = []
+    log.hourly.dates = {}
+    for (const [date, obs] of Object.entries(byDate)) {
+      const firstMin = parseInt(obs[0].obsTimeLocal.slice(11, 13), 10) * 60 + parseInt(obs[0].obsTimeLocal.slice(14, 16), 10)
+      if (firstMin > 20) { log.hourly.dates[date] = `skipped: first reading at ${obs[0].obsTimeLocal.slice(11, 16)}`; continue }
 
       const buckets = {}
-      for (const o of sorted) {
-        const h = parseInt((o.obsTimeLocal ?? '00').slice(11, 13), 10)
-        if (!buckets[h]) buckets[h] = { temps: [], humids: [], rainDeltas: [], windAvgs: [], windHighs: [] }
-        const b = buckets[h]
-        if (o.metric?.tempAvg  != null) b.temps.push(o.metric.tempAvg)
-        if (o.humidityAvg      != null) b.humids.push(o.humidityAvg)
-        b.rainDeltas.push(o._rainDelta)
+      let prevCum = 0
+      for (const o of obs) {
+        const cum = o.metric?.precipTotal ?? prevCum
+        const delta = Math.max(0, cum - prevCum)
+        prevCum = cum
+
+        const h = parseInt(o.obsTimeLocal.slice(11, 13), 10)
+        const b = (buckets[h] ??= { temps: [], humids: [], rain: 0, windAvgs: [], windHighs: [] })
+        if (o.metric?.tempAvg != null) b.temps.push(o.metric.tempAvg)
+        if (o.humidityAvg     != null) b.humids.push(o.humidityAvg)
+        b.rain += delta
         const wa = o.metric?.windSpeedAvg ?? o.metric?.windspeedAvg ?? o.metric?.windSpeed
         if (wa != null) b.windAvgs.push(wa)
         const wh = o.metric?.windSpeedHigh ?? o.metric?.windspeedHigh ?? wa
         if (wh != null) b.windHighs.push(wh)
       }
 
-      const hourlyRows = Object.entries(buckets).map(([h, b]) => ({
-        obs_date:  prevDate,
+      const rows = Object.entries(buckets).map(([h, b]) => ({
+        obs_date:  date,
         obs_hour:  parseInt(h),
         temp_avg:  rnd1(avg(b.temps)),
         temp_high: rnd1(b.temps.length ? Math.max(...b.temps) : null),
         temp_low:  rnd1(b.temps.length ? Math.min(...b.temps) : null),
         humidity:  rnd1(avg(b.humids)),
-        precip:    rnd1(b.rainDeltas.reduce((a, c) => a + c, 0) * RAIN_GAIN),
+        precip:    rnd1(b.rain * RAIN_GAIN),
         wind_avg:  rnd1(avg(b.windAvgs)),
         wind_high: rnd1(b.windHighs.length ? Math.max(...b.windHighs) : null),
       }))
+      log.hourly.dates[date] = `${rows.length} hours, last reading ${obs[obs.length - 1].obsTimeLocal.slice(11, 16)}`
+      hourlyRows.push(...rows)
+    }
 
-      if (hourlyRows.length) {
-        const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly?on_conflict=obs_date,obs_hour`, {
-          method: 'POST', headers: sbW, body: JSON.stringify(hourlyRows),
-        })
-        log.hourly.wuStatus = r.status
-        log.hourly.wuRows   = r.ok ? hourlyRows.length : 0
-        log.hourly.wuDate   = prevDate
-      }
+    if (hourlyRows.length) {
+      const r = await fetch(`${supabaseUrl}/rest/v1/observations_hourly?on_conflict=obs_date,obs_hour`, {
+        method: 'POST', headers: sbW, body: JSON.stringify(hourlyRows),
+      })
+      log.hourly.wuStatus = r.status
+      log.hourly.wuRows   = r.ok ? hourlyRows.length : 0
+      if (!r.ok) log.hourly.wuError = await r.text().catch(() => null)
     } else {
-      log.hourly.wuNote = `No WU 5-min readings for ${prevDate}`
+      log.hourly.wuNote = `No usable WU 5-min readings (${allObs.length} readings in payload)`
     }
   } else {
     log.hourly.wuNote = histRes.status === 'rejected'
