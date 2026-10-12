@@ -30,6 +30,35 @@ function toMonthly(rows) {
     }))
 }
 
+const OM_LAT = 40.84, OM_LON = 0.02
+
+// Open-Meteo hourly rows for one date, in observations_hourly shape. Used only at read time
+// when the station has no hourly rows for that day (never written to the database).
+async function modelHourly(date) {
+  const vars = 'temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m'
+  const qs = `latitude=${OM_LAT}&longitude=${OM_LON}&start_date=${date}&end_date=${date}&hourly=${vars}&timezone=Europe%2FMadrid`
+  for (const base of ['https://archive-api.open-meteo.com/v1/archive', 'https://api.open-meteo.com/v1/forecast']) {
+    try {
+      const r = await fetch(`${base}?${qs}`, { signal: AbortSignal.timeout(6000) })
+      if (!r.ok) continue
+      const { hourly } = await r.json()
+      if (!hourly?.time?.length || hourly.temperature_2m.every(v => v == null)) continue
+      return hourly.time.map((t, i) => ({
+        obs_date:  date,
+        obs_hour:  parseInt(t.slice(11, 13), 10),
+        temp_avg:  rnd(hourly.temperature_2m[i]),
+        temp_high: rnd(hourly.temperature_2m[i]),
+        temp_low:  rnd(hourly.temperature_2m[i]),
+        humidity:  hourly.relative_humidity_2m[i] != null ? Math.round(hourly.relative_humidity_2m[i]) : null,
+        precip:    rnd(hourly.precipitation[i]),
+        wind_avg:  rnd(hourly.wind_speed_10m[i]),
+        wind_high: rnd(hourly.wind_speed_10m[i]),
+      }))
+    } catch { /* try next source */ }
+  }
+  return []
+}
+
 export default async function handler(req) {
   const supabaseUrl = process.env.SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_KEY
@@ -97,12 +126,23 @@ export default async function handler(req) {
     if (mode === 'day') {
       const date = url.searchParams.get('date') ?? ''
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('bad date', { status: 400 })
-      const [hourlyRows, dailyRows] = await Promise.all([
+      let [hourlyRows, dailyRows] = await Promise.all([
         sb('observations_hourly',
           `obs_date=eq.${date}&select=obs_date,obs_hour,temp_avg,temp_high,temp_low,humidity,precip,wind_avg,wind_high&order=obs_hour`),
         sb('observations',
           `obs_date=eq.${date}&select=temp_high,temp_low,temp_avg,precip&limit=1`),
       ])
+
+      // No station hourly rows: show Open-Meteo for that day so the view is never empty.
+      // Rows written by the old gap-fill (flat high/low on nearly every hour) are model data too.
+      let modelData = false
+      if (!hourlyRows.length) {
+        hourlyRows = await modelHourly(date)
+        modelData = hourlyRows.length > 0
+      } else {
+        const flat = hourlyRows.filter(r => r.temp_high != null && r.temp_high === r.temp_low).length
+        modelData = flat >= hourlyRows.length * 0.9
+      }
 
       // Anchor hourly slots to the verified daily summary — mirrors the week-chart WU anchor in
       // rafels.js. Needed because hourly rows can come from ERA5 gap-fill (wrong coordinates,
@@ -136,10 +176,10 @@ export default async function handler(req) {
           }
         }
 
-        return new Response(JSON.stringify({ mode, hourly: true, monthly: false, rows }), { headers: cors })
+        return new Response(JSON.stringify({ mode, hourly: true, monthly: false, modelData, rows }), { headers: cors })
       }
 
-      return new Response(JSON.stringify({ mode, hourly: true, monthly: false, rows: hourlyRows }), { headers: cors })
+      return new Response(JSON.stringify({ mode, hourly: true, monthly: false, modelData, rows: hourlyRows }), { headers: cors })
     }
 
     // ── All other modes: daily observations table ──────────────────────────
