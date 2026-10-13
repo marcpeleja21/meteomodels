@@ -349,7 +349,8 @@
     }
     .fc-expand:hover { border-color: rgba(255,255,255,.38); color: var(--text); background: rgba(255,255,255,.07) }
     .fc-expand-icon  { font-size: 1.2rem }
-    .fc-moon     { margin-top: auto; padding-top: 5px; font-size: .95rem; line-height: 1; cursor: default }
+    .fc-moon     { margin-top: auto; padding-top: 5px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default }
+    .fc-moon-pct { font-size: .6rem; color: var(--text-muted); line-height: 1 }
     .fc-view     { margin-bottom: 8px }
     .fc-chart svg { display: block; width: 100%; height: auto;
                     background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-sm) }
@@ -845,7 +846,7 @@ function colorScale(stops, v) {
   return stops[stops.length-1][1]
 }
 const TEMP_MAX_STOPS = [[-5,'#90caf9'],[12,'#b0bec5'],[22,'#ffa726'],[35,'#ef5350']]
-const TEMP_MIN_STOPS = [[-10,'#90caf9'],[2,'#80cbc4'],[14,'#b0bec5'],[26,'#ffa726']]
+const TEMP_MIN_STOPS = [[-10,'#b39ddb'],[-4,'#90caf9'],[2,'#4fc3f7'],[8,'#4db6ac'],[13,'#9ccc65'],[18,'#ffd54f'],[23,'#ffa726'],[28,'#ef5350']]
 const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
 const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f']]
 function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
@@ -1489,8 +1490,7 @@ function wmoEmoji(code) {
   return '⛈️'
 }
 
-const MOON_EMOJI = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘']
-const SYNODIC    = 29.530588853
+const SYNODIC = 29.530588853
 
 function moonInfo(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -1498,7 +1498,18 @@ function moonInfo(dateStr) {
   const age  = ((days % SYNODIC) + SYNODIC) % SYNODIC
   const idx  = Math.floor((age / SYNODIC) * 8 + 0.5) % 8
   const illum = Math.round((1 - Math.cos(2 * Math.PI * age / SYNODIC)) / 2 * 100)
-  return { emoji: MOON_EMOJI[idx], title: `${LANG[currentLang].moonNames[idx]} · ${illum}%` }
+  return { age, illum, title: `${LANG[currentLang].moonNames[idx]} · ${illum}%` }
+}
+
+// Lit part of the disc from the real phase angle: waxing = lit on the right (northern hemisphere)
+function moonShape(cx, cy, r, age) {
+  const waxing = age < SYNODIC / 2
+  const th = waxing ? 2 * Math.PI * age / SYNODIC : 2 * Math.PI * (1 - age / SYNODIC)
+  const c  = Math.cos(th)               // +1 new moon … -1 full moon
+  const rx = (Math.abs(c) * r).toFixed(2)
+  const d  = `M${cx},${cy - r} A${r},${r} 0 0 1 ${cx},${cy + r} A${rx},${r} 0 0 ${c > 0 ? 0 : 1} ${cx},${cy - r} Z`
+  const flip = waxing ? '' : ` transform="translate(${2 * cx} 0) scale(-1 1)"`
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1c2a44" stroke="rgba(255,255,255,.3)" stroke-width="1"/><path d="${d}" fill="#f1e7b5"${flip}/>`
 }
 
 let forecastView = 'cards'
@@ -1519,7 +1530,7 @@ function renderForecastChart() {
   const days = forecastDaily?.filter(d => d.hi != null && d.lo != null)
   if (!box || !days?.length) return
   const t = LANG[currentLang]
-  const W = Math.max(300, Math.round(box.clientWidth || 700)), H = 250, L = 14, R = 14, TOP = 26, TH = 112, RT = 156, RH = 36
+  const W = Math.max(300, Math.round(box.clientWidth || 700)), H = 266, L = 14, R = 14, TOP = 26, TH = 112, RT = 156, RH = 36
   const n = days.length, cw = W - L - R
   const x = i => L + (i + 0.5) * cw / n
   const tMax = Math.max(...days.map(d => d.hi)) + 2
@@ -1551,8 +1562,9 @@ function renderForecastChart() {
     if (mm >= 0.1) svg += `<text class="fcc-rtxt" x="${xi}" y="${RT + RH - bh - 4}" text-anchor="middle">${mm.toFixed(1)} mm</text>`
     const name = i === 0 ? t.todayLabel : t.dayAbbr[new Date(d.date + 'T12:00:00').getDay()]
     const moon = moonInfo(d.date)
-    svg += `<text class="fcc-txt" x="${xi}" y="${H - 28}" text-anchor="middle">${name}</text>`
-    svg += `<text x="${xi}" y="${H - 8}" text-anchor="middle" font-size="15"><title>${moon.title}</title>${moon.emoji}</text>`
+    svg += `<text class="fcc-txt" x="${xi}" y="${H - 44}" text-anchor="middle">${name}</text>`
+    svg += `<g><title>${moon.title}</title>${moonShape(xi, H - 26, 8.5, moon.age)}</g>`
+    svg += `<text class="fcc-rtxt" style="fill:var(--text-muted)" x="${xi}" y="${H - 5}" text-anchor="middle">${moon.illum}%</text>`
   })
   svg += '</svg>'
   box.innerHTML = svg
@@ -1608,7 +1620,10 @@ function renderForecastStrip() {
         <span class="fc-lo" style="color:${loColor}" title="${t.ttipLo}">${lo}</span>
       </div>
       ${conds}
-      <div class="fc-moon" title="${moon.title}">${moon.emoji}</div>
+      <div class="fc-moon" title="${moon.title}">
+        <svg viewBox="0 0 20 20" width="20" height="20">${moonShape(10, 10, 8.5, moon.age)}</svg>
+        <span class="fc-moon-pct">${moon.illum}%</span>
+      </div>
     </div>`
   }).join('')
 
