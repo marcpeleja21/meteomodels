@@ -349,6 +349,16 @@
     }
     .fc-expand:hover { border-color: rgba(255,255,255,.38); color: var(--text); background: rgba(255,255,255,.07) }
     .fc-expand-icon  { font-size: 1.2rem }
+    .fc-moon     { margin-top: auto; padding-top: 5px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default }
+    .fc-moon-pct { font-size: .6rem; color: var(--text-muted); line-height: 1 }
+    .fc-view     { margin-bottom: 8px }
+    .fc-chart svg { display: block; width: 100%; height: auto;
+                    background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-sm) }
+    .fcc-grid  { stroke: rgba(255,255,255,.07); stroke-width: 1 }
+    .fcc-txt   { fill: var(--text-muted); font: 600 11px var(--font-ui) }
+    .fcc-val   { font: 700 12px var(--font-data) }
+    .fcc-rain  { fill: var(--accent2); opacity: .75 }
+    .fcc-rtxt  { fill: var(--accent2); font: 600 10px var(--font-ui) }
     .fc-accuracy-note {
       font-size: .62rem; color: var(--text-muted); opacity: .7;
       margin-top: 7px; text-align: center; line-height: 1.5;
@@ -698,7 +708,12 @@
 
     <!-- ③  7-day forecast -->
     <div class="section-title" id="forecastSectionTitle">Previsió</div>
+    <div class="tab-group fc-view" role="group">
+      <button class="tab-btn active" id="fcViewCards" data-fcview="cards">Targetes</button>
+      <button class="tab-btn" id="fcViewChart" data-fcview="chart">Gràfic</button>
+    </div>
     <div class="forecast-strip" id="forecastStrip"></div>
+    <div class="fc-chart hidden" id="fcChart"></div>
     <div id="fcAccuracyNote" class="fc-accuracy-note hidden"></div>
 
     <!-- ④  Evolution charts -->
@@ -831,7 +846,7 @@ function colorScale(stops, v) {
   return stops[stops.length-1][1]
 }
 const TEMP_MAX_STOPS = [[-5,'#90caf9'],[12,'#b0bec5'],[22,'#ffa726'],[35,'#ef5350']]
-const TEMP_MIN_STOPS = [[-10,'#90caf9'],[2,'#80cbc4'],[14,'#b0bec5'],[26,'#ffa726']]
+const TEMP_MIN_STOPS = [[-10,'#b39ddb'],[-4,'#90caf9'],[2,'#4fc3f7'],[8,'#4db6ac'],[13,'#9ccc65'],[18,'#ffd54f'],[23,'#ffa726'],[28,'#ef5350']]
 const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
 const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f']]
 function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
@@ -869,6 +884,8 @@ const LANG = {
     webcamTitle: 'Webcam Ràfels',
     conditionsTitle: 'Condicions actuals',
     forecastTitle: 'Previsió', todayLabel: 'Avui',
+    fcViewCards: 'Targetes', fcViewChart: 'Gràfic',
+    moonNames: ['Lluna nova','Lluna creixent','Quart creixent','Gibosa creixent','Lluna plena','Gibosa minvant','Quart minvant','Lluna minvant'],
     evoTitle: 'Evolució',
     temp: '🌡 Temperatura', humidity: '💧 Humitat', pressure: '🔵 Pressió',
     wind: '💨 Vent', precip: '🌧 Precipitació', uv: '☀️ Índex UV', solar: '⚡ Radiació solar',
@@ -914,6 +931,8 @@ const LANG = {
     webcamTitle: 'Webcam de Ràfels',
     conditionsTitle: 'Condiciones actuales',
     forecastTitle: 'Previsión', todayLabel: 'Hoy',
+    fcViewCards: 'Tarjetas', fcViewChart: 'Gráfico',
+    moonNames: ['Luna nueva','Luna creciente','Cuarto creciente','Gibosa creciente','Luna llena','Gibosa menguante','Cuarto menguante','Luna menguante'],
     evoTitle: 'Evolución',
     temp: '🌡 Temperatura', humidity: '💧 Humedad', pressure: '🔵 Presión',
     wind: '💨 Viento', precip: '🌧 Precipitación', uv: '☀️ Índice UV', solar: '⚡ Radiación solar',
@@ -959,6 +978,8 @@ const LANG = {
     webcamTitle: 'Ràfels Webcam',
     conditionsTitle: 'Current conditions',
     forecastTitle: 'Forecast', todayLabel: 'Today',
+    fcViewCards: 'Cards', fcViewChart: 'Chart',
+    moonNames: ['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'],
     evoTitle: 'Evolution',
     temp: '🌡 Temperature', humidity: '💧 Humidity', pressure: '🔵 Pressure',
     wind: '💨 Wind', precip: '🌧 Precipitation', uv: '☀️ UV index', solar: '⚡ Solar radiation',
@@ -1062,7 +1083,10 @@ function applyLang(lang) {
   const periodData = dataCache[activePeriod]
   if (periodData) requestAnimationFrame(() => drawEvoChart(periodData.history))
   if (webcamState === 'placeholder') showWebcamPlaceholder($('webcamContent'))
+  setTxt('fcViewCards', t.fcViewCards)
+  setTxt('fcViewChart', t.fcViewChart)
   renderForecastStrip()
+  if (forecastView === 'chart') renderForecastChart()
 }
 
 /* ══════════════════════════════════════════════
@@ -1466,6 +1490,102 @@ function wmoEmoji(code) {
   return '⛈️'
 }
 
+const SYNODIC = 29.530588853
+
+function moonInfo(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const days = (Date.UTC(y, m - 1, d, 12) - Date.UTC(2000, 0, 6, 18, 14)) / 86400000
+  const age  = ((days % SYNODIC) + SYNODIC) % SYNODIC
+  const idx  = Math.floor((age / SYNODIC) * 8 + 0.5) % 8
+  const illum = Math.round((1 - Math.cos(2 * Math.PI * age / SYNODIC)) / 2 * 100)
+  return { age, illum, title: `${LANG[currentLang].moonNames[idx]} · ${illum}%` }
+}
+
+// Lit part of the disc from the real phase angle: waxing = lit on the right (northern hemisphere)
+function moonShape(cx, cy, r, age) {
+  const waxing = age < SYNODIC / 2
+  const th = waxing ? 2 * Math.PI * age / SYNODIC : 2 * Math.PI * (1 - age / SYNODIC)
+  const c  = Math.cos(th)               // +1 new moon … -1 full moon
+  const rx = (Math.abs(c) * r).toFixed(2)
+  const d  = `M${cx},${cy - r} A${r},${r} 0 0 1 ${cx},${cy + r} A${rx},${r} 0 0 ${c > 0 ? 0 : 1} ${cx},${cy - r} Z`
+  const flip = waxing ? '' : ` transform="translate(${2 * cx} 0) scale(-1 1)"`
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1c2a44" stroke="rgba(255,255,255,.3)" stroke-width="1"/><path d="${d}" fill="#f1e7b5"${flip}/>`
+}
+
+let forecastView = 'cards'
+
+function smoothPath(pts) {
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6]
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+  }
+  return d
+}
+
+function renderForecastChart() {
+  const box = $('fcChart')
+  const days = forecastDaily?.filter(d => d.hi != null && d.lo != null)
+  if (!box || !days?.length) return
+  const t = LANG[currentLang]
+  const W = Math.max(300, Math.round(box.clientWidth || 700)), H = 266, L = 14, R = 14, TOP = 26, TH = 112, RT = 156, RH = 36
+  const n = days.length, cw = W - L - R
+  const x = i => L + (i + 0.5) * cw / n
+  const tMax = Math.max(...days.map(d => d.hi)) + 2
+  const tMin = Math.min(...days.map(d => d.lo)) - 2
+  const y = v => TOP + (tMax - v) / (tMax - tMin) * TH
+  const pMax = Math.max(5, ...days.map(d => d.precip ?? 0))
+  const bw = Math.min(28, cw / n * 0.5)
+
+  const hiPts = days.map((d, i) => [x(i), y(d.hi)])
+  const loPts = days.map((d, i) => [x(i), y(d.lo)])
+  const band  = n > 1
+    ? `<path d="${smoothPath(hiPts)} L${loPts[n - 1][0].toFixed(1)},${loPts[n - 1][1].toFixed(1)} ${smoothPath([...loPts].reverse()).replace(/^M[^C]*/, '')} Z" fill="rgba(251,146,60,.10)"/>`
+    : ''
+  const line = (pts, c) => n > 1
+    ? `<path d="${smoothPath(pts)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/>`
+    : ''
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img">`
+  svg += [0, 1, 2].map(k => `<line class="fcc-grid" x1="${L}" x2="${W - R}" y1="${TOP + k * TH / 2}" y2="${TOP + k * TH / 2}"/>`).join('')
+  svg += band + line(hiPts, '#fb923c') + line(loPts, '#60a5fa')
+  days.forEach((d, i) => {
+    const xi = x(i)
+    svg += `<circle cx="${xi}" cy="${hiPts[i][1]}" r="3.5" fill="#fb923c"/><circle cx="${xi}" cy="${loPts[i][1]}" r="3.5" fill="#60a5fa"/>`
+    svg += `<text class="fcc-val" x="${xi}" y="${hiPts[i][1] - 9}" text-anchor="middle" fill="${tempMaxColor(d.hi)}">${Math.round(d.hi)}°</text>`
+    svg += `<text class="fcc-val" x="${xi}" y="${loPts[i][1] + 19}" text-anchor="middle" fill="${tempMinColor(d.lo)}">${Math.round(d.lo)}°</text>`
+    const mm = d.precip ?? 0
+    const bh = mm > 0 ? Math.max(2, mm / pMax * RH) : 0
+    if (bh) svg += `<rect class="fcc-rain" x="${xi - bw / 2}" y="${RT + RH - bh}" width="${bw}" height="${bh}" rx="3"/>`
+    if (mm >= 0.1) svg += `<text class="fcc-rtxt" x="${xi}" y="${RT + RH - bh - 4}" text-anchor="middle">${mm.toFixed(1)} mm</text>`
+    const name = i === 0 ? t.todayLabel : t.dayAbbr[new Date(d.date + 'T12:00:00').getDay()]
+    const moon = moonInfo(d.date)
+    svg += `<text class="fcc-txt" x="${xi}" y="${H - 44}" text-anchor="middle">${name}</text>`
+    svg += `<g><title>${moon.title}</title>${moonShape(xi, H - 26, 8.5, moon.age)}</g>`
+    svg += `<text class="fcc-rtxt" style="fill:var(--text-muted)" x="${xi}" y="${H - 5}" text-anchor="middle">${moon.illum}%</text>`
+  })
+  svg += '</svg>'
+  box.innerHTML = svg
+}
+
+function setForecastView(view) {
+  forecastView = view
+  document.querySelectorAll('[data-fcview]').forEach(b => b.classList.toggle('active', b.dataset.fcview === view))
+  $('forecastStrip')?.classList.toggle('hidden', view !== 'cards')
+  $('fcChart')?.classList.toggle('hidden', view !== 'chart')
+  if (view === 'chart') renderForecastChart()
+  renderForecastStrip()
+}
+document.querySelectorAll('[data-fcview]').forEach(b => b.addEventListener('click', () => setForecastView(b.dataset.fcview)))
+let fcResizeTimer = null
+window.addEventListener('resize', () => {
+  if (forecastView !== 'chart') return
+  clearTimeout(fcResizeTimer)
+  fcResizeTimer = setTimeout(renderForecastChart, 150)
+})
+
 function renderForecastStrip() {
   const strip = $('forecastStrip')
   if (!strip || !forecastDaily?.length) return
@@ -1490,6 +1610,7 @@ function renderForecastStrip() {
     const conds   = rain || precipMm || wind
       ? `<div class="fc-conds">${rain}${precipMm}${wind}</div>`
       : ''
+    const moon = moonInfo(day.date)
     return `<div class="fc-day">
       <div class="fc-day-name">${name}</div>
       <div class="fc-icon">${icon}</div>
@@ -1499,6 +1620,10 @@ function renderForecastStrip() {
         <span class="fc-lo" style="color:${loColor}" title="${t.ttipLo}">${lo}</span>
       </div>
       ${conds}
+      <div class="fc-moon" title="${moon.title}">
+        <svg viewBox="0 0 20 20" width="20" height="20">${moonShape(10, 10, 8.5, moon.age)}</svg>
+        <span class="fc-moon-pct">${moon.illum}%</span>
+      </div>
     </div>`
   }).join('')
 
@@ -1512,8 +1637,9 @@ function renderForecastStrip() {
 
   const note = document.getElementById('fcAccuracyNote')
   if (note) {
-    note.textContent = forecastExpanded ? t.fcAccuracy : ''
-    note.classList.toggle('hidden', !forecastExpanded)
+    const showNote = forecastExpanded || forecastView === 'chart'
+    note.textContent = showNote ? t.fcAccuracy : ''
+    note.classList.toggle('hidden', !showNote)
   }
 }
 
@@ -1591,6 +1717,7 @@ async function loadForecast() {
   })
 
   renderForecastStrip()
+  if (forecastView === 'chart') renderForecastChart()
 
   const hourlyModels = settled
     .filter(r => r.status === 'fulfilled' && r.value?.hourly?.time?.length)
