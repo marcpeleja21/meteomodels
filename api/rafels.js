@@ -118,6 +118,21 @@ export default async function handler(request) {
     result.tempHighToday = tempHighs.length ? Math.max(...tempHighs) : null
     result.tempLowToday  = tempLows.length  ? Math.min(...tempLows)  : null
 
+    const gusts = todayObs.map(o => o.metric?.windGust ?? o.metric?.windgustHigh ?? o.metric?.windSpeedHigh).filter(v => v != null)
+    result.windGustHighToday = gusts.length ? Math.max(...gusts) : null
+
+    // Peak rain accumulated within one clock hour today (mm/h comparable to hourly history)
+    const rainByHour = {}
+    let prevCum = 0
+    for (const o of [...todayObs].sort((a, b) => (a.obsTimeLocal ?? '').localeCompare(b.obsTimeLocal ?? ''))) {
+      const cum = o.metric?.precipTotal ?? prevCum
+      const hr  = (o.obsTimeLocal ?? '').slice(11, 13)
+      rainByHour[hr] = (rainByHour[hr] ?? 0) + Math.max(0, cum - prevCum)
+      prevCum = cum
+    }
+    const hourRain = Object.values(rainByHour)
+    result.rainHourMaxToday = hourRain.length ? +(Math.max(...hourRain) * RAIN_GAIN).toFixed(1) : null
+
     const buckets = new Map()
     for (const o of todayObs) {
       const tStr = o.obsTimeLocal ?? ''

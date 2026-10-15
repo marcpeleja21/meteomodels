@@ -334,7 +334,7 @@
     .fc-temps    { display: flex; align-items: baseline; justify-content: center; gap: 3px; margin-top: 2px }
     .fc-hi       { font-size: .84rem; font-weight: 700 }
     .fc-sep      { font-size: .7rem; color: var(--text-dim) }
-    .fc-lo       { font-size: .78rem }
+    .fc-lo       { font-size: .84rem; font-weight: 700 }
     .fc-conds    { display: flex; flex-direction: column; align-items: center; gap: 2px;
                    margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,.08); width: 100% }
     .fc-rain     { font-size: .68rem; color: var(--accent2); opacity: .8 }
@@ -349,6 +349,12 @@
     }
     .fc-expand:hover { border-color: rgba(255,255,255,.38); color: var(--text); background: rgba(255,255,255,.07) }
     .fc-expand-icon  { font-size: 1.2rem }
+    .xo-alert { display: flex; flex-direction: column; gap: 8px; margin-top: 18px }
+    .xo-item  { display: flex; gap: 10px; align-items: flex-start; font-size: .84rem; line-height: 1.45;
+                background: linear-gradient(135deg, rgba(255,193,7,.16), rgba(255,193,7,.04));
+                border: 1px solid rgba(255,193,7,.45); border-radius: var(--radius-sm); padding: 10px 12px }
+    .xo-icon  { font-size: 1.3rem; line-height: 1.2 }
+    .xo-head  { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #ffca28; margin-bottom: 2px }
     .fc-moon     { margin-top: auto; padding-top: 5px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: default }
     .fc-moon-pct { font-size: .6rem; color: var(--text-muted); line-height: 1 }
     .fc-view     { margin-bottom: 8px }
@@ -635,6 +641,7 @@
     <div id="radarCard"></div>
 
     <!-- ③  Current conditions -->
+    <div class="xo-alert hidden" id="xoAlert"></div>
     <div class="section-title" id="conditionsSectionTitle">Condicions actuals</div>
     <div class="grid">
 
@@ -845,12 +852,11 @@ function colorScale(stops, v) {
   }
   return stops[stops.length-1][1]
 }
-const TEMP_MAX_STOPS = [[-5,'#90caf9'],[12,'#b0bec5'],[22,'#ffa726'],[35,'#ef5350']]
-const TEMP_MIN_STOPS = [[-10,'#b39ddb'],[-4,'#90caf9'],[2,'#4fc3f7'],[8,'#4db6ac'],[13,'#9ccc65'],[18,'#ffd54f'],[23,'#ffa726'],[28,'#ef5350']]
+const TEMP_STOPS     = [[-10,'#b39ddb'],[-4,'#90caf9'],[2,'#4fc3f7'],[8,'#4db6ac'],[13,'#9ccc65'],[18,'#ffd54f'],[24,'#ffa726'],[30,'#ff7043'],[36,'#ef5350'],[42,'#c2185b']]
 const WIND_STOPS     = [[20,'#aed581'],[40,'#ffd54f'],[60,'#ff9800'],[80,'#f44336']]
 const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f']]
-function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_MAX_STOPS, v) }
-function tempMinColor(v) { return v == null ? '#888' : colorScale(TEMP_MIN_STOPS, v) }
+function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_STOPS, v) }
+function tempMinColor(v) { return v == null ? '#888' : colorScale(TEMP_STOPS, v) }
 function windColor(v)    { return v == null || v < 20 ? '#aed581' : colorScale(WIND_STOPS, v) }
 function precipColor(v)  { return v == null || v === 0 ? '#666' : colorScale(PRECIP_STOPS, v) }
 
@@ -883,6 +889,20 @@ const LANG = {
     live: 'EN DIRECTE',
     webcamTitle: 'Webcam Ràfels',
     conditionsTitle: 'Condicions actuals',
+    xoTitle: 'Avui és extraordinari',
+    xo: {
+      hot:  [(v, m, y) => `La temperatura màxima d'avui (${v}°C) és la més alta registrada mai en un mes ${m} des del ${y}.`,
+             (v, m, y) => `La temperatura màxima d'avui (${v}°C) és una de les 5 més altes registrades en un mes ${m} des del ${y}.`],
+      cold: [(v, m, y) => `La temperatura mínima d'avui (${v}°C) és la més baixa registrada mai en un mes ${m} des del ${y}.`,
+             (v, m, y) => `La temperatura mínima d'avui (${v}°C) és una de les 5 més baixes registrades en un mes ${m} des del ${y}.`],
+      rain: [(v, m, y) => `La pluja d'avui (${v} mm) és la més gran registrada en un dia d'un mes ${m} des del ${y}.`,
+             (v, m, y) => `La pluja d'avui (${v} mm) és una de les 5 majors registrades en un dia d'un mes ${m} des del ${y}.`],
+      rate: [(v, m, y) => `La intensitat de pluja d'avui (${v} mm en una hora) és la més alta registrada en un mes ${m} des del ${y}.`,
+             (v, m, y) => `La intensitat de pluja d'avui (${v} mm en una hora) és una de les 5 més altes registrades en un mes ${m} des del ${y}.`],
+      wind: [(v, m, y) => `La ratxa de vent d'avui (${v} km/h) és la més forta registrada mai en un mes ${m} des del ${y}.`,
+             (v, m, y) => `La ratxa de vent d'avui (${v} km/h) és una de les 5 més fortes registrades en un mes ${m} des del ${y}.`],
+    },
+    monthOf: m => /^[aeiouh]/i.test(m) ? "d'" + m.toLowerCase() : 'de ' + m.toLowerCase(),
     forecastTitle: 'Previsió', todayLabel: 'Avui',
     fcViewCards: 'Targetes', fcViewChart: 'Gràfic',
     moonNames: ['Lluna nova','Lluna creixent','Quart creixent','Gibosa creixent','Lluna plena','Gibosa minvant','Quart minvant','Lluna minvant'],
@@ -930,6 +950,20 @@ const LANG = {
     live: 'EN DIRECTO',
     webcamTitle: 'Webcam de Ràfels',
     conditionsTitle: 'Condiciones actuales',
+    xoTitle: 'Hoy es extraordinario',
+    xo: {
+      hot:  [(v, m, y) => `La temperatura máxima de hoy (${v}°C) es la más alta registrada nunca en un mes ${m} desde ${y}.`,
+             (v, m, y) => `La temperatura máxima de hoy (${v}°C) es una de las 5 más altas registradas en un mes ${m} desde ${y}.`],
+      cold: [(v, m, y) => `La temperatura mínima de hoy (${v}°C) es la más baja registrada nunca en un mes ${m} desde ${y}.`,
+             (v, m, y) => `La temperatura mínima de hoy (${v}°C) es una de las 5 más bajas registradas en un mes ${m} desde ${y}.`],
+      rain: [(v, m, y) => `La lluvia de hoy (${v} mm) es la mayor registrada en un día de un mes ${m} desde ${y}.`,
+             (v, m, y) => `La lluvia de hoy (${v} mm) es una de las 5 mayores registradas en un día de un mes ${m} desde ${y}.`],
+      rate: [(v, m, y) => `La intensidad de lluvia de hoy (${v} mm en una hora) es la más alta registrada en un mes ${m} desde ${y}.`,
+             (v, m, y) => `La intensidad de lluvia de hoy (${v} mm en una hora) es una de las 5 más altas registradas en un mes ${m} desde ${y}.`],
+      wind: [(v, m, y) => `La racha de viento de hoy (${v} km/h) es la más fuerte registrada nunca en un mes ${m} desde ${y}.`,
+             (v, m, y) => `La racha de viento de hoy (${v} km/h) es una de las 5 más fuertes registradas en un mes ${m} desde ${y}.`],
+    },
+    monthOf: m => 'de ' + m.toLowerCase(),
     forecastTitle: 'Previsión', todayLabel: 'Hoy',
     fcViewCards: 'Tarjetas', fcViewChart: 'Gráfico',
     moonNames: ['Luna nueva','Luna creciente','Cuarto creciente','Gibosa creciente','Luna llena','Gibosa menguante','Cuarto menguante','Luna menguante'],
@@ -977,6 +1011,20 @@ const LANG = {
     live: 'LIVE',
     webcamTitle: 'Ràfels Webcam',
     conditionsTitle: 'Current conditions',
+    xoTitle: 'Today is exceptional',
+    xo: {
+      hot:  [(v, m, y) => `Today's highest temperature (${v}°C) is the highest ever recorded in ${m} since ${y}.`,
+             (v, m, y) => `Today's highest temperature (${v}°C) is among the 5 highest ever recorded in ${m} since ${y}.`],
+      cold: [(v, m, y) => `Today's lowest temperature (${v}°C) is the lowest ever recorded in ${m} since ${y}.`,
+             (v, m, y) => `Today's lowest temperature (${v}°C) is among the 5 lowest ever recorded in ${m} since ${y}.`],
+      rain: [(v, m, y) => `Today's rainfall (${v} mm) is the most in a single day ever recorded in ${m} since ${y}.`,
+             (v, m, y) => `Today's rainfall (${v} mm) is among the 5 highest daily totals ever recorded in ${m} since ${y}.`],
+      rate: [(v, m, y) => `Today's rain intensity (${v} mm in one hour) is the highest ever recorded in ${m} since ${y}.`,
+             (v, m, y) => `Today's rain intensity (${v} mm in one hour) is among the 5 highest ever recorded in ${m} since ${y}.`],
+      wind: [(v, m, y) => `Today's wind gust (${v} km/h) is the strongest ever recorded in ${m} since ${y}.`,
+             (v, m, y) => `Today's wind gust (${v} km/h) is among the 5 strongest ever recorded in ${m} since ${y}.`],
+    },
+    monthOf: m => m,
     forecastTitle: 'Forecast', todayLabel: 'Today',
     fcViewCards: 'Cards', fcViewChart: 'Chart',
     moonNames: ['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'],
@@ -1729,7 +1777,55 @@ async function loadForecast() {
 /* ══════════════════════════════════════════════
    Render current-conditions cards
 ══════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════
+   Extraordinary today — top-5 records for this calendar month
+══════════════════════════════════════════════ */
+let monthRecords = null
+
+function recordRank(value, list, higher) {
+  if (value == null || !list || list.length < 5) return null
+  const better = list.filter(r => higher ? r.value > value : r.value < value).length
+  return better < 5 ? better + 1 : null
+}
+
+function renderExtraordinary() {
+  const box = $('xoAlert')
+  const d = dataCache['day']
+  if (!box || !monthRecords || !d) return
+  const t = LANG[currentLang]
+  const month = t.monthOf(t.monthFull[new Date().getMonth()])
+  const checks = [
+    { kind: 'hot',  icon: '🔥', v: d.tempHighToday,    list: monthRecords.tempHigh, higher: true },
+    { kind: 'cold', icon: '🥶', v: d.tempLowToday,     list: monthRecords.tempLow,  higher: false },
+    { kind: 'rain', icon: '🌧️', v: d.precipTotal,      list: monthRecords.precip,   higher: true, min: 0.1 },
+    { kind: 'rate', icon: '⛈️', v: d.rainHourMaxToday, list: monthRecords.rainHour, higher: true, min: 0.1 },
+    { kind: 'wind', icon: '💨', v: d.windGustHighToday, list: monthRecords.windHigh, higher: true },
+  ]
+  const hits = checks
+    .filter(c => c.v != null && c.v >= (c.min ?? -Infinity))
+    .map(c => ({ ...c, rank: recordRank(c.v, c.list, c.higher) }))
+    .filter(c => c.rank)
+    .sort((a, b) => a.rank - b.rank)
+
+  box.innerHTML = hits.map((c, i) => `<div class="xo-item"><span class="xo-icon">${c.icon}</span><div>
+      ${i === 0 ? `<div class="xo-head">${t.xoTitle}</div>` : ''}${t.xo[c.kind][c.rank === 1 ? 0 : 1](fmt(c.v, 1), month, monthRecords.since)}</div></div>`).join('')
+  box.classList.toggle('hidden', !hits.length)
+}
+
+async function loadMonthRecords() {
+  try {
+    const now = new Date()
+    const pad = n => String(n).padStart(2, '0')
+    const res = await fetch(`/api/rafels-history?mode=month-records&month=${pad(now.getMonth() + 1)}&exclude=${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`)
+    if (!res.ok) return
+    monthRecords = await res.json()
+    renderExtraordinary()
+  } catch { /* the notice is optional */ }
+}
+
 function renderCards(d) {
+  renderExtraordinary()
   setTxt('valTemp',         fmt(d.temp))
   setTxt('valFeels',        fmt(d.feelsLike ?? d.temp))
   setTxt('valDew',          fmt(d.dewpt))
@@ -2841,6 +2937,7 @@ initWebcam()
 loadDay()
 loadForecast()
 loadStationStats()
+loadMonthRecords()
 initHistPickers()
 
 setInterval(() => {
