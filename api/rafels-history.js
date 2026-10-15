@@ -122,6 +122,35 @@ export default async function handler(req) {
       }), { headers: cors })
     }
 
+    // ── Month records: top 5 per metric for one calendar month, across all years ──
+    if (mode === 'month-records') {
+      const month   = url.searchParams.get('month') ?? ''
+      const exclude = url.searchParams.get('exclude') ?? ''
+      if (!/^(0[1-9]|1[0-2])$/.test(month)) return new Response('bad month', { status: 400 })
+
+      const [daily, hourly] = await Promise.all([
+        sbAll('observations', 'select=obs_date,temp_high,temp_low,wind_high,precip,humidity&order=obs_date'),
+        sbAll('observations_hourly', 'select=obs_date,obs_hour,precip,temp_high,temp_low&precip=gt.1&order=obs_date,obs_hour'),
+      ])
+      const inMonth = r => r.obs_date.slice(5, 7) === month && r.obs_date !== exclude
+      // Model-filled rows are not station records: daily ones have no humidity, hourly ones have flat high/low
+      const d = daily.filter(inMonth).filter(r => r.humidity != null)
+      const h = hourly.filter(inMonth).filter(r => !(r.temp_high != null && r.temp_high === r.temp_low))
+      const top = (rows, key, desc) => rows.filter(r => r[key] != null)
+        .map(r => ({ value: +r[key], date: r.obs_date }))
+        .sort((a, b) => desc ? b.value - a.value : a.value - b.value).slice(0, 5)
+
+      return new Response(JSON.stringify({
+        mode, month,
+        since:     d.length ? +d[0].obs_date.slice(0, 4) : null,
+        tempHigh:  top(d, 'temp_high', true),
+        tempLow:   top(d, 'temp_low',  false),
+        precip:    top(d.filter(r => r.precip > 0), 'precip', true),
+        windHigh:  top(d, 'wind_high', true),
+        rainHour:  top(h, 'precip', true),
+      }), { headers: cors })
+    }
+
     // ── Day mode: hourly table ─────────────────────────────────────────────
     if (mode === 'day') {
       const date = url.searchParams.get('date') ?? ''
