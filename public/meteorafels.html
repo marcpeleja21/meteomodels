@@ -509,6 +509,15 @@
     @media (min-width: 560px) { .rec-grid { grid-template-columns: repeat(4, 1fr) } }
     .rec-value { font-family: var(--font-data); font-size: 2rem; font-weight: 500; letter-spacing: -1.5px; line-height: 1; margin-top: 6px }
     .rec-value .unit { font-size: .82rem; color: var(--text-muted); margin-left: 2px; font-weight: 400 }
+    .mr-title { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--text-muted); margin: 4px 0 8px }
+    .mr-grid  { display: grid; grid-template-columns: 38px repeat(5, 1fr); gap: 2px; margin-bottom: 20px;
+                background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-sm); padding: 6px 6px 8px }
+    .mr-h     { font-size: .62rem; font-weight: 700; letter-spacing: .2px; color: var(--text-muted); text-align: center; padding: 2px 0 6px }
+    .mr-m     { font-size: .72rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center }
+    .mr-c     { text-align: center; padding: 4px 0; border-radius: 6px }
+    .mr-c.best { background: rgba(255,193,7,.14) }
+    .mr-v     { font-family: var(--font-data); font-size: .86rem; font-weight: 700; line-height: 1.15 }
+    .mr-y     { font-size: .58rem; color: var(--text-dim); line-height: 1.2 }
     .rec-date  { font-size: .72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4 }
 
     @media (max-width: 420px) {
@@ -777,6 +786,8 @@
           <div class="rec-date"  id="recAvgTemps"></div>
         </div>
       </div>
+      <div class="mr-title" id="mrTitle">Rècords per mes</div>
+      <div class="mr-grid" id="mrGrid"></div>
     </div>
 
     <!-- ⑤ Historical data -->
@@ -937,6 +948,7 @@ const LANG = {
     radarTitle: '🌧 Radar de pluja', radarForecast: 'Pluja esperada en {n}h',
     recTitle: "Historial de l'estació",
     recSince: y => `Dades des del ${y}`,
+    mrTitle: 'Rècords per mes', mrHigh: 'Màx °C', mrLow: 'Mín °C', mrWind: 'Ratxa km/h', mrRainDay: 'Pluja dia mm', mrRainMonth: 'Pluja mes mm',
     recTempHigh: 'Màxima més alta', recTempLow: 'Mínima més baixa',
     recWindHigh: 'Ratxa més forta', recPrecipTotal: 'Pluja màx. en un dia',
   },
@@ -998,6 +1010,7 @@ const LANG = {
     radarTitle: '🌧 Radar de lluvia', radarForecast: 'Lluvia esperada en {n}h',
     recTitle: 'Historial de la estación',
     recSince: y => `Datos desde ${y}`,
+    mrTitle: 'Récords por mes', mrHigh: 'Máx °C', mrLow: 'Mín °C', mrWind: 'Racha km/h', mrRainDay: 'Lluvia día mm', mrRainMonth: 'Lluvia mes mm',
     recTempHigh: 'Máxima más alta', recTempLow: 'Mínima más baja',
     recWindHigh: 'Racha más fuerte', recPrecipTotal: 'Lluvia máx. en un día',
   },
@@ -1059,6 +1072,7 @@ const LANG = {
     radarTitle: '🌧 Rain radar', radarForecast: 'Rain expected in {n}h',
     recTitle: 'Station history',
     recSince: y => `Data since ${y}`,
+    mrTitle: 'Records by month', mrHigh: 'High °C', mrLow: 'Low °C', mrWind: 'Gust km/h', mrRainDay: 'Rain day mm', mrRainMonth: 'Rain month mm',
     recTempHigh: 'Highest max temp', recTempLow: 'Lowest min temp',
     recWindHigh: 'Strongest gust', recPrecipTotal: 'Max daily rainfall',
   },
@@ -1191,6 +1205,36 @@ function fmtDateShort(dateStr) {
     : `${day} de ${month}`
 }
 
+function renderMonthRecords() {
+  const s = stationStats
+  const grid = $('mrGrid')
+  if (!grid || !s?.months?.length) return
+  const t = LANG[currentLang]
+  setTxt('mrTitle', t.mrTitle)
+  const cols = [
+    { key: 'tempHigh',    label: t.mrHigh,      higher: true,  color: tempMaxColor, year: r => r.date.slice(0, 4) },
+    { key: 'tempLow',     label: t.mrLow,       higher: false, color: tempMinColor, year: r => r.date.slice(0, 4) },
+    { key: 'windHigh',    label: t.mrWind,      higher: true,  year: r => r.date.slice(0, 4) },
+    { key: 'precipDay',   label: t.mrRainDay,   higher: true,  year: r => r.date.slice(0, 4) },
+    { key: 'precipMonth', label: t.mrRainMonth, higher: true,  year: r => r.year },
+  ]
+  const bestVal = cols.map(c => {
+    const vals = s.months.map(m => m[c.key]?.value).filter(v => v != null)
+    return vals.length ? (c.higher ? Math.max(...vals) : Math.min(...vals)) : null
+  })
+  let html = '<div></div>' + cols.map(c => `<div class="mr-h">${c.label}</div>`).join('')
+  for (const m of s.months) {
+    html += `<div class="mr-m">${t.monthFull[m.month - 1].slice(0, 3)}</div>`
+    cols.forEach((c, i) => {
+      const r = m[c.key]
+      if (!r) { html += '<div class="mr-c"><div class="mr-v">—</div></div>'; return }
+      const color = c.color ? ` style="color:${c.color(r.value)}"` : ''
+      html += `<div class="mr-c${r.value === bestVal[i] ? ' best' : ''}"><div class="mr-v"${color}>${fmt(r.value, 1)}</div><div class="mr-y">${c.year(r)}</div></div>`
+    })
+  }
+  grid.innerHTML = html
+}
+
 function renderStationStats() {
   const s = stationStats
   if (!s || s.empty) return
@@ -1199,6 +1243,7 @@ function renderStationStats() {
   if (section) section.classList.remove('hidden')
 
   setTxt('recTitle', t.recTitle)
+  renderMonthRecords()
   setTxt('recMeta', t.recSince(s.firstDate?.slice(0, 4) ?? ''))
 
   setTxt('recLblTempHigh',   t.recTempHigh)
