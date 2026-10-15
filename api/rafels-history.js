@@ -97,7 +97,7 @@ export default async function handler(req) {
       // Records come from station rows only: Open-Meteo gap-filled days have no humidity
       const st = rows.filter(r => r.humidity != null)
       const best = (cur, v, date, higher) => (v != null && (cur === null || (higher ? v > cur.value : v < cur.value))) ? { value: v, date } : cur
-      const months = Array.from({ length: 12 }, () => ({ tempHigh: null, tempLow: null, windHigh: null, precipDay: null, precipMonth: null, tot: {}, cnt: {} }))
+      const months = Array.from({ length: 12 }, () => ({ tempHigh: null, tempLow: null, windHigh: null, precipMonth: null, tot: {}, cnt: {} }))
 
       let maxTH = null, maxTHDate = null
       let minTL = null, minTLDate = null
@@ -118,7 +118,6 @@ export default async function handler(req) {
         mo.tempHigh  = best(mo.tempHigh,  th, r.obs_date, true)
         mo.tempLow   = best(mo.tempLow,   tl, r.obs_date, false)
         mo.windHigh  = best(mo.windHigh,  wh, r.obs_date, true)
-        mo.precipDay = best(mo.precipDay, pr > 0 ? pr : null, r.obs_date, true)
         mo.tot[yr] = (mo.tot[yr] ?? 0) + pr
         mo.cnt[yr] = (mo.cnt[yr] ?? 0) + 1
       }
@@ -135,7 +134,6 @@ export default async function handler(req) {
         tempHigh:  mo.tempHigh  && { value: rnd(mo.tempHigh.value),  date: mo.tempHigh.date },
         tempLow:   mo.tempLow   && { value: rnd(mo.tempLow.value),   date: mo.tempLow.date },
         windHigh:  mo.windHigh  && { value: rnd(mo.windHigh.value),  date: mo.windHigh.date },
-        precipDay: mo.precipDay && { value: rnd(mo.precipDay.value), date: mo.precipDay.date },
         precipMonth: mo.precipMonth && { value: rnd(mo.precipMonth.value), year: mo.precipMonth.date },
       }))
 
