@@ -869,7 +869,7 @@ const PRECIP_STOPS   = [[0.1,'#80deea'],[2,'#26c6da'],[8,'#00bcd4'],[20,'#00838f
 function tempMaxColor(v) { return v == null ? '#888' : colorScale(TEMP_STOPS, v) }
 function tempMinColor(v) { return v == null ? '#888' : colorScale(TEMP_STOPS, v) }
 // Scales sized for monthly records (gusts 40-120 km/h, monthly rain 40-250 mm)
-const MONTH_WIND_STOPS = [[40,'#aed581'],[60,'#ffd54f'],[80,'#ff9800'],[100,'#f44336'],[120,'#c2185b']]
+const MONTH_WIND_STOPS = [[40,'#f8bbd0'],[60,'#f48fb1'],[80,'#ec6fa0'],[100,'#e0408c'],[120,'#c2186a']]
 const MONTH_RAIN_STOPS = [[40,'#80deea'],[90,'#4fc3f7'],[140,'#5c9ce6'],[190,'#7986cb'],[250,'#9575cd']]
 function monthWindColor(v) { return v == null ? '#888' : colorScale(MONTH_WIND_STOPS, v) }
 function monthRainColor(v) { return v == null ? '#888' : colorScale(MONTH_RAIN_STOPS, v) }
