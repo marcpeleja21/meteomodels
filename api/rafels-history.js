@@ -91,15 +91,20 @@ export default async function handler(req) {
     // ── Stats mode: all-time records from daily observations ───────────────
     if (mode === 'stats') {
       const rows = await sbAll('observations',
-        `select=obs_date,temp_high,temp_low,wind_high,precip&order=obs_date`)
+        `select=obs_date,temp_high,temp_low,wind_high,precip,humidity&order=obs_date`)
       if (!rows.length) return new Response(JSON.stringify({ mode, empty: true }), { headers: cors })
+
+      // Records come from station rows only: Open-Meteo gap-filled days have no humidity
+      const st = rows.filter(r => r.humidity != null)
+      const best = (cur, v, date, higher) => (v != null && (cur === null || (higher ? v > cur.value : v < cur.value))) ? { value: v, date } : cur
+      const months = Array.from({ length: 12 }, () => ({ tempHigh: null, tempLow: null, windHigh: null, precipDay: null, precipMonth: null, tot: {}, cnt: {} }))
 
       let maxTH = null, maxTHDate = null
       let minTL = null, minTLDate = null
       let maxW  = null, maxWDate  = null
       let maxP  = null, maxPDate  = null
 
-      for (const r of rows) {
+      for (const r of st) {
         const th = r.temp_high != null ? +r.temp_high : null
         const tl = r.temp_low  != null ? +r.temp_low  : null
         const wh = r.wind_high != null ? +r.wind_high : null
@@ -108,7 +113,31 @@ export default async function handler(req) {
         if (tl != null && (minTL === null || tl < minTL)) { minTL = tl; minTLDate = r.obs_date }
         if (wh != null && (maxW  === null || wh > maxW))  { maxW  = wh; maxWDate  = r.obs_date }
         if (pr  > 0    && (maxP  === null || pr > maxP))  { maxP  = pr; maxPDate  = r.obs_date }
+
+        const mo = months[+r.obs_date.slice(5, 7) - 1], yr = r.obs_date.slice(0, 4)
+        mo.tempHigh  = best(mo.tempHigh,  th, r.obs_date, true)
+        mo.tempLow   = best(mo.tempLow,   tl, r.obs_date, false)
+        mo.windHigh  = best(mo.windHigh,  wh, r.obs_date, true)
+        mo.precipDay = best(mo.precipDay, pr > 0 ? pr : null, r.obs_date, true)
+        mo.tot[yr] = (mo.tot[yr] ?? 0) + pr
+        mo.cnt[yr] = (mo.cnt[yr] ?? 0) + 1
       }
+
+      // Monthly rain total counts only for months with (almost) complete data
+      months.forEach((mo, i) => {
+        for (const [yr, total] of Object.entries(mo.tot)) {
+          const dim = new Date(Date.UTC(+yr, i + 1, 0)).getUTCDate()
+          if (mo.cnt[yr] >= Math.ceil(dim * 0.9)) mo.precipMonth = best(mo.precipMonth, total, yr, true)
+        }
+      })
+      const monthsOut = months.map((mo, i) => ({
+        month: i + 1,
+        tempHigh:  mo.tempHigh  && { value: rnd(mo.tempHigh.value),  date: mo.tempHigh.date },
+        tempLow:   mo.tempLow   && { value: rnd(mo.tempLow.value),   date: mo.tempLow.date },
+        windHigh:  mo.windHigh  && { value: rnd(mo.windHigh.value),  date: mo.windHigh.date },
+        precipDay: mo.precipDay && { value: rnd(mo.precipDay.value), date: mo.precipDay.date },
+        precipMonth: mo.precipMonth && { value: rnd(mo.precipMonth.value), year: mo.precipMonth.date },
+      }))
 
       return new Response(JSON.stringify({
         mode: 'stats',
@@ -119,6 +148,7 @@ export default async function handler(req) {
         tempLow:   { value: rnd(minTL), date: minTLDate },
         windHigh:  { value: rnd(maxW),  date: maxWDate  },
         precipMax: { value: rnd(maxP),  date: maxPDate  },
+        months:    monthsOut,
       }), { headers: cors })
     }
 
