@@ -229,8 +229,8 @@
       width: 100%; aspect-ratio: 16/9; display: block;
       background: #000;
     }
-    .webcam-poster { position: relative; min-height: 180px; background: #000; cursor: pointer; overflow: hidden }
-    .webcam-poster .webcam-img { display: block; width: 100%; cursor: pointer }
+    .webcam-poster { position: relative; aspect-ratio: 4096 / 1800; background: #000; cursor: pointer; overflow: hidden }
+    .webcam-poster .webcam-img { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer }
     .webcam-play {
       position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
       background: rgba(0,0,0,.28); border: 0; color: #fff; cursor: pointer; font: 600 .88rem var(--font-ui);
@@ -240,10 +240,11 @@
       width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; padding-left: 4px;
       background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.85); font-size: 1.3rem;
     }
-    .webcam-embed {
-      width: 100%; aspect-ratio: 4/3; max-height: 70vh; display: block; border: 0;
-      background: #000;
+    .webcam-age {
+      position: absolute; left: 10px; bottom: 10px; font-size: .68rem; font-weight: 600; color: #fff;
+      background: rgba(0,0,0,.55); border-radius: 10px; padding: 2px 8px; pointer-events: none;
     }
+    .webcam-embed { width: 100%; aspect-ratio: 4096 / 1800; display: block; border: 0; background: #000 }
     .webcam-placeholder {
       aspect-ratio: 16/9; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 14px;
@@ -934,6 +935,7 @@ const LANG = {
              (v, m, y) => `La ratxa de vent d'avui (${v} km/h) és una de les 5 més fortes registrades en un mes ${m} des del ${y}.`],
     },
     monthOf: m => /^[aeiouh]/i.test(m) ? "d'" + m.toLowerCase() : 'de ' + m.toLowerCase(),
+    webcamAgo: (n, h) => `fa ${n} ${h ? 'h' : 'min'}`,
     webcamPlay: 'Veure en directe',
     share: 'Comparteix', shareText: 'Meteorologia en temps real a Ràfels',
     forecastTitle: 'Previsió', todayLabel: 'Avui',
@@ -998,6 +1000,7 @@ const LANG = {
              (v, m, y) => `La racha de viento de hoy (${v} km/h) es una de las 5 más fuertes registradas en un mes ${m} desde ${y}.`],
     },
     monthOf: m => 'de ' + m.toLowerCase(),
+    webcamAgo: (n, h) => `hace ${n} ${h ? 'h' : 'min'}`,
     webcamPlay: 'Ver en directo',
     share: 'Compartir', shareText: 'Meteorología en tiempo real en Ráfales',
     forecastTitle: 'Previsión', todayLabel: 'Hoy',
@@ -1062,6 +1065,7 @@ const LANG = {
              (v, m, y) => `Today's wind gust (${v} km/h) is among the 5 strongest ever recorded in ${m} since ${y}.`],
     },
     monthOf: m => m,
+    webcamAgo: (n, h) => `${n} ${h ? 'h' : 'min'} ago`,
     webcamPlay: 'Watch live',
     share: 'Share', shareText: 'Live weather in Ràfels',
     forecastTitle: 'Forecast', todayLabel: 'Today',
@@ -1405,6 +1409,16 @@ async function mountStream(el, url) {
 // Until then the page shows the latest snapshot; the player is dropped again after 5 minutes.
 const EMBED_MAX_MS = 5 * 60 * 1000
 let embedStopTimer = null
+let refreshPoster = null
+let posterUrl = null
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && refreshPoster) refreshPoster()
+})
+
+function agoText(t, mins) {
+  return mins < 120 ? t.webcamAgo(mins) : t.webcamAgo(Math.round(mins / 60), true)
+}
 
 function mountEmbed(el, url) {
   webcamState = 'stream'
@@ -1412,30 +1426,56 @@ function mountEmbed(el, url) {
   clearTimeout(embedStopTimer)
   el.innerHTML = ''
 
-  const stamp = () => {
-    $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
+  const stamp = (d = new Date()) => {
+    $('webcamTime').textContent = d.toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
   }
 
   const poster = document.createElement('div')
   poster.className = 'webcam-poster'
   const img = document.createElement('img')
-  img.className = 'webcam-img'
+  img.className = 'webcam-img hidden'
   img.alt = 'Webcam Ràfels'
-  img.addEventListener('error', () => img.classList.add('hidden'))
-  img.addEventListener('load',  () => img.classList.remove('hidden'))
+  img.addEventListener('load', () => img.classList.remove('hidden'))
+  const age = document.createElement('div')
+  age.className = 'webcam-age hidden'
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.className = 'webcam-play'
   btn.innerHTML = `<span class="webcam-play-icon">▶</span><span id="webcamPlayLbl">${LANG[currentLang].webcamPlay}</span>`
-  poster.append(img, btn)
+  poster.append(img, age, btn)
   el.appendChild(poster)
 
-  const refresh = () => { img.src = '/api/webcam-rafels?snapshot=1&t=' + Date.now(); stamp() }
-  refresh()
-  webcamTimer = setInterval(refresh, 30_000)
+  // fetch (not img src) so the capture time can be read from the response
+  refreshPoster = async () => {
+    try {
+      const r = await fetch('/api/webcam-rafels?snapshot=1&t=' + Date.now(), { cache: 'no-store' })
+      if (!r.ok) throw new Error('no snapshot')
+      const blob = await r.blob()
+      if (posterUrl) URL.revokeObjectURL(posterUrl)
+      posterUrl = URL.createObjectURL(blob)
+      img.src = posterUrl
+      const taken = r.headers.get('x-snapshot-time') ? new Date(r.headers.get('x-snapshot-time')) : null
+      if (taken && !isNaN(taken)) {
+        stamp(taken)
+        const mins = Math.round((Date.now() - taken.getTime()) / 60000)
+        age.textContent = agoText(LANG[currentLang], mins)
+        age.classList.toggle('hidden', mins < 2)
+      } else {
+        stamp()
+        age.classList.add('hidden')
+      }
+    } catch {
+      img.classList.add('hidden')
+      age.classList.add('hidden')
+    }
+  }
+  refreshPoster()
+  webcamTimer = setInterval(refreshPoster, 30_000)
 
   poster.addEventListener('click', () => {
     clearInterval(webcamTimer)
+    refreshPoster = null
+    if (posterUrl) { URL.revokeObjectURL(posterUrl); posterUrl = null }
     el.innerHTML = ''
     const f = document.createElement('iframe')
     f.className = 'webcam-embed'

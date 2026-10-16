@@ -68,6 +68,7 @@ export default async function handler(req) {
         'Cache-Control':            'no-store',
         'CDN-Cache-Control':        'no-store',
         'Vercel-CDN-Cache-Control': 'no-store',
+        ...(res.headers.get('Last-Modified') && { 'X-Snapshot-Time': new Date(res.headers.get('Last-Modified')).toISOString() }),
       },
     })
   } catch {
