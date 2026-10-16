@@ -232,13 +232,15 @@
     .webcam-poster { position: relative; aspect-ratio: 4096 / 1800; background: #000; cursor: pointer; overflow: hidden }
     .webcam-poster .webcam-img { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer }
     .webcam-play {
-      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(0,0,0,.28); border: 0; color: #fff; cursor: pointer; font: 600 .88rem var(--font-ui);
+      position: absolute; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 7px;
+      background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); border-radius: 20px;
+      padding: 5px 12px 5px 6px; color: #fff; cursor: pointer; font: 600 .74rem var(--font-ui);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: background .15s;
     }
-    .webcam-play:hover { background: rgba(0,0,0,.4) }
+    .webcam-play:hover, .webcam-poster:hover .webcam-play { background: rgba(0,0,0,.75) }
     .webcam-play-icon {
-      width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; padding-left: 4px;
-      background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.85); font-size: 1.3rem;
+      width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; padding-left: 2px;
+      background: rgba(255,255,255,.9); color: #111; font-size: .62rem;
     }
     .webcam-age {
       position: absolute; left: 10px; bottom: 10px; font-size: .68rem; font-weight: 600; color: #fff;
