@@ -5,30 +5,70 @@ on:
     - cron: '*/5 * * * *'   # every 5 min (GitHub minimum); loop inside captures every 30s
   workflow_dispatch:
 
+# One run at a time: a stuck camera must not pile up overlapping runs
+concurrency:
+  group: webcam-snapshot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --fix-missing ffmpeg
 
       - name: Capture and upload every 30s for ~4.5 min
+        id: capture
         run: |
+          ok=0
           for i in $(seq 1 9); do
             echo "=== Snapshot $i/9 ==="
             rm -f snap.jpg
-            ffmpeg -rtsp_transport tcp \
-              -i "${{ secrets.WEBCAM_RTSP_URL }}" \
-              -vf scale=1280:-1 -frames:v 1 -update 1 -q:v 3 -y snap.jpg \
-            && curl -sf -X PUT \
-              "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
-              -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-              -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
-              -H "Content-Type: image/jpeg" \
-              -H "Cache-Control: no-store" \
-              -H "x-upsert: true" \
-              --data-binary @snap.jpg \
-            && echo "Snapshot $i OK" \
-            || echo "Snapshot $i FAILED"
+            # hard 25s cap per attempt (a dead camera used to block for ~2 min each time)
+            if timeout 25 ffmpeg -rtsp_transport tcp -timeout 10000000 \
+                -i "${{ secrets.WEBCAM_RTSP_URL }}" \
+                -vf scale=1280:-1 -frames:v 1 -update 1 -q:v 3 -y snap.jpg \
+              && curl -sf -X PUT \
+                "https://rurgtrkiuoatgezhrpqk.supabase.co/storage/v1/object/webcam/latest.jpg" \
+                -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+                -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+                -H "Content-Type: image/jpeg" \
+                -H "Cache-Control: no-store" \
+                -H "x-upsert: true" \
+                --data-binary @snap.jpg
+            then
+              ok=$((ok + 1)); echo "Snapshot $i OK"
+            else
+              echo "Snapshot $i FAILED"
+            fi
             [ "$i" -lt 9 ] && sleep 30 || true
           done
+          echo "Successful snapshots: $ok/9"
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
+      # One issue (one email) while the camera is unreachable, closed again when it recovers.
+      # The run itself stays green on purpose: a red run every 5 minutes would flood your inbox.
+      - name: Open or close the "camera down" issue
+        if: always() && steps.capture.outputs.ok != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OK: ${{ steps.capture.outputs.ok }}
+        run: |
+          gh label create webcam-down --color D93F0B --description "Webcam snapshots failing" 2>/dev/null || true
+          existing=$(gh issue list --state open --label webcam-down --json number --jq '.[0].number // empty')
+          if [ "$OK" = "0" ]; then
+            echo "::warning::No snapshot could be captured (camera unreachable?)"
+            if [ -z "$existing" ]; then
+              gh issue create --label webcam-down \
+                --title "Webcam snapshots are failing" \
+                --body "All 9 capture attempts failed in run ${{ github.run_id }} (${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). The camera is probably unreachable: check that the public IP / DDNS name in the WEBCAM_RTSP_URL secret is current and that the port forward still works. This issue closes itself when snapshots work again."
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Snapshots are working again ($OK/9 in run ${{ github.run_id }})."
+          fi
