@@ -229,6 +229,17 @@
       width: 100%; aspect-ratio: 16/9; display: block;
       background: #000;
     }
+    .webcam-poster { position: relative; min-height: 180px; background: #000; cursor: pointer; overflow: hidden }
+    .webcam-poster .webcam-img { display: block; width: 100%; cursor: pointer }
+    .webcam-play {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(0,0,0,.28); border: 0; color: #fff; cursor: pointer; font: 600 .88rem var(--font-ui);
+    }
+    .webcam-play:hover { background: rgba(0,0,0,.4) }
+    .webcam-play-icon {
+      width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; padding-left: 4px;
+      background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.85); font-size: 1.3rem;
+    }
     .webcam-embed {
       width: 100%; aspect-ratio: 4/3; max-height: 70vh; display: block; border: 0;
       background: #000;
@@ -923,6 +934,7 @@ const LANG = {
              (v, m, y) => `La ratxa de vent d'avui (${v} km/h) és una de les 5 més fortes registrades en un mes ${m} des del ${y}.`],
     },
     monthOf: m => /^[aeiouh]/i.test(m) ? "d'" + m.toLowerCase() : 'de ' + m.toLowerCase(),
+    webcamPlay: 'Veure en directe',
     share: 'Comparteix', shareText: 'Meteorologia en temps real a Ràfels',
     forecastTitle: 'Previsió', todayLabel: 'Avui',
     fcViewCards: 'Targetes', fcViewChart: 'Gràfic',
@@ -986,6 +998,7 @@ const LANG = {
              (v, m, y) => `La racha de viento de hoy (${v} km/h) es una de las 5 más fuertes registradas en un mes ${m} desde ${y}.`],
     },
     monthOf: m => 'de ' + m.toLowerCase(),
+    webcamPlay: 'Ver en directo',
     share: 'Compartir', shareText: 'Meteorología en tiempo real en Ráfales',
     forecastTitle: 'Previsión', todayLabel: 'Hoy',
     fcViewCards: 'Tarjetas', fcViewChart: 'Gráfico',
@@ -1049,6 +1062,7 @@ const LANG = {
              (v, m, y) => `Today's wind gust (${v} km/h) is among the 5 strongest ever recorded in ${m} since ${y}.`],
     },
     monthOf: m => m,
+    webcamPlay: 'Watch live',
     share: 'Share', shareText: 'Live weather in Ràfels',
     forecastTitle: 'Forecast', todayLabel: 'Today',
     fcViewCards: 'Cards', fcViewChart: 'Chart',
@@ -1153,6 +1167,7 @@ function applyLang(lang) {
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang))
 
   setTxt('forecastSectionTitle', t.forecastTitle)
+  setTxt('webcamPlayLbl', t.webcamPlay)
   const sBtn = $('shareBtn')
   if (sBtn) { sBtn.title = t.share; sBtn.setAttribute('aria-label', t.share) }
   if (dataCache['day']) renderCards(dataCache['day'])
@@ -1386,23 +1401,53 @@ async function mountStream(el, url) {
   webcamTimer = setInterval(tick, 30_000)
 }
 
+// The rtsp.me player counts a visit every time it loads, so it only loads when someone presses play.
+// Until then the page shows the latest snapshot; the player is dropped again after 5 minutes.
+const EMBED_MAX_MS = 5 * 60 * 1000
+let embedStopTimer = null
+
 function mountEmbed(el, url) {
   webcamState = 'stream'
+  clearInterval(webcamTimer)
+  clearTimeout(embedStopTimer)
   el.innerHTML = ''
-  const f = document.createElement('iframe')
-  f.className = 'webcam-embed'
-  f.src = url
-  f.title = 'Webcam Ràfels'
-  f.allow = 'autoplay; fullscreen; picture-in-picture'
-  f.allowFullscreen = true
-  f.loading = 'lazy'
-  el.appendChild(f)
 
-  const tick = () => {
+  const stamp = () => {
     $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
   }
-  tick()
-  webcamTimer = setInterval(tick, 30_000)
+
+  const poster = document.createElement('div')
+  poster.className = 'webcam-poster'
+  const img = document.createElement('img')
+  img.className = 'webcam-img'
+  img.alt = 'Webcam Ràfels'
+  img.addEventListener('error', () => img.classList.add('hidden'))
+  img.addEventListener('load',  () => img.classList.remove('hidden'))
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = 'webcam-play'
+  btn.innerHTML = `<span class="webcam-play-icon">▶</span><span id="webcamPlayLbl">${LANG[currentLang].webcamPlay}</span>`
+  poster.append(img, btn)
+  el.appendChild(poster)
+
+  const refresh = () => { img.src = '/api/webcam-rafels?snapshot=1&t=' + Date.now(); stamp() }
+  refresh()
+  webcamTimer = setInterval(refresh, 30_000)
+
+  poster.addEventListener('click', () => {
+    clearInterval(webcamTimer)
+    el.innerHTML = ''
+    const f = document.createElement('iframe')
+    f.className = 'webcam-embed'
+    f.src = url
+    f.title = 'Webcam Ràfels'
+    f.allow = 'autoplay; fullscreen; picture-in-picture'
+    f.allowFullscreen = true
+    el.appendChild(f)
+    stamp()
+    webcamTimer = setInterval(stamp, 30_000)
+    embedStopTimer = setTimeout(() => mountEmbed(el, url), EMBED_MAX_MS)
+  })
 }
 
 function mountSnapshot(el) {
