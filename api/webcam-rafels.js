@@ -7,7 +7,10 @@
  *      Set this to the public URL of your go2rtc / mediamtx instance
  *      (e.g. via Cloudflare Tunnel): https://xxx.cfargotunnel.com/index.m3u8
  *
- *   2. WEBCAM_SNAPSHOT_URL — fallback single-JPEG proxy (credentials embedded
+ *   2. WEBCAM_EMBED_URL   — https URL of a hosted player (e.g. rtsp.me embed), shown in an
+ *      iframe. Returned as JSON { mode:'embed', url }.
+ *
+ *   3. WEBCAM_SNAPSHOT_URL — fallback single-JPEG proxy (credentials embedded
  *      in the URL stay server-side, the browser never sees them).
  */
 export const config = { runtime: 'edge' }
@@ -19,6 +22,18 @@ export default async function handler(req) {
   const streamUrl = process.env.WEBCAM_STREAM_URL
   if (streamUrl && !forceSnapshot) {
     return new Response(JSON.stringify({ mode: 'stream', url: streamUrl }), {
+      headers: {
+        'Content-Type':                'application/json',
+        'Cache-Control':               'no-store',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+
+  // ── Embed mode (e.g. an rtsp.me player): the browser shows it in an iframe ─────
+  const embedUrl = process.env.WEBCAM_EMBED_URL
+  if (embedUrl && /^https:\/\//i.test(embedUrl) && !forceSnapshot) {
+    return new Response(JSON.stringify({ mode: 'embed', url: embedUrl }), {
       headers: {
         'Content-Type':                'application/json',
         'Cache-Control':               'no-store',

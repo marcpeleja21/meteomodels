@@ -229,6 +229,10 @@
       width: 100%; aspect-ratio: 16/9; display: block;
       background: #000;
     }
+    .webcam-embed {
+      width: 100%; aspect-ratio: 16/9; display: block; border: 0;
+      background: #000;
+    }
     .webcam-placeholder {
       aspect-ratio: 16/9; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 14px;
@@ -1382,6 +1386,25 @@ async function mountStream(el, url) {
   webcamTimer = setInterval(tick, 30_000)
 }
 
+function mountEmbed(el, url) {
+  webcamState = 'stream'
+  el.innerHTML = ''
+  const f = document.createElement('iframe')
+  f.className = 'webcam-embed'
+  f.src = url
+  f.title = 'Webcam Ràfels'
+  f.allow = 'autoplay; fullscreen; picture-in-picture'
+  f.allowFullscreen = true
+  f.loading = 'lazy'
+  el.appendChild(f)
+
+  const tick = () => {
+    $('webcamTime').textContent = new Date().toLocaleTimeString(LANG[currentLang].locale, { hour:'2-digit', minute:'2-digit', hour12:false })
+  }
+  tick()
+  webcamTimer = setInterval(tick, 30_000)
+}
+
 function mountSnapshot(el) {
   webcamState = 'snapshot'
   el.innerHTML = ''
@@ -1411,8 +1434,9 @@ async function initWebcam() {
 
     const ct = res.headers.get('Content-Type') ?? ''
     if (ct.includes('application/json')) {
-      const { url } = await res.json()
-      await mountStream(el, url)
+      const cfg = await res.json()
+      if (cfg.mode === 'embed') mountEmbed(el, cfg.url)
+      else await mountStream(el, cfg.url)
     } else {
       mountSnapshot(el)
     }
