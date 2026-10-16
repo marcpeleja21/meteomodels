@@ -8,7 +8,8 @@
  *      (e.g. via Cloudflare Tunnel): https://xxx.cfargotunnel.com/index.m3u8
  *
  *   2. WEBCAM_EMBED_URL   — https URL of a hosted player (e.g. rtsp.me embed), shown in an
- *      iframe. Returned as JSON { mode:'embed', url }.
+ *      iframe. Returned as JSON { mode:'embed', url }. Defaults to the Ràfels rtsp.me player;
+ *      the id is public (any visitor can read the iframe src), so it holds no secret.
  *
  *   3. WEBCAM_SNAPSHOT_URL — fallback single-JPEG proxy (credentials embedded
  *      in the URL stay server-side, the browser never sees them).
@@ -31,7 +32,7 @@ export default async function handler(req) {
   }
 
   // ── Embed mode (e.g. an rtsp.me player): the browser shows it in an iframe ─────
-  const embedUrl = process.env.WEBCAM_EMBED_URL
+  const embedUrl = process.env.WEBCAM_EMBED_URL ?? 'https://rtsp.me/embed/ICG5GMg2WtEurnXZ/'
   if (embedUrl && /^https:\/\//i.test(embedUrl) && !forceSnapshot) {
     return new Response(JSON.stringify({ mode: 'embed', url: embedUrl }), {
       headers: {
