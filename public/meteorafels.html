@@ -122,14 +122,14 @@
       border-radius: var(--radius-sm); transition: border-color .2s, color .2s;
     }
     .back-link:hover { border-color: rgba(255,255,255,0.3); color: var(--text) }
-    .x-link {
-      display: flex; align-items: center; gap: 5px;
+    .share-btn {
+      display: flex; align-items: center; gap: 5px; background: transparent; cursor: pointer; font-family: inherit;
       font-size: .74rem; color: var(--text-muted); text-decoration: none;
       padding: 5px 10px; border: 1px solid rgba(255,255,255,0.10);
       border-radius: var(--radius-sm); transition: border-color .2s, color .2s;
     }
-    .x-link:hover { border-color: rgba(255,255,255,0.3); color: var(--text) }
-    .x-link svg { width: 13px; height: 13px; fill: currentColor; flex-shrink: 0 }
+    .share-btn:hover { border-color: rgba(255,255,255,0.3); color: var(--text) }
+    .share-btn svg { width: 13px; height: 13px; fill: currentColor; flex-shrink: 0 }
     .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px }
     .lang-switch {
       display: flex; gap: 2px; background: rgba(255,255,255,.06);
@@ -598,9 +598,9 @@
       <button class="lang-btn" data-lang="en">EN</button>
     </div>
     <button class="refresh-btn" id="refreshBtn" aria-label="Actualitzar dades">↻</button>
-    <a href="https://x.com/MeteoRafels" target="_blank" rel="noopener" class="x-link" aria-label="MeteoRàfels a X">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-    </a>
+    <button class="share-btn hidden" id="shareBtn" type="button" aria-label="Comparteix" title="Comparteix">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+    </button>
     <a href="/" class="back-link">← MeteoModels</a>
   </div>
 </header>
@@ -919,6 +919,7 @@ const LANG = {
              (v, m, y) => `La ratxa de vent d'avui (${v} km/h) és una de les 5 més fortes registrades en un mes ${m} des del ${y}.`],
     },
     monthOf: m => /^[aeiouh]/i.test(m) ? "d'" + m.toLowerCase() : 'de ' + m.toLowerCase(),
+    share: 'Comparteix', shareText: 'Meteorologia en temps real a Ràfels',
     forecastTitle: 'Previsió', todayLabel: 'Avui',
     fcViewCards: 'Targetes', fcViewChart: 'Gràfic',
     moonNames: ['Lluna nova','Lluna creixent','Quart creixent','Gibosa creixent','Lluna plena','Gibosa minvant','Quart minvant','Lluna minvant'],
@@ -981,6 +982,7 @@ const LANG = {
              (v, m, y) => `La racha de viento de hoy (${v} km/h) es una de las 5 más fuertes registradas en un mes ${m} desde ${y}.`],
     },
     monthOf: m => 'de ' + m.toLowerCase(),
+    share: 'Compartir', shareText: 'Meteorología en tiempo real en Ráfales',
     forecastTitle: 'Previsión', todayLabel: 'Hoy',
     fcViewCards: 'Tarjetas', fcViewChart: 'Gráfico',
     moonNames: ['Luna nueva','Luna creciente','Cuarto creciente','Gibosa creciente','Luna llena','Gibosa menguante','Cuarto menguante','Luna menguante'],
@@ -1043,6 +1045,7 @@ const LANG = {
              (v, m, y) => `Today's wind gust (${v} km/h) is among the 5 strongest ever recorded in ${m} since ${y}.`],
     },
     monthOf: m => m,
+    share: 'Share', shareText: 'Live weather in Ràfels',
     forecastTitle: 'Forecast', todayLabel: 'Today',
     fcViewCards: 'Cards', fcViewChart: 'Chart',
     moonNames: ['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'],
@@ -1146,6 +1149,8 @@ function applyLang(lang) {
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang))
 
   setTxt('forecastSectionTitle', t.forecastTitle)
+  const sBtn = $('shareBtn')
+  if (sBtn) { sBtn.title = t.share; sBtn.setAttribute('aria-label', t.share) }
   if (dataCache['day']) renderCards(dataCache['day'])
   const periodData = dataCache[activePeriod]
   if (periodData) requestAnimationFrame(() => drawEvoChart(periodData.history))
@@ -2981,6 +2986,23 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
 /* ══════════════════════════════════════════════
    Init
 ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   Share button — installed web app only
+══════════════════════════════════════════════ */
+function isInstalledApp() {
+  return ['standalone', 'window-controls-overlay', 'minimal-ui'].some(m => window.matchMedia(`(display-mode: ${m})`).matches)
+    || window.navigator.standalone === true
+}
+const shareBtn = $('shareBtn')
+if (shareBtn && navigator.share && isInstalledApp()) {
+  shareBtn.classList.remove('hidden')
+  shareBtn.addEventListener('click', async () => {
+    try {
+      await navigator.share({ title: 'MeteoRàfels', text: LANG[currentLang].shareText, url: 'https://www.meteomodels.app/meteorafels' })
+    } catch { /* share sheet dismissed */ }
+  })
+}
+
 applyLang(currentLang)
 initWebcam()
 loadDay()
