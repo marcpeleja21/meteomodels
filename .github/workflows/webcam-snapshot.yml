@@ -58,6 +58,7 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}   # no checkout in this job, so gh needs the repo explicitly
           OK: ${{ steps.capture.outputs.ok }}
         run: |
           gh label create webcam-down --color D93F0B --description "Webcam snapshots failing" 2>/dev/null || true
