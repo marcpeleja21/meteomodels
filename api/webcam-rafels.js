@@ -1,7 +1,10 @@
 /**
  * Vercel Edge Function — Webcam proxy for Ràfels
  *
- * Priority:
+ *   GET /api/webcam-rafels            → latest JPEG (also ?snapshot=1, ?t=… cache busters)
+ *   GET /api/webcam-rafels?config=1   → JSON player config, using the priority below
+ *
+ * Priority for ?config=1:
  *   1. WEBCAM_STREAM_URL  — live stream URL (HLS .m3u8 or MJPEG).
  *      Returned as JSON { mode:'stream', url } for the browser to play directly.
  *      Set this to the public URL of your go2rtc / mediamtx instance
@@ -17,8 +20,10 @@
 export const config = { runtime: 'edge' }
 
 export default async function handler(req) {
-  // ?snapshot=1 forces the JPEG path (used for lightbox and as stream fallback)
-  const forceSnapshot = new URL(req.url).searchParams.has('snapshot')
+  // The bare URL always returns the latest JPEG: external consumers (e.g. the Windy webcam
+  // listing) fetch it as an image. The page asks for the player config with ?config=1.
+  const wantsConfig = new URL(req.url).searchParams.has('config')
+  const forceSnapshot = !wantsConfig
   // ── Streaming mode ─────────────────────────────────────────────────────────
   const streamUrl = process.env.WEBCAM_STREAM_URL
   if (streamUrl && !forceSnapshot) {
