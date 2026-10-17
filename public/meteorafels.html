@@ -1516,7 +1516,7 @@ async function initWebcam() {
   if (!el) return
 
   try {
-    const res = await fetch('/api/webcam-rafels')
+    const res = await fetch('/api/webcam-rafels?config=1')
     if (!res.ok) throw new Error('not configured')
 
     const ct = res.headers.get('Content-Type') ?? ''
