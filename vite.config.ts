@@ -122,6 +122,8 @@ export default defineConfig({
       workbox: {
         // Precache everything built by Vite
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // The station page is live data and changes often: never serve it from the precache
+        globIgnores: ['**/meteorafels.html'],
 
         // Never serve the SW script itself from the browser HTTP cache
         // (overrides even stale disk-cache entries after a deploy)

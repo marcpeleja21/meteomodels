@@ -652,6 +652,7 @@
   <div id="dataWrap" class="hidden">
 
     <!-- ①  Webcam (top) -->
+    <div class="xo-alert hidden" id="xoAlert"></div>
     <div class="section-title" id="webcamSectionTitle">Webcam Ràfels</div>
     <div class="webcam-card" id="webcamCard">
       <div class="webcam-header">
@@ -668,7 +669,6 @@
     <div id="radarCard"></div>
 
     <!-- ③  Current conditions -->
-    <div class="xo-alert hidden" id="xoAlert"></div>
     <div class="section-title" id="conditionsSectionTitle">Condicions actuals</div>
     <div class="grid">
 
@@ -925,16 +925,16 @@ const LANG = {
     conditionsTitle: 'Condicions actuals',
     xoTitle: 'Avui és extraordinari',
     xo: {
-      hot:  [(v, m, y) => `La temperatura màxima d'avui (${v}°C) és la més alta registrada mai en un mes ${m} des del ${y}.`,
-             (v, m, y) => `La temperatura màxima d'avui (${v}°C) és una de les 5 més altes registrades en un mes ${m} des del ${y}.`],
-      cold: [(v, m, y) => `La temperatura mínima d'avui (${v}°C) és la més baixa registrada mai en un mes ${m} des del ${y}.`,
-             (v, m, y) => `La temperatura mínima d'avui (${v}°C) és una de les 5 més baixes registrades en un mes ${m} des del ${y}.`],
-      rain: [(v, m, y) => `La pluja d'avui (${v} mm) és la més gran registrada en un dia d'un mes ${m} des del ${y}.`,
-             (v, m, y) => `La pluja d'avui (${v} mm) és una de les 5 majors registrades en un dia d'un mes ${m} des del ${y}.`],
-      rate: [(v, m, y) => `La intensitat de pluja d'avui (${v} mm en una hora) és la més alta registrada en un mes ${m} des del ${y}.`,
-             (v, m, y) => `La intensitat de pluja d'avui (${v} mm en una hora) és una de les 5 més altes registrades en un mes ${m} des del ${y}.`],
-      wind: [(v, m, y) => `La ratxa de vent d'avui (${v} km/h) és la més forta registrada mai en un mes ${m} des del ${y}.`,
-             (v, m, y) => `La ratxa de vent d'avui (${v} km/h) és una de les 5 més fortes registrades en un mes ${m} des del ${y}.`],
+      hot:  (r, v, m, y) => r === 1 ? `La temperatura màxima d'avui (${v}°C) és la més alta registrada mai en un mes ${m} des del ${y}.`
+                                    : `La temperatura màxima d'avui (${v}°C) és la ${r}a més alta registrada en un mes ${m} des del ${y}.`,
+      cold: (r, v, m, y) => r === 1 ? `La temperatura mínima d'avui (${v}°C) és la més baixa registrada mai en un mes ${m} des del ${y}.`
+                                    : `La temperatura mínima d'avui (${v}°C) és la ${r}a més baixa registrada en un mes ${m} des del ${y}.`,
+      rain: (r, v, m, y) => r === 1 ? `Avui és el dia amb més pluja (${v} mm) registrat mai en un mes ${m} des del ${y}.`
+                                    : `Avui és el ${['','','2n','3r','4t','5è'][r]} dia amb més pluja (${v} mm) registrat en un mes ${m} des del ${y}.`,
+      rate: (r, v, m, y) => r === 1 ? `La intensitat de pluja d'avui (${v} mm en una hora) és la més alta registrada mai en un mes ${m} des del ${y}.`
+                                    : `La intensitat de pluja d'avui (${v} mm en una hora) és la ${r}a més alta registrada en un mes ${m} des del ${y}.`,
+      wind: (r, v, m, y) => r === 1 ? `La ratxa de vent d'avui (${v} km/h) és la més forta registrada mai en un mes ${m} des del ${y}.`
+                                    : `La ratxa de vent d'avui (${v} km/h) és la ${r}a més forta registrada en un mes ${m} des del ${y}.`,
     },
     monthOf: m => /^[aeiouh]/i.test(m) ? "d'" + m.toLowerCase() : 'de ' + m.toLowerCase(),
     webcamAgo: (n, h) => `fa ${n} ${h ? 'h' : 'min'}`,
@@ -990,16 +990,16 @@ const LANG = {
     conditionsTitle: 'Condiciones actuales',
     xoTitle: 'Hoy es extraordinario',
     xo: {
-      hot:  [(v, m, y) => `La temperatura máxima de hoy (${v}°C) es la más alta registrada nunca en un mes ${m} desde ${y}.`,
-             (v, m, y) => `La temperatura máxima de hoy (${v}°C) es una de las 5 más altas registradas en un mes ${m} desde ${y}.`],
-      cold: [(v, m, y) => `La temperatura mínima de hoy (${v}°C) es la más baja registrada nunca en un mes ${m} desde ${y}.`,
-             (v, m, y) => `La temperatura mínima de hoy (${v}°C) es una de las 5 más bajas registradas en un mes ${m} desde ${y}.`],
-      rain: [(v, m, y) => `La lluvia de hoy (${v} mm) es la mayor registrada en un día de un mes ${m} desde ${y}.`,
-             (v, m, y) => `La lluvia de hoy (${v} mm) es una de las 5 mayores registradas en un día de un mes ${m} desde ${y}.`],
-      rate: [(v, m, y) => `La intensidad de lluvia de hoy (${v} mm en una hora) es la más alta registrada en un mes ${m} desde ${y}.`,
-             (v, m, y) => `La intensidad de lluvia de hoy (${v} mm en una hora) es una de las 5 más altas registradas en un mes ${m} desde ${y}.`],
-      wind: [(v, m, y) => `La racha de viento de hoy (${v} km/h) es la más fuerte registrada nunca en un mes ${m} desde ${y}.`,
-             (v, m, y) => `La racha de viento de hoy (${v} km/h) es una de las 5 más fuertes registradas en un mes ${m} desde ${y}.`],
+      hot:  (r, v, m, y) => r === 1 ? `La temperatura máxima de hoy (${v}°C) es la más alta registrada nunca en un mes ${m} desde ${y}.`
+                                    : `La temperatura máxima de hoy (${v}°C) es la ${r}.ª más alta registrada en un mes ${m} desde ${y}.`,
+      cold: (r, v, m, y) => r === 1 ? `La temperatura mínima de hoy (${v}°C) es la más baja registrada nunca en un mes ${m} desde ${y}.`
+                                    : `La temperatura mínima de hoy (${v}°C) es la ${r}.ª más baja registrada en un mes ${m} desde ${y}.`,
+      rain: (r, v, m, y) => r === 1 ? `Hoy es el día con más lluvia (${v} mm) registrado nunca en un mes ${m} desde ${y}.`
+                                    : `Hoy es el ${r}.º día con más lluvia (${v} mm) registrado en un mes ${m} desde ${y}.`,
+      rate: (r, v, m, y) => r === 1 ? `La intensidad de lluvia de hoy (${v} mm en una hora) es la más alta registrada nunca en un mes ${m} desde ${y}.`
+                                    : `La intensidad de lluvia de hoy (${v} mm en una hora) es la ${r}.ª más alta registrada en un mes ${m} desde ${y}.`,
+      wind: (r, v, m, y) => r === 1 ? `La racha de viento de hoy (${v} km/h) es la más fuerte registrada nunca en un mes ${m} desde ${y}.`
+                                    : `La racha de viento de hoy (${v} km/h) es la ${r}.ª más fuerte registrada en un mes ${m} desde ${y}.`,
     },
     monthOf: m => 'de ' + m.toLowerCase(),
     webcamAgo: (n, h) => `hace ${n} ${h ? 'h' : 'min'}`,
@@ -1055,16 +1055,16 @@ const LANG = {
     conditionsTitle: 'Current conditions',
     xoTitle: 'Today is exceptional',
     xo: {
-      hot:  [(v, m, y) => `Today's highest temperature (${v}°C) is the highest ever recorded in ${m} since ${y}.`,
-             (v, m, y) => `Today's highest temperature (${v}°C) is among the 5 highest ever recorded in ${m} since ${y}.`],
-      cold: [(v, m, y) => `Today's lowest temperature (${v}°C) is the lowest ever recorded in ${m} since ${y}.`,
-             (v, m, y) => `Today's lowest temperature (${v}°C) is among the 5 lowest ever recorded in ${m} since ${y}.`],
-      rain: [(v, m, y) => `Today's rainfall (${v} mm) is the most in a single day ever recorded in ${m} since ${y}.`,
-             (v, m, y) => `Today's rainfall (${v} mm) is among the 5 highest daily totals ever recorded in ${m} since ${y}.`],
-      rate: [(v, m, y) => `Today's rain intensity (${v} mm in one hour) is the highest ever recorded in ${m} since ${y}.`,
-             (v, m, y) => `Today's rain intensity (${v} mm in one hour) is among the 5 highest ever recorded in ${m} since ${y}.`],
-      wind: [(v, m, y) => `Today's wind gust (${v} km/h) is the strongest ever recorded in ${m} since ${y}.`,
-             (v, m, y) => `Today's wind gust (${v} km/h) is among the 5 strongest ever recorded in ${m} since ${y}.`],
+      hot:  (r, v, m, y) => r === 1 ? `Today's highest temperature (${v}°C) is the highest ever recorded in ${m} since ${y}.`
+                                    : `Today's highest temperature (${v}°C) is the ${ORD[r]} highest ever recorded in ${m} since ${y}.`,
+      cold: (r, v, m, y) => r === 1 ? `Today's lowest temperature (${v}°C) is the lowest ever recorded in ${m} since ${y}.`
+                                    : `Today's lowest temperature (${v}°C) is the ${ORD[r]} lowest ever recorded in ${m} since ${y}.`,
+      rain: (r, v, m, y) => r === 1 ? `Today is the rainiest day (${v} mm) ever recorded in ${m} since ${y}.`
+                                    : `Today is the ${ORD[r]} rainiest day (${v} mm) ever recorded in ${m} since ${y}.`,
+      rate: (r, v, m, y) => r === 1 ? `Today's rain intensity (${v} mm in one hour) is the highest ever recorded in ${m} since ${y}.`
+                                    : `Today's rain intensity (${v} mm in one hour) is the ${ORD[r]} highest ever recorded in ${m} since ${y}.`,
+      wind: (r, v, m, y) => r === 1 ? `Today's wind gust (${v} km/h) is the strongest ever recorded in ${m} since ${y}.`
+                                    : `Today's wind gust (${v} km/h) is the ${ORD[r]} strongest ever recorded in ${m} since ${y}.`,
     },
     monthOf: m => m,
     webcamAgo: (n, h) => `${n} ${h ? 'h' : 'min'} ago`,
@@ -1947,6 +1947,7 @@ async function loadForecast() {
    Extraordinary today — top-5 records for this calendar month
 ══════════════════════════════════════════════ */
 let monthRecords = null
+const ORD = ['', '', '2nd', '3rd', '4th', '5th']
 
 function recordRank(value, list, higher) {
   if (value == null || !list || list.length < 5) return null
@@ -1974,7 +1975,7 @@ function renderExtraordinary() {
     .sort((a, b) => a.rank - b.rank)
 
   box.innerHTML = hits.map((c, i) => `<div class="xo-item"><span class="xo-icon">${c.icon}</span><div>
-      ${i === 0 ? `<div class="xo-head">${t.xoTitle}</div>` : ''}${t.xo[c.kind][c.rank === 1 ? 0 : 1](fmt(c.v, 1), month, monthRecords.since)}</div></div>`).join('')
+      ${i === 0 ? `<div class="xo-head">${t.xoTitle}</div>` : ''}${t.xo[c.kind](c.rank, fmt(c.v, 1), month, monthRecords.since)}</div></div>`).join('')
   box.classList.toggle('hidden', !hits.length)
 }
 
